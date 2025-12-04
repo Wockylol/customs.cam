@@ -124,7 +124,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
       
       // Upload the file
       const { error: uploadError, data } = await supabase.storage
-        .from('content-uploads')
+        .from('sales-screenshots')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
@@ -137,7 +137,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
       
       // Get the public URL
       const { data: { publicUrl } } = supabase.storage
-        .from('content-uploads')
+        .from('sales-screenshots')
         .getPublicUrl(filePath);
       
       return publicUrl;
