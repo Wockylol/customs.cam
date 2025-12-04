@@ -300,7 +300,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
                   )}
                   
                   {/* Insert Client Management collapsible menu after Dashboard */}
-                  {((item.name === 'Chats' && hasAdminAccess) || (item.name === 'My Customs' && isChatter) || (item.name === 'Agencies' && hasManagerAccess && !hasAdminAccess)) && !isCollapsed && (
+                  {((item.name === 'Chats' && hasAdminAccess) || (item.name === 'Agencies' && hasManagerAccess && !hasAdminAccess)) && !isCollapsed && (
                     <li className="pt-2">
                       <button
                         onClick={() => setIsClientManagementExpanded(!isClientManagementExpanded)}
