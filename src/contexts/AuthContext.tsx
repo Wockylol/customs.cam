@@ -136,25 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    try {
-      // Attempt to sign out on the server
-      const { error } = await supabase.auth.signOut();
-      
-      // If there's an error, log it but don't throw
-      // Common errors like session_not_found mean the user is already logged out on the server
-      if (error) {
-        console.warn('Sign out error (non-fatal):', error);
-      }
-    } catch (error) {
-      // Catch any unexpected errors
-      console.warn('Unexpected sign out error (non-fatal):', error);
-    }
-    
-    // Always clear local state regardless of server response
-    // The auth state listener will handle the rest
-    setUser(null);
-    setSession(null);
-    setTeamMember(null);
+    await supabase.auth.signOut();
   };
 
   const value = {
