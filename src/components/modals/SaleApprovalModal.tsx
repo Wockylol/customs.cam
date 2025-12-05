@@ -27,6 +27,12 @@ const SaleApprovalModal: React.FC<SaleApprovalModalProps> = ({
     screenshot_url: '',
     notes: '',
   });
+  
+  // Helper to format date without timezone issues
+  const formatLocalDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('T')[0].split('-');
+    return `${month}/${day}/${year}`;
+  };
 
   useEffect(() => {
     if (sale) {
@@ -184,7 +190,7 @@ const SaleApprovalModal: React.FC<SaleApprovalModalProps> = ({
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-5 h-5 text-gray-400" />
                   <span className="text-gray-900 dark:text-white">
-                    {new Date(sale.sale_date).toLocaleDateString()}
+                    {formatLocalDate(sale.sale_date)}
                   </span>
                 </div>
               )}
