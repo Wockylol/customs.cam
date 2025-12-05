@@ -16,6 +16,12 @@ const AllSalesView: React.FC = () => {
   
   // Calculate net revenue (gross - 20%)
   const calculateNet = (gross: number) => gross * 0.8;
+  
+  // Helper to format date without timezone issues
+  const formatLocalDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('T')[0].split('-');
+    return `${month}/${day}/${year}`;
+  };
 
   // Get sales for current month
   const monthlySales = useMemo(() => {
@@ -400,7 +406,7 @@ const AllSalesView: React.FC = () => {
                       .map((sale) => (
                         <tr key={sale.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                            {new Date(sale.sale_date).toLocaleDateString()}
+                            {formatLocalDate(sale.sale_date)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                             {sale.chatter?.full_name || 'Unknown'}
