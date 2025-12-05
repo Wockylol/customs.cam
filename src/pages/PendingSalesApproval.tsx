@@ -14,6 +14,12 @@ const PendingSalesApproval: React.FC = () => {
   
   // Calculate net revenue (gross - 20%)
   const calculateNet = (gross: number) => gross * 0.8;
+  
+  // Helper to format date without timezone issues
+  const formatLocalDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('T')[0].split('-');
+    return `${month}/${day}/${year}`;
+  };
 
   // Filter to show only pending sales
   const pendingSales = useMemo(() => {
@@ -289,7 +295,7 @@ const PendingSalesApproval: React.FC = () => {
                   <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
                     <div className="flex items-center space-x-1">
                       <Calendar className="w-4 h-4" />
-                      <span>{new Date(sale.sale_date).toLocaleDateString()}</span>
+                      <span>{formatLocalDate(sale.sale_date)}</span>
                     </div>
                     {sale.sale_time && (
                       <div className="flex items-center space-x-1">
