@@ -10,6 +10,13 @@ const ChatterPerformance: React.FC = () => {
   
   // Calculate net revenue (gross - 20%)
   const calculateNet = (gross: number) => gross * 0.8;
+  
+  // Helper to format date without timezone issues
+  const formatLocalDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('T')[0].split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
 
   // Calculate chatter stats
   const chatterStats = useMemo(() => {
@@ -293,7 +300,7 @@ const ChatterPerformance: React.FC = () => {
                     return (
                       <div key={index} className="flex items-center space-x-4">
                         <div className="w-20 text-sm text-gray-600 dark:text-gray-400">
-                          {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {formatLocalDate(day.date)}
                         </div>
                         <div className="flex-1">
                           <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-8 relative">
