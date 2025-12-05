@@ -15,6 +15,12 @@ const SalesTracker: React.FC = () => {
   const { sales, loading, error, addSale, fetchSales, deleteSale } = useSales();
   const { teamMember } = useAuth();
 
+  // Helper to format date without timezone issues
+  const formatLocalDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('T')[0].split('-');
+    return `${month}/${day}/${year}`;
+  };
+
   // Filter sales based on search, month, and status
   const filteredSales = useMemo(() => {
     return sales.filter(sale => {
@@ -369,7 +375,7 @@ const SalesTracker: React.FC = () => {
                         <div className="flex flex-col">
                           <div className="flex items-center">
                             <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                            {new Date(sale.sale_date).toLocaleDateString()}
+                            {formatLocalDate(sale.sale_date)}
                           </div>
                           {sale.sale_time && (
                             <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mt-1">
