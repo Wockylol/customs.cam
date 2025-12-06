@@ -1,18 +1,27 @@
 import React, { useState, useMemo } from 'react';
-import { TrendingUp, DollarSign, CheckCircle, Clock, XCircle, Calendar, Award, Target } from 'lucide-react';
+import { TrendingUp, DollarSign, CheckCircle, Clock, XCircle, Calendar, Award, Target, Eye } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { useSales } from '../hooks/useSales';
+import SaleApprovalModal from '../components/modals/SaleApprovalModal';
 
 const ChatterPerformance: React.FC = () => {
   const [selectedChatterId, setSelectedChatterId] = useState<string | null>(null);
   const [timeFrame, setTimeFrame] = useState<'all' | 'month' | 'week'>('month');
-  const { sales, loading, error } = useSales();
+  const [selectedSale, setSelectedSale] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { sales, loading, error, approveSale, updateSale } = useSales();
   
   // Calculate net revenue (gross - 20%)
   const calculateNet = (gross: number) => gross * 0.8;
   
   // Helper to format date without timezone issues
   const formatLocalDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('T')[0].split('-');
+    return `${month}/${day}/${year}`;
+  };
+
+  // Helper to format date for charts (short format)
+  const formatChartDate = (dateStr: string) => {
     const [year, month, day] = dateStr.split('T')[0].split('-');
     const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -90,6 +99,32 @@ const ChatterPerformance: React.FC = () => {
   const selectedChatter = useMemo(() => {
     return chatterStats.find(c => c.id === selectedChatterId) || chatterStats[0] || null;
   }, [chatterStats, selectedChatterId]);
+
+  // Get filtered sales for the selected chatter
+  const chatterSales = useMemo(() => {
+    if (!selectedChatter) return [];
+
+    const today = new Date();
+    const thisMonth = today.getMonth();
+    const thisYear = today.getFullYear();
+    const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    return sales
+      .filter(sale => {
+        // Filter by chatter
+        if (sale.chatter_id !== selectedChatter.id) return false;
+
+        // Filter by timeframe
+        const saleDate = new Date(sale.sale_date);
+        if (timeFrame === 'month') {
+          return saleDate.getMonth() === thisMonth && saleDate.getFullYear() === thisYear;
+        } else if (timeFrame === 'week') {
+          return saleDate >= oneWeekAgo;
+        }
+        return true;
+      })
+      .sort((a, b) => new Date(b.sale_date).getTime() - new Date(a.sale_date).getTime());
+  }, [sales, selectedChatter, timeFrame]);
 
   // Get daily sales for selected chatter
   const dailySales = useMemo(() => {
@@ -300,7 +335,7 @@ const ChatterPerformance: React.FC = () => {
                     return (
                       <div key={index} className="flex items-center space-x-4">
                         <div className="w-20 text-sm text-gray-600 dark:text-gray-400">
-                          {formatLocalDate(day.date)}
+                          {formatChartDate(day.date)}
                         </div>
                         <div className="flex-1">
                           <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-8 relative">
@@ -384,6 +419,119 @@ const ChatterPerformance: React.FC = () => {
             </table>
           </div>
         </div>
+
+        {/* Detailed Sales Table */}
+        {selectedChatter && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Detailed Sales for {selectedChatter.name}
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  {chatterSales.length} sale{chatterSales.length !== 1 ? 's' : ''} in selected time frame
+                </p>
+              </div>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-900">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date & Time</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Model</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Gross Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Net Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {chatterSales.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                        No sales found for this time frame
+                      </td>
+                    </tr>
+                  ) : (
+                    chatterSales.map((sale) => (
+                      <tr key={sale.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                          <div className="flex flex-col">
+                            <div className="flex items-center">
+                              <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                              {formatLocalDate(sale.sale_date)}
+                            </div>
+                            {sale.sale_time && (
+                              <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                <Clock className="w-3 h-3 mr-1" />
+                                {sale.sale_time}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <span className="text-blue-600 dark:text-blue-400 font-medium">
+                            @{sale.clients?.username || 'Unknown'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                          ${sale.gross_amount.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600 dark:text-green-400">
+                          ${calculateNet(sale.gross_amount).toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            sale.status === 'pending'
+                              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                              : sale.status === 'valid'
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                          }`}>
+                            {sale.status === 'pending' && <Clock className="w-3 h-3 mr-1" />}
+                            {sale.status === 'valid' && <CheckCircle className="w-3 h-3 mr-1" />}
+                            {sale.status === 'invalid' && <XCircle className="w-3 h-3 mr-1" />}
+                            {sale.status.charAt(0).toUpperCase() + sale.status.slice(1)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                          <button
+                            onClick={() => {
+                              setSelectedSale(sale);
+                              setIsModalOpen(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center"
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        <SaleApprovalModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedSale(null);
+          }}
+          sale={selectedSale}
+          onApprove={async (saleId, status, notes) => {
+            const { error } = await approveSale(saleId, status, notes);
+            return { error };
+          }}
+          onUpdate={async (saleId, updates) => {
+            const { error } = await updateSale(saleId, updates);
+            return { error };
+          }}
+        />
       </div>
     </Layout>
   );
