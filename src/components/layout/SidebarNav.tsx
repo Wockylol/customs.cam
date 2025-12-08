@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, FileText, X, Clock, Package, TrendingUp, Building2, MessageSquare, Moon, Sun, UserCheck, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, Phone, Database, Smartphone, Film, DollarSign, Calendar } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, X, Clock, Package, TrendingUp, Building2, MessageSquare, Moon, Sun, UserCheck, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, Phone, Database, Smartphone, Film, DollarSign, Calendar, Bell } from 'lucide-react';
 import { UserCog, Layers } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -9,6 +9,7 @@ import { useTeamMembers } from '../../hooks/useTeamMembers';
 import { useThreads } from '../../hooks/useThreads';
 import { useChatterAssignments } from '../../hooks/useChatterAssignments';
 import { useClients } from '../../hooks/useClients';
+import { useNotifications } from '../../hooks/useNotifications';
 
 interface SidebarNavProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
   const { getUnreadCount } = useThreads();
   const { assignments } = useChatterAssignments();
   const { clients } = useClients();
+  const { unreadCount: notificationsUnreadCount } = useNotifications();
   const [isMyClientsExpanded, setIsMyClientsExpanded] = useState(true);
   const [isAllClientsExpanded, setIsAllClientsExpanded] = useState(false);
   const [isCustomsExpanded, setIsCustomsExpanded] = useState(
@@ -133,6 +135,13 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
       current: location.pathname === '/dashboard',
       count: null
     },
+    {
+      name: 'Notifications',
+      href: '/notifications',
+      icon: Bell,
+      current: location.pathname === '/notifications',
+      count: notificationsUnreadCount
+    },
     // Chatter-specific items
     {
       name: 'My Customs',
@@ -151,7 +160,8 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
       chatterOnly: true
     }
   ], [
-    location.pathname
+    location.pathname,
+    notificationsUnreadCount
   ]);
 
   return (
