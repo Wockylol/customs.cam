@@ -29,10 +29,22 @@ CREATE TABLE IF NOT EXISTS client_notes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
-  created_by UUID NOT NULL REFERENCES team_members(id) ON DELETE CASCADE,
+  created_by UUID REFERENCES team_members(id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Add created_by column if it doesn't exist (for existing tables)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'client_notes' AND column_name = 'created_by'
+  ) THEN
+    ALTER TABLE client_notes 
+    ADD COLUMN created_by UUID REFERENCES team_members(id) ON DELETE CASCADE;
+  END IF;
+END $$;
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
@@ -42,6 +54,7 @@ CREATE INDEX IF NOT EXISTS idx_notification_recipients_is_read ON notification_r
 CREATE INDEX IF NOT EXISTS idx_notification_recipients_notification ON notification_recipients(notification_id);
 CREATE INDEX IF NOT EXISTS idx_client_notes_client_id ON client_notes(client_id);
 CREATE INDEX IF NOT EXISTS idx_client_notes_created_at ON client_notes(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_client_notes_created_by ON client_notes(created_by);
 
 -- Enable RLS on notifications
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
@@ -128,7 +141,7 @@ CREATE POLICY "Team members can create client notes"
 DROP POLICY IF EXISTS "Users can update their own notes" ON client_notes;
 CREATE POLICY "Users can update their own notes"
   ON client_notes FOR UPDATE
-  USING (created_by = auth.uid());
+  USING (created_by = auth.uid() OR created_by IS NULL);
 
 DROP POLICY IF EXISTS "Admins can delete any notes" ON client_notes;
 CREATE POLICY "Admins can delete any notes"
