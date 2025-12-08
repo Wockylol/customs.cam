@@ -139,11 +139,31 @@ export const useThreads = () => {
     };
   }, []);
 
+  const deleteThread = async (threadId: number) => {
+    try {
+      const { error } = await supabase
+        .from('threads')
+        .delete()
+        .eq('id', threadId);
+
+      if (error) throw error;
+
+      // Update local state to remove the deleted thread
+      setThreads(prev => prev.filter(thread => thread.id !== threadId));
+      
+      return { success: true };
+    } catch (err: any) {
+      console.error('Error deleting thread:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
   return {
     threads,
     loading,
     error,
     fetchThreads,
-    getUnreadCount
+    getUnreadCount,
+    deleteThread
   };
 };
