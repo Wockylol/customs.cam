@@ -31,6 +31,8 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
   const [isCustomsExpanded, setIsCustomsExpanded] = useState(false);
   const [isClientManagementExpanded, setIsClientManagementExpanded] = useState(false);
   const [isScenesExpanded, setIsScenesExpanded] = useState(false);
+  const [isCommunicationsExpanded, setIsCommunicationsExpanded] = useState(false);
+  const [isTeamManagementExpanded, setIsTeamManagementExpanded] = useState(false);
   const [isSalesManagementExpanded, setIsSalesManagementExpanded] = useState(
     location.pathname.startsWith('/sales-management')
   );
@@ -96,20 +98,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
       current: location.pathname === '/dashboard',
       count: null
     },
-    ...(hasAdminAccess ? [{
-      name: 'Chats',
-      href: '/chats',
-      icon: MessageSquare,
-      current: location.pathname === '/chats',
-      count: unreadMessagesCount
-    }] : []),
-    ...(hasAdminAccess ? [{
-      name: 'SMS Messaging',
-      href: '/sms-messaging',
-      icon: Smartphone,
-      current: location.pathname === '/sms-messaging',
-      count: null
-    }] : []),
+    // Chatter-specific items
     {
       name: 'My Customs',
       href: '/my-customs',
@@ -125,51 +114,9 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
       current: location.pathname === '/sales-tracker',
       count: null,
       chatterOnly: true
-    },
-    ...(hasManagerAccess ? [{
-      name: 'Agencies',
-      href: '/agencies',
-      icon: Building2,
-      current: location.pathname === '/agencies',
-      count: null
-    }] : []),
-    ...(hasManagerAccess ? [{
-      name: 'Attendance',
-      href: '/attendance',
-      icon: UserCheck,
-      current: location.pathname === '/attendance',
-      count: null
-    }] : []),
-    ...(hasManagerAccess ? [{
-      name: 'Assignments',
-      href: '/assignments',
-      icon: UserCog,
-      current: location.pathname === '/assignments',
-      count: null
-    }] : []),
-    ...(hasManagerAccess ? [{
-      name: 'Calls',
-      href: '/calls',
-      icon: Phone,
-      current: location.pathname === '/calls',
-      count: null
-    }] : []),
-    ...(hasManagerAccess ? [{
-      name: 'User Approvals',
-      href: '/user-approvals',
-      icon: Clock,
-      current: location.pathname === '/user-approvals',
-      count: pendingUserApprovalsCount
-    }] : [])
+    }
   ], [
-    location.pathname,
-    hasAdminAccess,
-    hasManagerAccess,
-    unreadMessagesCount,
-    pendingCount,
-    inProgressCount,
-    deliveryCount,
-    pendingUserApprovalsCount
+    location.pathname
   ]);
 
   return (
@@ -228,472 +175,47 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
         
         <nav className={`flex-1 ${isCollapsed ? 'px-2' : 'px-4'} py-6 overflow-y-auto transition-all duration-300`}>
           <ul className="space-y-2">
-            {navigationItems.filter(item => {
-              // Show chatter-only items only to chatters
-              if ((item as any).chatterOnly) {
-                return teamMember?.role === 'chatter';
-              }
-              return true;
-            }).map((item) => {
+            {/* Dashboard - Always visible */}
+            {navigationItems.filter(item => !item.chatterOnly || isChatter).map((item) => {
               const Icon = item.icon as any;
-              
               return (
-                <React.Fragment key={item.name}>
-                  {/* Insert Scenes collapsible menu before Agencies (for admins) */}
-                  {item.name === 'Agencies' && hasAdminAccess && !isCollapsed && (
-                    <li className="pt-2">
-                      <button
-                        onClick={() => setIsScenesExpanded(!isScenesExpanded)}
-                        className="flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
-                      >
-                        <Film className="mr-3 h-5 w-5 flex-shrink-0 text-gray-400 dark:text-gray-500" />
-                        <span className="flex-1 text-left">Scenes</span>
-                        {isScenesExpanded ? (
-                          <ChevronUp className="h-4 w-4 text-gray-400" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-gray-400" />
-                        )}
-                      </button>
-                      
-                      {/* Nested Scenes Menu */}
-                      {isScenesExpanded && (
-                        <ul className="mt-2 mb-2 space-y-1 ml-4 border-l-2 border-gray-200 dark:border-gray-700">
-                          <li>
-                            <Link
-                              to="/scene-library"
-                              className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
-                                location.pathname === '/scene-library'
-                                  ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
-                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-                              }`}
-                              onClick={() => {
-                                if (window.innerWidth < 1024) {
-                                  onToggle();
-                                }
-                              }}
-                            >
-                              <Film className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
-                              <span className="flex-1 truncate">Scene Library</span>
-                            </Link>
-                          </li>
-                          <li>
-                            <Link
-                              to="/scene-assignments"
-                              className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
-                                location.pathname === '/scene-assignments'
-                                  ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
-                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-                              }`}
-                              onClick={() => {
-                                if (window.innerWidth < 1024) {
-                                  onToggle();
-                                }
-                              }}
-                            >
-                              <Layers className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
-                              <span className="flex-1 truncate">Scene Assignments</span>
-                            </Link>
-                          </li>
-                        </ul>
-                      )}
-                    </li>
-                  )}
-                  
-                  {/* Insert Client Management collapsible menu after Dashboard */}
-                  {((item.name === 'Chats' && hasAdminAccess) || (item.name === 'Agencies' && hasManagerAccess && !hasAdminAccess)) && !isCollapsed && !isChatter && (
-                    <li className="pt-2">
-                      <button
-                        onClick={() => setIsClientManagementExpanded(!isClientManagementExpanded)}
-                        className="flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
-                      >
-                        <Users className="mr-3 h-5 w-5 flex-shrink-0 text-gray-400 dark:text-gray-500" />
-                        <span className="flex-1 text-left">Client Management</span>
-                        {isClientManagementExpanded ? (
-                          <ChevronUp className="h-4 w-4 text-gray-400" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-gray-400" />
-                        )}
-                      </button>
-                      
-                      {/* Nested Client Management Menu */}
-                      {isClientManagementExpanded && (
-                        <ul className="mt-2 mb-2 space-y-1 ml-4 border-l-2 border-gray-200 dark:border-gray-700">
-                          <li>
-                            <Link
-                              to="/clients"
-                              className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
-                                location.pathname === '/clients'
-                                  ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
-                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-                              }`}
-                              onClick={() => {
-                                if (window.innerWidth < 1024) {
-                                  onToggle();
-                                }
-                              }}
-                            >
-                              <Users className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
-                              <span className="flex-1 truncate">Clients</span>
-                            </Link>
-                          </li>
-                          {hasAdminAccess && (
-                            <li>
-                              <Link
-                                to="/client-data"
-                                className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
-                                  location.pathname === '/client-data'
-                                    ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-                                }`}
-                                onClick={() => {
-                                  if (window.innerWidth < 1024) {
-                                    onToggle();
-                                  }
-                                }}
-                              >
-                                <Database className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
-                                <span className="flex-1 truncate">Client Data</span>
-                              </Link>
-                            </li>
-                          )}
-                          {hasManagerAccess && (
-                            <li>
-                              <Link
-                                to="/platform-assignments"
-                                className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
-                                  location.pathname === '/platform-assignments'
-                                    ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-                                }`}
-                                onClick={() => {
-                                  if (window.innerWidth < 1024) {
-                                    onToggle();
-                                  }
-                                }}
-                              >
-                                <Layers className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
-                                <span className="flex-1 truncate">Platform Overview</span>
-                              </Link>
-                            </li>
-                          )}
-                        </ul>
-                      )}
-                    </li>
-                  )}
-                  
-                  {/* Insert Sales Management collapsible menu before Customs */}
-                  {item.name === 'Attendance' && hasManagerAccess && !isCollapsed && (
-                    <li className="pt-2">
-                      <button
-                        onClick={() => setIsSalesManagementExpanded(!isSalesManagementExpanded)}
-                        className="flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
-                      >
-                        <DollarSign className="mr-3 h-5 w-5 flex-shrink-0 text-gray-400 dark:text-gray-500" />
-                        <span className="flex-1 text-left">Sales Management</span>
-                        {isSalesManagementExpanded ? (
-                          <ChevronUp className="h-4 w-4 text-gray-400" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-gray-400" />
-                        )}
-                      </button>
-                      
-                      {/* Nested Sales Management Menu */}
-                      {isSalesManagementExpanded && (
-                        <ul className="mt-2 mb-2 space-y-1 ml-4 border-l-2 border-gray-200 dark:border-gray-700">
-                          <li>
-                            <Link
-                              to="/sales-management"
-                              className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
-                                location.pathname === '/sales-management'
-                                  ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
-                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-                              }`}
-                              onClick={() => {
-                                if (window.innerWidth < 1024) {
-                                  onToggle();
-                                }
-                              }}
-                            >
-                              <LayoutDashboard className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
-                              <span className="flex-1 truncate">Overview</span>
-                            </Link>
-                          </li>
-                          <li>
-                            <Link
-                              to="/sales-management/pending"
-                              className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
-                                location.pathname === '/sales-management/pending'
-                                  ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
-                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-                              }`}
-                              onClick={() => {
-                                if (window.innerWidth < 1024) {
-                                  onToggle();
-                                }
-                              }}
-                            >
-                              <Clock className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
-                              <span className="flex-1 truncate">Pending Approvals</span>
-                            </Link>
-                          </li>
-                          <li>
-                            <Link
-                              to="/sales-management/all-sales"
-                              className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
-                                location.pathname === '/sales-management/all-sales'
-                                  ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
-                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-                              }`}
-                              onClick={() => {
-                                if (window.innerWidth < 1024) {
-                                  onToggle();
-                                }
-                              }}
-                            >
-                              <Calendar className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
-                              <span className="flex-1 truncate">All Sales</span>
-                            </Link>
-                          </li>
-                          <li>
-                            <Link
-                              to="/sales-management/performance"
-                              className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
-                                location.pathname === '/sales-management/performance'
-                                  ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
-                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-                              }`}
-                              onClick={() => {
-                                if (window.innerWidth < 1024) {
-                                  onToggle();
-                                }
-                              }}
-                            >
-                              <TrendingUp className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
-                              <span className="flex-1 truncate">Chatter Performance</span>
-                            </Link>
-                          </li>
-                        </ul>
-                      )}
-                    </li>
-                  )}
-                  
-                  {/* Insert Customs collapsible menu before Attendance */}
-                  {item.name === 'Attendance' && hasManagerAccess && !isCollapsed && (
-                    <li className="pt-2">
-                      <button
-                        onClick={() => setIsCustomsExpanded(!isCustomsExpanded)}
-                        className="flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
-                      >
-                        <FileText className="mr-3 h-5 w-5 flex-shrink-0 text-gray-400 dark:text-gray-500" />
-                        <span className="flex-1 text-left">Customs</span>
-                        {isCustomsExpanded ? (
-                          <ChevronUp className="h-4 w-4 text-gray-400" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-gray-400" />
-                        )}
-                      </button>
-                      
-                      {/* Nested Customs Menu */}
-                      {isCustomsExpanded && (
-                        <ul className="mt-2 mb-2 space-y-1 ml-4 border-l-2 border-gray-200 dark:border-gray-700">
-                          <li>
-                            <Link
-                              to="/pending-approval"
-                              className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
-                                location.pathname === '/pending-approval'
-                                  ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
-                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-                              }`}
-                              onClick={() => {
-                                if (window.innerWidth < 1024) {
-                                  onToggle();
-                                }
-                              }}
-                            >
-                              <Clock className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
-                              <span className="flex-1 truncate">Pending Approval</span>
-                              {pendingCount > 0 && (
-                                <span className="ml-2 px-2 py-1 inline-flex items-center justify-center text-xs font-bold leading-none rounded-full bg-orange-500 text-white dark:bg-orange-600">
-                                  {pendingCount}
-                                </span>
-                              )}
-                            </Link>
-                          </li>
-                          <li>
-                            <Link
-                              to="/pending-completion"
-                              className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
-                                location.pathname === '/pending-completion'
-                                  ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
-                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-                              }`}
-                              onClick={() => {
-                                if (window.innerWidth < 1024) {
-                                  onToggle();
-                                }
-                              }}
-                            >
-                              <TrendingUp className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
-                              <span className="flex-1 truncate">Pending Completion</span>
-                              {inProgressCount > 0 && (
-                                <span className="ml-2 px-2 py-1 inline-flex items-center justify-center text-xs font-bold leading-none rounded-full bg-orange-500 text-white dark:bg-orange-600">
-                                  {inProgressCount}
-                                </span>
-                              )}
-                            </Link>
-                          </li>
-                          <li>
-                            <Link
-                              to="/pending-delivery"
-                              className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
-                                location.pathname === '/pending-delivery'
-                                  ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
-                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-                              }`}
-                              onClick={() => {
-                                if (window.innerWidth < 1024) {
-                                  onToggle();
-                                }
-                              }}
-                            >
-                              <Package className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
-                              <span className="flex-1 truncate">Pending Delivery</span>
-                              {deliveryCount > 0 && (
-                                <span className="ml-2 px-2 py-1 inline-flex items-center justify-center text-xs font-bold leading-none rounded-full bg-orange-500 text-white dark:bg-orange-600">
-                                  {deliveryCount}
-                                </span>
-                              )}
-                            </Link>
-                          </li>
-                          <li>
-                            <Link
-                              to="/customs"
-                              className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
-                                location.pathname === '/customs'
-                                  ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
-                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-                              }`}
-                              onClick={() => {
-                                if (window.innerWidth < 1024) {
-                                  onToggle();
-                                }
-                              }}
-                            >
-                              <FileText className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
-                              <span className="flex-1 truncate">All Customs</span>
-                            </Link>
-                          </li>
-                        </ul>
-                      )}
-                    </li>
-                  )}
-                  
-                  {/* Insert All Clients section before Agencies */}
-                  {item.name === 'Agencies' && hasManagerAccess && !isCollapsed && (
-                    <li className="pt-2">
-                      <button
-                        onClick={() => setIsAllClientsExpanded(!isAllClientsExpanded)}
-                        className="flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
-                      >
-                        <Users className="mr-3 h-5 w-5 flex-shrink-0 text-gray-400 dark:text-gray-500" />
-                        <span className="flex-1 text-left">All Clients</span>
-                        {isAllClientsExpanded ? (
-                          <ChevronUp className="h-4 w-4 text-gray-400" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-gray-400" />
-                        )}
-                      </button>
-                      
-                      {/* Nested Client List */}
-                      {isAllClientsExpanded && (
-                        <ul className="mt-2 mb-2 space-y-1 ml-4 border-l-2 border-gray-200 dark:border-gray-700 max-h-96 overflow-y-auto">
-                          {allClients.length > 0 ? (
-                            allClients
-                              .sort((a, b) => a.username.localeCompare(b.username))
-                              .map((client: any) => {
-                                const isClientActive = location.pathname === `/client-profile/${client.id}`;
-                                return (
-                                  <li key={client.id}>
-                                    <Link
-                                      to={`/client-profile/${client.id}`}
-                                      className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
-                                        isClientActive
-                                          ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
-                                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-                                      }`}
-                                      onClick={() => {
-                                        if (window.innerWidth < 1024) {
-                                          onToggle();
-                                        }
-                                      }}
-                                    >
-                                      {client.avatar_url ? (
-                                        <img 
-                                          src={client.avatar_url} 
-                                          alt={client.username}
-                                          className="w-5 h-5 rounded-full mr-2 flex-shrink-0"
-                                        />
-                                      ) : (
-                                        <User className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
-                                      )}
-                                      <span className="truncate">@{client.username}</span>
-                                    </Link>
-                                  </li>
-                                );
-                              })
-                          ) : (
-                            <li className="pl-4 pr-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                              No clients yet
-                            </li>
-                          )}
-                        </ul>
-                      )}
-                    </li>
-                  )}
-                  
-                  <li>
-                    <Link
-                      to={item.href}
-                      className={`flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2 text-sm font-medium rounded-lg transition-colors group relative ${
-                        item.current
-                          ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600 dark:bg-gray-800 dark:text-blue-400 dark:border-blue-500'
-                          : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
-                      }`}
-                      title={isCollapsed ? item.name : undefined}
-                      onClick={() => {
-                        if (window.innerWidth < 1024) {
-                          onToggle();
-                        }
-                      }}
-                    >
-                      <Icon className={`${isCollapsed ? '' : 'mr-3'} h-5 w-5 flex-shrink-0 ${
-                        item.current ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'
-                      }`} />
-                      {!isCollapsed && <span className="flex-1 whitespace-nowrap overflow-hidden">{item.name}</span>}
-                      {item.count !== null && item.count > 0 && (
-                        <span className={`${isCollapsed ? 'absolute -top-1 -right-1 w-5 h-5' : 'ml-2 px-2 py-1'} inline-flex items-center justify-center text-xs font-bold leading-none rounded-full ${
-                          item.current 
-                            ? 'bg-blue-600 text-white dark:bg-blue-600' 
-                            : 'bg-orange-500 text-white dark:bg-orange-600'
-                        }`}>
-                          {item.count}
-                        </span>
-                      )}
-                      
-                      {/* Tooltip for collapsed state */}
-                      {isCollapsed && (
-                        <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-                          {item.name}
-                          {item.count !== null && item.count > 0 && (
-                            <span className="ml-2 bg-white bg-opacity-20 px-1 rounded">
-                              {item.count}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </Link>
-                  </li>
-                </React.Fragment>
+                <li key={item.name}>
+                  <Link
+                    to={item.href}
+                    className={`flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2 text-sm font-medium rounded-lg transition-colors group relative ${
+                      item.current
+                        ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600 dark:bg-gray-800 dark:text-blue-400 dark:border-blue-500'
+                        : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
+                    }`}
+                    title={isCollapsed ? item.name : undefined}
+                    onClick={() => {
+                      if (window.innerWidth < 1024) {
+                        onToggle();
+                      }
+                    }}
+                  >
+                    <Icon className={`${isCollapsed ? '' : 'mr-3'} h-5 w-5 flex-shrink-0 ${
+                      item.current ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'
+                    }`} />
+                    {!isCollapsed && <span className="flex-1 whitespace-nowrap overflow-hidden">{item.name}</span>}
+                    {item.count !== null && item.count > 0 && (
+                      <span className={`${isCollapsed ? 'absolute -top-1 -right-1 w-5 h-5' : 'ml-2 px-2 py-1'} inline-flex items-center justify-center text-xs font-bold leading-none rounded-full ${
+                        item.current 
+                          ? 'bg-blue-600 text-white dark:bg-blue-600' 
+                          : 'bg-orange-500 text-white dark:bg-orange-600'
+                      }`}>
+                        {item.count}
+                      </span>
+                    )}
+                    
+                    {/* Tooltip for collapsed state */}
+                    {isCollapsed && (
+                      <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                        {item.name}
+                      </div>
+                    )}
+                  </Link>
+                </li>
               );
             })}
             
@@ -749,6 +271,616 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
                     })}
                   </ul>
                 )}
+              </li>
+            )}
+            
+            {/* Communications - Manager+ Only */}
+            {hasManagerAccess && !isCollapsed && (
+              <li className="pt-2">
+                <button
+                  onClick={() => setIsCommunicationsExpanded(!isCommunicationsExpanded)}
+                  className="flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  <MessageSquare className="mr-3 h-5 w-5 flex-shrink-0 text-gray-400 dark:text-gray-500" />
+                  <span className="flex-1 text-left">Communications</span>
+                  {isCommunicationsExpanded ? (
+                    <ChevronUp className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  )}
+                </button>
+                
+                {/* Nested Communications Menu */}
+                {isCommunicationsExpanded && (
+                  <ul className="mt-2 mb-2 space-y-1 ml-4 border-l-2 border-gray-200 dark:border-gray-700">
+                    {hasAdminAccess && (
+                      <li>
+                        <Link
+                          to="/chats"
+                          className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                            location.pathname === '/chats'
+                              ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                          }`}
+                          onClick={() => {
+                            if (window.innerWidth < 1024) {
+                              onToggle();
+                            }
+                          }}
+                        >
+                          <MessageSquare className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                          <span className="flex-1 truncate">Chats</span>
+                          {unreadMessagesCount > 0 && (
+                            <span className="ml-2 px-2 py-1 inline-flex items-center justify-center text-xs font-bold leading-none rounded-full bg-orange-500 text-white dark:bg-orange-600">
+                              {unreadMessagesCount}
+                            </span>
+                          )}
+                        </Link>
+                      </li>
+                    )}
+                    {hasAdminAccess && (
+                      <li>
+                        <Link
+                          to="/sms-messaging"
+                          className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                            location.pathname === '/sms-messaging'
+                              ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                          }`}
+                          onClick={() => {
+                            if (window.innerWidth < 1024) {
+                              onToggle();
+                            }
+                          }}
+                        >
+                          <Smartphone className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                          <span className="flex-1 truncate">SMS Messaging</span>
+                        </Link>
+                      </li>
+                    )}
+                    <li>
+                      <Link
+                        to="/calls"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/calls'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <Phone className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 truncate">Calls</span>
+                      </Link>
+                    </li>
+                  </ul>
+                )}
+              </li>
+            )}
+            
+            {/* Client Management - Manager+ Only */}
+            {hasManagerAccess && !isCollapsed && (
+              <li className="pt-2">
+                <button
+                  onClick={() => setIsClientManagementExpanded(!isClientManagementExpanded)}
+                  className="flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  <Users className="mr-3 h-5 w-5 flex-shrink-0 text-gray-400 dark:text-gray-500" />
+                  <span className="flex-1 text-left">Client Management</span>
+                  {isClientManagementExpanded ? (
+                    <ChevronUp className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  )}
+                </button>
+                
+                {/* Nested Client Management Menu */}
+                {isClientManagementExpanded && (
+                  <ul className="mt-2 mb-2 space-y-1 ml-4 border-l-2 border-gray-200 dark:border-gray-700">
+                    {/* All Clients Expandable */}
+                    <li>
+                      <button
+                        onClick={() => setIsAllClientsExpanded(!isAllClientsExpanded)}
+                        className="flex items-center w-full pl-4 pr-3 py-2 text-sm rounded-lg transition-colors text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                      >
+                        <Users className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 text-left">All Clients</span>
+                        {isAllClientsExpanded ? (
+                          <ChevronUp className="h-3 w-3 text-gray-400" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3 text-gray-400" />
+                        )}
+                      </button>
+                      
+                      {/* Nested Client List */}
+                      {isAllClientsExpanded && (
+                        <ul className="mt-1 space-y-1 ml-4 border-l-2 border-gray-200 dark:border-gray-700 max-h-96 overflow-y-auto">
+                          {allClients.length > 0 ? (
+                            allClients
+                              .sort((a, b) => a.username.localeCompare(b.username))
+                              .map((client: any) => {
+                                const isClientActive = location.pathname === `/client-profile/${client.id}`;
+                                return (
+                                  <li key={client.id}>
+                                    <Link
+                                      to={`/client-profile/${client.id}`}
+                                      className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                                        isClientActive
+                                          ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                                      }`}
+                                      onClick={() => {
+                                        if (window.innerWidth < 1024) {
+                                          onToggle();
+                                        }
+                                      }}
+                                    >
+                                      {client.avatar_url ? (
+                                        <img 
+                                          src={client.avatar_url} 
+                                          alt={client.username}
+                                          className="w-5 h-5 rounded-full mr-2 flex-shrink-0"
+                                        />
+                                      ) : (
+                                        <User className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                                      )}
+                                      <span className="truncate">@{client.username}</span>
+                                    </Link>
+                                  </li>
+                                );
+                              })
+                          ) : (
+                            <li className="pl-4 pr-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                              No clients yet
+                            </li>
+                          )}
+                        </ul>
+                      )}
+                    </li>
+                    
+                    <li>
+                      <Link
+                        to="/clients"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/clients'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <Users className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 truncate">Clients List</span>
+                      </Link>
+                    </li>
+                    {hasAdminAccess && (
+                      <li>
+                        <Link
+                          to="/client-data"
+                          className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                            location.pathname === '/client-data'
+                              ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                          }`}
+                          onClick={() => {
+                            if (window.innerWidth < 1024) {
+                              onToggle();
+                            }
+                          }}
+                        >
+                          <Database className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                          <span className="flex-1 truncate">Client Data</span>
+                        </Link>
+                      </li>
+                    )}
+                    <li>
+                      <Link
+                        to="/platform-assignments"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/platform-assignments'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <Layers className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 truncate">Platform Overview</span>
+                      </Link>
+                    </li>
+                  </ul>
+                )}
+              </li>
+            )}
+            
+            {/* Content & Scenes - Admin Only */}
+            {hasAdminAccess && !isCollapsed && (
+              <li className="pt-2">
+                <button
+                  onClick={() => setIsScenesExpanded(!isScenesExpanded)}
+                  className="flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  <Film className="mr-3 h-5 w-5 flex-shrink-0 text-gray-400 dark:text-gray-500" />
+                  <span className="flex-1 text-left">Content & Scenes</span>
+                  {isScenesExpanded ? (
+                    <ChevronUp className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  )}
+                </button>
+                
+                {/* Nested Scenes Menu */}
+                {isScenesExpanded && (
+                  <ul className="mt-2 mb-2 space-y-1 ml-4 border-l-2 border-gray-200 dark:border-gray-700">
+                    <li>
+                      <Link
+                        to="/scene-library"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/scene-library'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <Film className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 truncate">Scene Library</span>
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to="/scene-assignments"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/scene-assignments'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <Layers className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 truncate">Scene Assignments</span>
+                      </Link>
+                    </li>
+                  </ul>
+                )}
+              </li>
+            )}
+            
+            {/* Sales Management - Manager+ Only */}
+            {hasManagerAccess && !isCollapsed && (
+              <li className="pt-2">
+                <button
+                  onClick={() => setIsSalesManagementExpanded(!isSalesManagementExpanded)}
+                  className="flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  <DollarSign className="mr-3 h-5 w-5 flex-shrink-0 text-gray-400 dark:text-gray-500" />
+                  <span className="flex-1 text-left">Sales Management</span>
+                  {isSalesManagementExpanded ? (
+                    <ChevronUp className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  )}
+                </button>
+                
+                {/* Nested Sales Management Menu */}
+                {isSalesManagementExpanded && (
+                  <ul className="mt-2 mb-2 space-y-1 ml-4 border-l-2 border-gray-200 dark:border-gray-700">
+                    <li>
+                      <Link
+                        to="/sales-management"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/sales-management'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <LayoutDashboard className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 truncate">Overview</span>
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to="/sales-management/pending"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/sales-management/pending'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <Clock className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 truncate">Pending Approvals</span>
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to="/sales-management/all-sales"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/sales-management/all-sales'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <Calendar className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 truncate">All Sales</span>
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to="/sales-management/performance"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/sales-management/performance'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <TrendingUp className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 truncate">Chatter Performance</span>
+                      </Link>
+                    </li>
+                  </ul>
+                )}
+              </li>
+            )}
+            
+            {/* Customs Management - Manager+ Only */}
+            {hasManagerAccess && !isCollapsed && (
+              <li className="pt-2">
+                <button
+                  onClick={() => setIsCustomsExpanded(!isCustomsExpanded)}
+                  className="flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  <FileText className="mr-3 h-5 w-5 flex-shrink-0 text-gray-400 dark:text-gray-500" />
+                  <span className="flex-1 text-left">Customs Management</span>
+                  {isCustomsExpanded ? (
+                    <ChevronUp className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  )}
+                </button>
+                
+                {/* Nested Customs Menu */}
+                {isCustomsExpanded && (
+                  <ul className="mt-2 mb-2 space-y-1 ml-4 border-l-2 border-gray-200 dark:border-gray-700">
+                    <li>
+                      <Link
+                        to="/pending-approval"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/pending-approval'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <Clock className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 truncate">Pending Approval</span>
+                        {pendingCount > 0 && (
+                          <span className="ml-2 px-2 py-1 inline-flex items-center justify-center text-xs font-bold leading-none rounded-full bg-orange-500 text-white dark:bg-orange-600">
+                            {pendingCount}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to="/pending-completion"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/pending-completion'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <TrendingUp className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 truncate">Pending Completion</span>
+                        {inProgressCount > 0 && (
+                          <span className="ml-2 px-2 py-1 inline-flex items-center justify-center text-xs font-bold leading-none rounded-full bg-orange-500 text-white dark:bg-orange-600">
+                            {inProgressCount}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to="/pending-delivery"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/pending-delivery'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <Package className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 truncate">Pending Delivery</span>
+                        {deliveryCount > 0 && (
+                          <span className="ml-2 px-2 py-1 inline-flex items-center justify-center text-xs font-bold leading-none rounded-full bg-orange-500 text-white dark:bg-orange-600">
+                            {deliveryCount}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to="/customs"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/customs'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <FileText className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 truncate">All Customs</span>
+                      </Link>
+                    </li>
+                  </ul>
+                )}
+              </li>
+            )}
+            
+            {/* Team Management - Manager+ Only */}
+            {hasManagerAccess && !isCollapsed && (
+              <li className="pt-2">
+                <button
+                  onClick={() => setIsTeamManagementExpanded(!isTeamManagementExpanded)}
+                  className="flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  <UserCog className="mr-3 h-5 w-5 flex-shrink-0 text-gray-400 dark:text-gray-500" />
+                  <span className="flex-1 text-left">Team Management</span>
+                  {isTeamManagementExpanded ? (
+                    <ChevronUp className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  )}
+                </button>
+                
+                {/* Nested Team Management Menu */}
+                {isTeamManagementExpanded && (
+                  <ul className="mt-2 mb-2 space-y-1 ml-4 border-l-2 border-gray-200 dark:border-gray-700">
+                    <li>
+                      <Link
+                        to="/attendance"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/attendance'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <UserCheck className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 truncate">Attendance</span>
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to="/assignments"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/assignments'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <UserCog className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 truncate">Assignments</span>
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to="/user-approvals"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/user-approvals'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <Clock className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 truncate">User Approvals</span>
+                        {pendingUserApprovalsCount > 0 && (
+                          <span className="ml-2 px-2 py-1 inline-flex items-center justify-center text-xs font-bold leading-none rounded-full bg-orange-500 text-white dark:bg-orange-600">
+                            {pendingUserApprovalsCount}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  </ul>
+                )}
+              </li>
+            )}
+            
+            {/* Agencies - Manager+ Only */}
+            {hasManagerAccess && (
+              <li className="pt-2">
+                <Link
+                  to="/agencies"
+                  className={`flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2 text-sm font-medium rounded-lg transition-colors group relative ${
+                    location.pathname === '/agencies'
+                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600 dark:bg-gray-800 dark:text-blue-400 dark:border-blue-500'
+                      : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
+                  }`}
+                  title={isCollapsed ? 'Agencies' : undefined}
+                  onClick={() => {
+                    if (window.innerWidth < 1024) {
+                      onToggle();
+                    }
+                  }}
+                >
+                  <Building2 className={`${isCollapsed ? '' : 'mr-3'} h-5 w-5 flex-shrink-0 ${
+                    location.pathname === '/agencies' ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'
+                  }`} />
+                  {!isCollapsed && <span className="flex-1 whitespace-nowrap overflow-hidden">Agencies</span>}
+                  
+                  {/* Tooltip for collapsed state */}
+                  {isCollapsed && (
+                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                      Agencies
+                    </div>
+                  )}
+                </Link>
               </li>
             )}
           </ul>
