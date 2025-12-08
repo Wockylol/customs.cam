@@ -32,7 +32,8 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
     location.pathname === '/pending-approval' || 
     location.pathname === '/pending-completion' || 
     location.pathname === '/pending-delivery' || 
-    location.pathname === '/customs'
+    location.pathname === '/customs' ||
+    location.pathname === '/calls'
   );
   const [isClientManagementExpanded, setIsClientManagementExpanded] = useState(
     location.pathname === '/clients' || 
@@ -45,8 +46,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
   );
   const [isCommunicationsExpanded, setIsCommunicationsExpanded] = useState(
     location.pathname === '/chats' || 
-    location.pathname === '/sms-messaging' || 
-    location.pathname === '/calls'
+    location.pathname === '/sms-messaging'
   );
   const [isTeamManagementExpanded, setIsTeamManagementExpanded] = useState(
     location.pathname === '/attendance' || 
@@ -67,7 +67,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
     if (location.pathname.startsWith('/sales-management')) {
       setIsSalesManagementExpanded(true);
     }
-    if (location.pathname === '/chats' || location.pathname === '/sms-messaging' || location.pathname === '/calls') {
+    if (location.pathname === '/chats' || location.pathname === '/sms-messaging') {
       setIsCommunicationsExpanded(true);
     }
     if (location.pathname === '/clients' || location.pathname === '/client-data' || location.pathname === '/platform-assignments') {
@@ -76,7 +76,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
     if (location.pathname === '/scene-library' || location.pathname === '/scene-assignments') {
       setIsScenesExpanded(true);
     }
-    if (location.pathname === '/pending-approval' || location.pathname === '/pending-completion' || location.pathname === '/pending-delivery' || location.pathname === '/customs') {
+    if (location.pathname === '/pending-approval' || location.pathname === '/pending-completion' || location.pathname === '/pending-delivery' || location.pathname === '/customs' || location.pathname === '/calls') {
       setIsCustomsExpanded(true);
     }
     if (location.pathname === '/attendance' || location.pathname === '/assignments' || location.pathname === '/user-approvals') {
@@ -373,24 +373,6 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
                         </Link>
                       </li>
                     )}
-                    <li>
-                      <Link
-                        to="/calls"
-                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
-                          location.pathname === '/calls'
-                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
-                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-                        }`}
-                        onClick={() => {
-                          if (window.innerWidth < 1024) {
-                            onToggle();
-                          }
-                        }}
-                      >
-                        <Phone className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
-                        <span className="flex-1 truncate">Calls</span>
-                      </Link>
-                    </li>
                   </ul>
                 )}
               </li>
@@ -797,6 +779,24 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
                       >
                         <FileText className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
                         <span className="flex-1 truncate">All Customs</span>
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to="/calls"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/calls'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <Phone className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1 truncate">Calls</span>
                       </Link>
                     </li>
                   </ul>
