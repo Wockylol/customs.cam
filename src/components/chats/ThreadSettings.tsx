@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Settings, User, Search } from 'lucide-react';
+import { X, Settings, User, Search, Trash2, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { motion } from 'framer-motion';
 
@@ -23,6 +23,7 @@ interface ThreadSettingsProps {
   onSaveContact: () => void;
   threadParticipants: string[];
   contactMap: Record<string, string>;
+  onDeleteThread: () => void;
 }
 
 const ThreadSettings: React.FC<ThreadSettingsProps> = ({
@@ -34,11 +35,19 @@ const ThreadSettings: React.FC<ThreadSettingsProps> = ({
   onEditContact,
   onSaveContact,
   threadParticipants,
-  contactMap
+  contactMap,
+  onDeleteThread
 }: ThreadSettingsProps) => {
   const [modelSearchQuery, setModelSearchQuery] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleDeleteClick = () => {
+    onDeleteThread();
+    setShowDeleteConfirm(false);
+    onClose();
+  };
 
   // Filter models based on search query
   const filteredModels = models.filter(model =>
@@ -172,6 +181,58 @@ const ThreadSettings: React.FC<ThreadSettingsProps> = ({
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Delete Thread Section */}
+          <div className="mt-8 pt-6 border-t border-red-200">
+            <h3 className="text-md font-medium text-gray-900 mb-2 flex items-center">
+              <Trash2 className="h-4 w-4 text-red-500 mr-2" />
+              Danger Zone
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Deleting this thread will permanently remove all messages and cannot be undone.
+            </p>
+            
+            {!showDeleteConfirm ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="text-red-600 border-red-300 hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Thread
+              </Button>
+            ) : (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start mb-3">
+                  <AlertTriangle className="h-5 w-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-red-900">Are you absolutely sure?</p>
+                    <p className="text-xs text-red-700 mt-1">
+                      This action cannot be undone. All messages in this thread will be permanently deleted.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="text-gray-700"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleDeleteClick}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Yes, Delete Thread
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </motion.div>
