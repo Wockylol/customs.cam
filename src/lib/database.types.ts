@@ -697,6 +697,99 @@ export interface Database {
           updated_at?: string
         }
       }
+      notifications: {
+        Row: {
+          id: string
+          type: string
+          title: string
+          message: string
+          link: string | null
+          is_read: boolean
+          created_at: string
+          updated_at: string
+          related_entity_type: string | null
+          related_entity_id: string | null
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          type: string
+          title: string
+          message: string
+          link?: string | null
+          is_read?: boolean
+          created_at?: string
+          updated_at?: string
+          related_entity_type?: string | null
+          related_entity_id?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          type?: string
+          title?: string
+          message?: string
+          link?: string | null
+          is_read?: boolean
+          created_at?: string
+          updated_at?: string
+          related_entity_type?: string | null
+          related_entity_id?: string | null
+          created_by?: string | null
+        }
+      }
+      notification_recipients: {
+        Row: {
+          id: string
+          notification_id: string
+          team_member_id: string
+          is_read: boolean
+          read_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          notification_id: string
+          team_member_id: string
+          is_read?: boolean
+          read_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          notification_id?: string
+          team_member_id?: string
+          is_read?: boolean
+          read_at?: string | null
+          created_at?: string
+        }
+      }
+      client_notes: {
+        Row: {
+          id: string
+          client_id: string
+          content: string
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          content: string
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          content?: string
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -705,10 +798,8 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
-      team_role: 'admin' | 'manager' | 'chatter'
       team_role: 'admin' | 'manager' | 'chatter' | 'pending'
-      request_status: 'pending_team_approval' | 'pending_client_approval' | 'in_progress' | 'completed' | 'delivered' | 'cancelled'
-      request_status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+      request_status: 'pending_team_approval' | 'pending_client_approval' | 'in_progress' | 'completed' | 'delivered' | 'cancelled' | 'pending'
       request_priority: 'low' | 'medium' | 'high' | 'urgent'
       activity_action: 'created' | 'updated' | 'deleted'
       attendance_status: 'on_time' | 'late' | 'no_show' | 'day_off' | 'left_early' | 'late_and_left_early'
