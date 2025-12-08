@@ -48,7 +48,8 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_recipients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE client_notes ENABLE ROW LEVEL SECURITY;
 
--- Policies for notifications (admins and managers can see all)
+-- Policies for notifications (drop if exists to avoid duplicates)
+DROP POLICY IF EXISTS "Team members can view notifications they received" ON notifications;
 CREATE POLICY "Team members can view notifications they received"
   ON notifications FOR SELECT
   USING (
@@ -59,6 +60,7 @@ CREATE POLICY "Team members can view notifications they received"
     )
   );
 
+DROP POLICY IF EXISTS "Admins and managers can create notifications" ON notifications;
 CREATE POLICY "Admins and managers can create notifications"
   ON notifications FOR INSERT
   WITH CHECK (
@@ -69,6 +71,7 @@ CREATE POLICY "Admins and managers can create notifications"
     )
   );
 
+DROP POLICY IF EXISTS "Users can update their own notification status" ON notifications;
 CREATE POLICY "Users can update their own notification status"
   ON notifications FOR UPDATE
   USING (
@@ -79,11 +82,13 @@ CREATE POLICY "Users can update their own notification status"
     )
   );
 
--- Policies for notification_recipients
+-- Policies for notification_recipients (drop if exists to avoid duplicates)
+DROP POLICY IF EXISTS "Team members can view their notification receipts" ON notification_recipients;
 CREATE POLICY "Team members can view their notification receipts"
   ON notification_recipients FOR SELECT
   USING (team_member_id = auth.uid());
 
+DROP POLICY IF EXISTS "Admins and managers can create notification receipts" ON notification_recipients;
 CREATE POLICY "Admins and managers can create notification receipts"
   ON notification_recipients FOR INSERT
   WITH CHECK (
@@ -94,11 +99,13 @@ CREATE POLICY "Admins and managers can create notification receipts"
     )
   );
 
+DROP POLICY IF EXISTS "Users can update their own notification receipt status" ON notification_recipients;
 CREATE POLICY "Users can update their own notification receipt status"
   ON notification_recipients FOR UPDATE
   USING (team_member_id = auth.uid());
 
--- Policies for client_notes
+-- Policies for client_notes (drop if exists to avoid duplicates)
+DROP POLICY IF EXISTS "Team members can view client notes" ON client_notes;
 CREATE POLICY "Team members can view client notes"
   ON client_notes FOR SELECT
   USING (
@@ -108,6 +115,7 @@ CREATE POLICY "Team members can view client notes"
     )
   );
 
+DROP POLICY IF EXISTS "Team members can create client notes" ON client_notes;
 CREATE POLICY "Team members can create client notes"
   ON client_notes FOR INSERT
   WITH CHECK (
@@ -117,10 +125,12 @@ CREATE POLICY "Team members can create client notes"
     )
   );
 
+DROP POLICY IF EXISTS "Users can update their own notes" ON client_notes;
 CREATE POLICY "Users can update their own notes"
   ON client_notes FOR UPDATE
   USING (created_by = auth.uid());
 
+DROP POLICY IF EXISTS "Admins can delete any notes" ON client_notes;
 CREATE POLICY "Admins can delete any notes"
   ON client_notes FOR DELETE
   USING (
@@ -140,12 +150,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Triggers for updated_at
+-- Triggers for updated_at (drop if exists to avoid duplicates)
+DROP TRIGGER IF EXISTS update_notifications_updated_at ON notifications;
 CREATE TRIGGER update_notifications_updated_at
   BEFORE UPDATE ON notifications
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_client_notes_updated_at ON client_notes;
 CREATE TRIGGER update_client_notes_updated_at
   BEFORE UPDATE ON client_notes
   FOR EACH ROW
