@@ -35,6 +35,7 @@ import SalesManagement from './pages/SalesManagement';
 import PendingSalesApproval from './pages/PendingSalesApproval';
 import AllSalesView from './pages/AllSalesView';
 import ChatterPerformance from './pages/ChatterPerformance';
+import NotificationsPage from './pages/NotificationsPage';
 
 function App() {
   return (
@@ -240,6 +241,14 @@ function App() {
               element={
                 <ProtectedRoute requiredRole="manager">
                   <ChatterPerformance />
+                </ProtectedRoute>
+              }
+            />
+            <Route 
+              path="/notifications" 
+              element={
+                <ProtectedRoute>
+                  <NotificationsPage />
                 </ProtectedRoute>
               }
             />
