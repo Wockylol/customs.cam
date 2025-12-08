@@ -36,6 +36,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                       !location.pathname.startsWith('/sms-messaging') &&
                       !location.pathname.startsWith('/scene-library') &&
                       !location.pathname.startsWith('/scene-assignments') &&
+                      !location.pathname.startsWith('/notifications') &&
                       !location.pathname.startsWith('/calls');
 
   if (isPublicPage) {
