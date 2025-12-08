@@ -28,11 +28,31 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
   const { clients } = useClients();
   const [isMyClientsExpanded, setIsMyClientsExpanded] = useState(true);
   const [isAllClientsExpanded, setIsAllClientsExpanded] = useState(false);
-  const [isCustomsExpanded, setIsCustomsExpanded] = useState(false);
-  const [isClientManagementExpanded, setIsClientManagementExpanded] = useState(false);
-  const [isScenesExpanded, setIsScenesExpanded] = useState(false);
-  const [isCommunicationsExpanded, setIsCommunicationsExpanded] = useState(false);
-  const [isTeamManagementExpanded, setIsTeamManagementExpanded] = useState(false);
+  const [isCustomsExpanded, setIsCustomsExpanded] = useState(
+    location.pathname === '/pending-approval' || 
+    location.pathname === '/pending-completion' || 
+    location.pathname === '/pending-delivery' || 
+    location.pathname === '/customs'
+  );
+  const [isClientManagementExpanded, setIsClientManagementExpanded] = useState(
+    location.pathname === '/clients' || 
+    location.pathname === '/client-data' || 
+    location.pathname === '/platform-assignments'
+  );
+  const [isScenesExpanded, setIsScenesExpanded] = useState(
+    location.pathname === '/scene-library' || 
+    location.pathname === '/scene-assignments'
+  );
+  const [isCommunicationsExpanded, setIsCommunicationsExpanded] = useState(
+    location.pathname === '/chats' || 
+    location.pathname === '/sms-messaging' || 
+    location.pathname === '/calls'
+  );
+  const [isTeamManagementExpanded, setIsTeamManagementExpanded] = useState(
+    location.pathname === '/attendance' || 
+    location.pathname === '/assignments' || 
+    location.pathname === '/user-approvals'
+  );
   const [isSalesManagementExpanded, setIsSalesManagementExpanded] = useState(
     location.pathname.startsWith('/sales-management')
   );
@@ -42,10 +62,25 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
   const hasAdminAccess = teamMember?.role === 'admin';
   const isChatter = teamMember?.role === 'chatter';
   
-  // Keep Sales Management expanded when on any sales management page
+  // Keep sections expanded when on their respective pages
   React.useEffect(() => {
     if (location.pathname.startsWith('/sales-management')) {
       setIsSalesManagementExpanded(true);
+    }
+    if (location.pathname === '/chats' || location.pathname === '/sms-messaging' || location.pathname === '/calls') {
+      setIsCommunicationsExpanded(true);
+    }
+    if (location.pathname === '/clients' || location.pathname === '/client-data' || location.pathname === '/platform-assignments') {
+      setIsClientManagementExpanded(true);
+    }
+    if (location.pathname === '/scene-library' || location.pathname === '/scene-assignments') {
+      setIsScenesExpanded(true);
+    }
+    if (location.pathname === '/pending-approval' || location.pathname === '/pending-completion' || location.pathname === '/pending-delivery' || location.pathname === '/customs') {
+      setIsCustomsExpanded(true);
+    }
+    if (location.pathname === '/attendance' || location.pathname === '/assignments' || location.pathname === '/user-approvals') {
+      setIsTeamManagementExpanded(true);
     }
   }, [location.pathname]);
   
