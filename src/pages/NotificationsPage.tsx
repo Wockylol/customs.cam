@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import Layout from '../components/layout/Layout';
 import { useNotifications } from '../hooks/useNotifications';
 import NotificationItem from '../components/ui/NotificationItem';
-import { Bell, CheckCheck, Trash2, Filter } from 'lucide-react';
-import Button from '../components/ui/Button';
+import { Bell, CheckCheck, Filter } from 'lucide-react';
+import { Button } from '../components/ui/Button';
 
 const NotificationsPage: React.FC = () => {
   const { 
