@@ -339,6 +339,67 @@ export async function createUserApprovalNotification(
 }
 
 /**
+ * Create a notification for thread messages (handled by database trigger)
+ * This is mainly for manual/test purposes - the database trigger handles it automatically
+ * 
+ * Note: The database automatically batches notifications within a 5-minute window
+ * to prevent spam when multiple messages arrive in quick succession
+ */
+export async function createThreadMessageNotification(
+  threadId: string,
+  threadName: string,
+  messageText: string
+) {
+  try {
+    const admins = await supabase
+      .from('team_members')
+      .select('id')
+      .eq('role', 'admin')
+      .eq('is_active', true);
+
+    if (!admins.data || admins.data.length === 0) {
+      console.log('No admins to notify about thread message');
+      return;
+    }
+
+    const adminIds = admins.data.map(a => a.id);
+    const messagePreview = messageText.substring(0, 100);
+    const truncated = messageText.length > 100;
+
+    const { data: notification, error: notificationError } = await supabase
+      .from('notifications')
+      .insert({
+        type: 'thread_message',
+        title: `New Message in ${threadName}`,
+        message: `"${messagePreview}${truncated ? '..."' : '"'}`,
+        link: '/chats',
+        related_entity_type: 'thread',
+        related_entity_id: threadId,
+        created_by: null
+      })
+      .select()
+      .single();
+
+    if (notificationError) throw notificationError;
+
+    const recipientRecords = adminIds.map(adminId => ({
+      notification_id: notification.id,
+      team_member_id: adminId
+    }));
+
+    const { error: recipientsError } = await supabase
+      .from('notification_recipients')
+      .insert(recipientRecords);
+
+    if (recipientsError) throw recipientsError;
+
+    console.log(`Created thread message notification for ${adminIds.length} admins`);
+  } catch (error) {
+    console.error('Error creating thread message notification:', error);
+  }
+}
+
+/**
  * Create a generic notification for specific recipients
  */
 export async function createGenericNotification(
