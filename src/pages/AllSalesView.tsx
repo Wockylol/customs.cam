@@ -9,6 +9,7 @@ const AllSalesView: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('calendar');
+  const [shiftFilter, setShiftFilter] = useState<string>('all');
   const { sales, loading, error, approveSale, updateSale } = useSales();
 
   const year = currentDate.getFullYear();
@@ -27,9 +28,11 @@ const AllSalesView: React.FC = () => {
   const monthlySales = useMemo(() => {
     return sales.filter(sale => {
       const saleDate = new Date(sale.sale_date);
-      return saleDate.getFullYear() === year && saleDate.getMonth() === month;
+      const matchesMonth = saleDate.getFullYear() === year && saleDate.getMonth() === month;
+      const matchesShift = shiftFilter === 'all' || sale.chatter?.shift === shiftFilter;
+      return matchesMonth && matchesShift;
     });
-  }, [sales, year, month]);
+  }, [sales, year, month, shiftFilter]);
 
   // Calculate monthly stats
   const monthlyStats = useMemo(() => {
@@ -184,7 +187,7 @@ const AllSalesView: React.FC = () => {
 
         {/* Controls */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center space-x-2">
               <button
                 onClick={previousMonth}
@@ -206,29 +209,44 @@ const AllSalesView: React.FC = () => {
               </button>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setViewMode('calendar')}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  viewMode === 'calendar'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+              {/* Shift Filter */}
+              <select
+                value={shiftFilter}
+                onChange={(e) => setShiftFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
               >
-                <Calendar className="w-4 h-4 inline mr-2" />
-                Calendar
-              </button>
-              <button
-                onClick={() => setViewMode('table')}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  viewMode === 'table'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                <TrendingUp className="w-4 h-4 inline mr-2" />
-                Table
-              </button>
+                <option value="all">All Shifts</option>
+                <option value="10-6">Day Shift (10am-6pm)</option>
+                <option value="6-2">Evening Shift (6pm-2am)</option>
+                <option value="2-10">Night Shift (2am-10am)</option>
+              </select>
+
+              {/* View Mode Buttons */}
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setViewMode('calendar')}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    viewMode === 'calendar'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  <Calendar className="w-4 h-4 inline mr-2" />
+                  Calendar
+                </button>
+                <button
+                  onClick={() => setViewMode('table')}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    viewMode === 'table'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  <TrendingUp className="w-4 h-4 inline mr-2" />
+                  Table
+                </button>
+              </div>
             </div>
           </div>
         </div>
