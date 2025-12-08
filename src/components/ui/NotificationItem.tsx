@@ -41,6 +41,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         return <Users className="w-5 h-5" />;
       case 'sale':
         return <TrendingUp className="w-5 h-5" />;
+      case 'thread_message':
+        return <MessageSquare className="w-5 h-5" />;
       default:
         return <Info className="w-5 h-5" />;
     }
@@ -60,6 +62,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         return 'text-indigo-500';
       case 'sale':
         return 'text-emerald-500';
+      case 'thread_message':
+        return 'text-cyan-500';
       default:
         return 'text-gray-500';
     }
