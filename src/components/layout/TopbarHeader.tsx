@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, LogOut, User } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import NotificationDropdown from '../ui/NotificationDropdown';
 
 interface TopbarHeaderProps {
   title: string;
@@ -60,6 +61,7 @@ const TopbarHeader: React.FC<TopbarHeaderProps> = ({ title, onMenuClick }) => {
               EST/EDT
             </span>
           </div>
+          <NotificationDropdown />
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center dark:bg-gray-800">
               <User className="w-4 h-4 text-gray-600 dark:text-gray-300" />
