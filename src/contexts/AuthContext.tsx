@@ -71,8 +71,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
       if (!mounted) return;
       
-      console.log('Auth state change:', event, session?.user?.id);
-      
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -95,18 +93,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const fetchTeamMember = async (userId: string) => {
-    console.log('Fetching team member for user:', userId);
     try {
-      console.log('Starting team member query...');
-
       const { data, error } = await supabase
         .from('team_members')
         .select('*')
         .eq('id', userId)
         .eq('is_active', true)
         .maybeSingle();
-
-      console.log('Team member query completed:', { data, error });
 
       if (error) {
         console.error('Team member query error:', error);
@@ -116,14 +109,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         setTeamMember(null);
       } else {
-        console.log('Team member found, setting data:', data);
         setTeamMember(data || null);
       }
     } catch (error) {
       console.error('Unexpected error in fetchTeamMember:', error);
       setTeamMember(null);
-    } finally {
-      console.log('fetchTeamMember complete');
     }
   };
 
