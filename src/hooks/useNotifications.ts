@@ -249,26 +249,42 @@ export const useNotifications = () => {
     }
   };
 
-  // Subscribe to real-time updates - EXACT pattern from useThreads with ref fix
+  // Subscribe to real-time updates - Use INSERT event only like messages table
   useEffect(() => {
     fetchNotifications();
 
     console.log('🚀 [useNotifications] Setting up subscription...');
 
-    // Use the EXACT same pattern as threads - no filter, empty deps
+    // Copy the messages table pattern from useThreads - INSERT only, no wildcards
     const notificationsSubscription = supabase
       .channel('notifications-realtime')
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'notification_recipients'
         },
         (payload) => {
-          console.log('🔔 [useNotifications] Change detected:', payload.eventType);
+          console.log('🔔 [useNotifications] INSERT detected!');
+          console.log('📦 [useNotifications] Payload:', payload);
           console.log('🔄 [useNotifications] Calling fetchNotifications via ref...');
           // Call the latest version via ref to avoid stale closure
+          if (fetchNotificationsRef.current) {
+            fetchNotificationsRef.current();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notification_recipients'
+        },
+        (payload) => {
+          console.log('📝 [useNotifications] UPDATE detected!');
+          console.log('🔄 [useNotifications] Calling fetchNotifications via ref...');
           if (fetchNotificationsRef.current) {
             fetchNotificationsRef.current();
           }
@@ -285,7 +301,7 @@ export const useNotifications = () => {
         }
       });
 
-    console.log('📌 [useNotifications] Subscription object created, waiting for SUBSCRIBED status...');
+    console.log('📌 [useNotifications] Subscription object created');
 
     return () => {
       console.log('🛑 [useNotifications] Cleanup called - unsubscribing...');
@@ -293,7 +309,7 @@ export const useNotifications = () => {
         supabase.removeChannel(notificationsSubscription);
       }
     };
-  }, []); // Empty dependency array - subscribe ONCE like threads
+  }, []); // Empty dependency array - subscribe ONCE
 
   return {
     notifications,
