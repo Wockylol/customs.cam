@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -35,13 +35,14 @@ export const useNotifications = () => {
   const [error, setError] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!teamMember) {
       setLoading(false);
       return;
     }
 
     try {
+      console.log('🔄 Fetching notifications for team member:', teamMember.id);
       setLoading(true);
       setError(null);
 
@@ -85,10 +86,12 @@ export const useNotifications = () => {
         };
       }) || [];
 
+      console.log('📬 Fetched notifications:', transformedNotifications.length, 'total');
       setNotifications(transformedNotifications);
       
       // Calculate unread count
       const unread = transformedNotifications.filter(n => !n.recipient_is_read).length;
+      console.log('🔔 Unread count:', unread);
       setUnreadCount(unread);
 
     } catch (err) {
@@ -97,7 +100,7 @@ export const useNotifications = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [teamMember]);
 
   const markAsRead = async (notificationId: string) => {
     if (!teamMember) return;
@@ -256,7 +259,8 @@ export const useNotifications = () => {
           filter: `team_member_id=eq.${teamMember.id}`
         },
         (payload) => {
-          console.log('New notification received:', payload);
+          console.log('🆕 New notification received:', payload);
+          console.log('🔄 Calling fetchNotifications...');
           // Simple approach: just refresh all notifications
           // This ensures consistency and triggers re-render
           fetchNotifications();
@@ -271,20 +275,21 @@ export const useNotifications = () => {
           filter: `team_member_id=eq.${teamMember.id}`
         },
         (payload) => {
-          console.log('Notification updated:', payload);
+          console.log('📝 Notification updated:', payload);
+          console.log('🔄 Calling fetchNotifications...');
           // Refresh to get latest state
           fetchNotifications();
         }
       )
       .subscribe((status) => {
-        console.log('Notification subscription status:', status);
+        console.log('📡 Notification subscription status:', status);
       });
 
     return () => {
-      console.log('Unsubscribing from notifications channel');
+      console.log('🛑 Unsubscribing from notifications channel');
       supabase.removeChannel(channel);
     };
-  }, [teamMember?.id]);
+  }, [teamMember?.id, fetchNotifications]);
 
   return {
     notifications,
