@@ -252,22 +252,36 @@ export const useNotifications = () => {
     const channelName = `notifications:${teamMember.id}`;
     console.log('📡 Creating channel:', channelName);
 
-    // Subscribe to new notifications with simpler refresh approach
+    // Subscribe to new notifications with explicit event types
     const channel = supabase
       .channel(channelName)
       .on(
         'postgres_changes',
         {
-          event: '*',  // Listen to all events (INSERT, UPDATE, DELETE)
+          event: 'INSERT',
           schema: 'public',
           table: 'notification_recipients',
           filter: `team_member_id=eq.${teamMember.id}`
         },
         (payload) => {
-          console.log('🔔 [useNotifications] Change detected:', payload.eventType);
+          console.log('🆕 [useNotifications] INSERT detected');
           console.log('📦 [useNotifications] Payload:', payload);
           console.log('🔄 [useNotifications] Refreshing notifications...');
-          // Refresh all notifications
+          fetchNotifications();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notification_recipients',
+          filter: `team_member_id=eq.${teamMember.id}`
+        },
+        (payload) => {
+          console.log('📝 [useNotifications] UPDATE detected');
+          console.log('📦 [useNotifications] Payload:', payload);
+          console.log('🔄 [useNotifications] Refreshing notifications...');
           fetchNotifications();
         }
       )
@@ -279,9 +293,7 @@ export const useNotifications = () => {
         if (status === 'SUBSCRIBED') {
           console.log('✅ [useNotifications] Successfully subscribed!');
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ [useNotifications] Channel error - trying fallback...');
-          // If subscription fails, fall back to polling
-          console.log('🔄 [useNotifications] Setting up polling fallback...');
+          console.error('❌ [useNotifications] Channel error!');
         }
       });
 
