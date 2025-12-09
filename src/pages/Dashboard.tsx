@@ -6,6 +6,8 @@ import { useCustomRequests } from '../hooks/useCustomRequests';
 import { useClients } from '../hooks/useClients';
 import { useUpcomingBirthdays } from '../hooks/useUpcomingBirthdays';
 import ClientAvatar from '../components/ui/ClientAvatar';
+import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
+
 
 const Dashboard: React.FC = () => {
   const { customRequests, loading: customsLoading, error: customsError, fetchCustomRequests } = useCustomRequests();
