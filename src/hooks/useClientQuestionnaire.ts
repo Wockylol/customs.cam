@@ -18,8 +18,6 @@ export const useClientQuestionnaire = (clientId: string | undefined) => {
   const fetchQuestionnaire = async () => {
     if (!clientId) return;
     
-    console.log('Fetching questionnaire for client:', clientId);
-    
     const { data, error } = await supabase
       .from('client_questionnaire')
       .select('*')
@@ -29,7 +27,6 @@ export const useClientQuestionnaire = (clientId: string | undefined) => {
     if (error) {
       console.error('Error fetching questionnaire:', error);
     } else {
-      console.log('Fetched questionnaire:', data);
       setQuestionnaire(data);
     }
     
@@ -39,8 +36,6 @@ export const useClientQuestionnaire = (clientId: string | undefined) => {
   const fetchPersonas = async () => {
     if (!clientId) return;
     
-    console.log('Fetching personas for client:', clientId);
-    
     const { data, error } = await supabase
       .from('client_personas')
       .select('persona')
@@ -49,15 +44,12 @@ export const useClientQuestionnaire = (clientId: string | undefined) => {
     if (error) {
       console.error('Error fetching personas:', error);
     } else {
-      console.log('Fetched personas:', data);
       if (data) setPersonas(data.map((p: any) => p.persona));
     }
   };
 
   const fetchContentDetails = async () => {
     if (!clientId) return;
-    
-    console.log('Fetching content details for client:', clientId);
     
     const { data, error } = await supabase
       .from('client_content_details')
@@ -68,8 +60,6 @@ export const useClientQuestionnaire = (clientId: string | undefined) => {
       console.error('Error fetching content details:', error);
       return;
     }
-    
-    console.log('Fetched content details:', data);
     
     // Map database labels back to frontend keys
     const labelToKey: Record<string, string> = {
@@ -100,8 +90,6 @@ export const useClientQuestionnaire = (clientId: string | undefined) => {
   const saveQuestionnaire = async (data: any) => {
     if (!clientId) return { error: 'Client ID required' };
     
-    console.log('Saving questionnaire for client:', clientId, data);
-    
     // Clean the data: convert empty strings to null for date fields and other nullable fields
     const cleanedData = { ...data };
     Object.keys(cleanedData).forEach(key => {
@@ -110,8 +98,6 @@ export const useClientQuestionnaire = (clientId: string | undefined) => {
         cleanedData[key] = null;
       }
     });
-    
-    console.log('Cleaned questionnaire data:', cleanedData);
     
     const { error } = await supabase.rpc('upsert_client_questionnaire', {
       p_client_id: clientId,
@@ -123,15 +109,12 @@ export const useClientQuestionnaire = (clientId: string | undefined) => {
       return { error: error.message };
     }
     
-    console.log('Questionnaire saved successfully');
     await fetchQuestionnaire();
     return { error: null };
   };
 
   const savePersonas = async (personasList: string[]) => {
     if (!clientId) return { error: 'Client ID required' };
-    
-    console.log('Saving personas for client:', clientId, personasList);
     
     const { error } = await supabase.rpc('set_client_personas', {
       p_client_id: clientId,
@@ -143,15 +126,12 @@ export const useClientQuestionnaire = (clientId: string | undefined) => {
       return { error: error.message };
     }
     
-    console.log('Personas saved successfully');
     await fetchPersonas();
     return { error: null };
   };
 
   const saveContentDetail = async (contentType: string, enabled: boolean, priceMin: number, priceMax: number) => {
     if (!clientId) return { error: 'Client ID required' };
-    
-    console.log('Saving content detail:', { contentType, enabled, priceMin, priceMax });
     
     const { error } = await supabase.rpc('upsert_client_content_detail', {
       p_client_id: clientId,
@@ -166,15 +146,12 @@ export const useClientQuestionnaire = (clientId: string | undefined) => {
       return { error: error.message };
     }
     
-    console.log('Content detail saved successfully for:', contentType);
     await fetchContentDetails();
     return { error: null };
   };
 
   const saveAllContentDetails = async (details: Record<string, any>) => {
     if (!clientId) return { error: 'Client ID required' };
-    
-    console.log('Saving all content details:', details);
     
     // Map frontend keys to database labels
     const keyToLabel: Record<string, string> = {
@@ -205,7 +182,6 @@ export const useClientQuestionnaire = (clientId: string | undefined) => {
       return { error: `Failed to save ${errors.length} content details` };
     }
     
-    console.log('All content details saved successfully');
     return { error: null };
   };
 
