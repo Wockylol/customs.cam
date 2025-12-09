@@ -253,7 +253,7 @@ export const useNotifications = () => {
   useEffect(() => {
     fetchNotifications();
 
-    console.log('🚀 [useNotifications] Setting up subscription');
+    console.log('🚀 [useNotifications] Setting up subscription...');
 
     // Use the EXACT same pattern as threads - no filter, empty deps
     const notificationsSubscription = supabase
@@ -276,11 +276,20 @@ export const useNotifications = () => {
       )
       .subscribe((status) => {
         console.log('📡 [useNotifications] Subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ [useNotifications] Successfully subscribed and listening!');
+        } else if (status === 'CLOSED') {
+          console.log('❌ [useNotifications] Subscription closed');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ [useNotifications] Channel error');
+        }
       });
 
+    console.log('📌 [useNotifications] Subscription object created, waiting for SUBSCRIBED status...');
+
     return () => {
+      console.log('🛑 [useNotifications] Cleanup called - unsubscribing...');
       if (notificationsSubscription) {
-        console.log('🛑 [useNotifications] Cleaning up subscription');
         supabase.removeChannel(notificationsSubscription);
       }
     };
