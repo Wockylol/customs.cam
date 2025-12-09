@@ -339,6 +339,68 @@ export async function createUserApprovalNotification(
 }
 
 /**
+ * Create a notification for fan notes
+ * Sends to: assigned chatters + all admins/managers
+ */
+export async function createFanNoteNotification(
+  clientId: string,
+  clientUsername: string,
+  fanName: string,
+  noteContent: string,
+  createdByTeamMemberId: string
+) {
+  try {
+    // Get assigned chatters
+    const assignedChatters = await getChattersAssignedToClient(clientId);
+    
+    // Get all admins and managers
+    const adminsAndManagers = await getAllAdminsAndManagers();
+    
+    // Combine and remove duplicates (and exclude the creator)
+    const recipients = Array.from(new Set([...assignedChatters, ...adminsAndManagers]))
+      .filter(id => id !== createdByTeamMemberId);
+
+    if (recipients.length === 0) {
+      console.log('No recipients for fan note notification');
+      return;
+    }
+
+    // Create the notification
+    const { data: notification, error: notificationError } = await supabase
+      .from('notifications')
+      .insert({
+        type: 'fan_note',
+        title: 'New Fan Note',
+        message: `A new fan note was added to ${clientUsername} (Fan: ${fanName}): "${noteContent.substring(0, 100)}${noteContent.length > 100 ? '...' : ''}"`,
+        link: `/client-profile/${clientId}`,
+        related_entity_type: 'client',
+        related_entity_id: clientId,
+        created_by: createdByTeamMemberId
+      })
+      .select()
+      .single();
+
+    if (notificationError) throw notificationError;
+
+    // Create recipient records
+    const recipientRecords = recipients.map((recipientId: string) => ({
+      notification_id: notification.id,
+      team_member_id: recipientId
+    }));
+
+    const { error: recipientsError } = await supabase
+      .from('notification_recipients')
+      .insert(recipientRecords);
+
+    if (recipientsError) throw recipientsError;
+
+    console.log(`Created fan note notification for ${recipients.length} recipients`);
+  } catch (error) {
+    console.error('Error creating fan note notification:', error);
+  }
+}
+
+/**
  * Create a notification for new client creation
  * Sends to: all team members (admins, managers, and chatters)
  */
