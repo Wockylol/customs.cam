@@ -128,7 +128,7 @@ const PendingSalesApproval: React.FC = () => {
                 <span className="text-yellow-100 text-sm">Pending</span>
                 <Clock className="w-5 h-5 text-yellow-100" />
               </div>
-              <div className="text-3xl font-bold">{pendingSales.length}</div>
+              <div className="text-3xl font-bold">{filteredSales.length}</div>
             </div>
             <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
@@ -136,7 +136,7 @@ const PendingSalesApproval: React.FC = () => {
                 <DollarSign className="w-5 h-5 text-yellow-100" />
               </div>
               <div className="text-3xl font-bold">
-                ${pendingSales.reduce((sum, s) => sum + calculateNet(s.gross_amount), 0).toFixed(0)}
+                ${filteredSales.reduce((sum, s) => sum + calculateNet(s.gross_amount), 0).toFixed(0)}
               </div>
             </div>
             <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
@@ -145,7 +145,7 @@ const PendingSalesApproval: React.FC = () => {
                 <DollarSign className="w-5 h-5 text-yellow-100" />
               </div>
               <div className="text-3xl font-bold">
-                ${pendingSales.length > 0 ? (pendingSales.reduce((sum, s) => sum + calculateNet(s.gross_amount), 0) / pendingSales.length).toFixed(0) : '0'}
+                ${filteredSales.length > 0 ? (filteredSales.reduce((sum, s) => sum + calculateNet(s.gross_amount), 0) / filteredSales.length).toFixed(0) : '0'}
               </div>
             </div>
             <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
@@ -154,7 +154,7 @@ const PendingSalesApproval: React.FC = () => {
                 <Calendar className="w-5 h-5 text-yellow-100" />
               </div>
               <div className="text-sm font-bold">
-                {pendingSales.length > 0 && sortedSales.length > 0
+                {filteredSales.length > 0 && sortedSales.length > 0
                   ? `${Math.floor((Date.now() - new Date(sortedSales[0].created_at).getTime()) / (1000 * 60 * 60 * 24))} days`
                   : 'N/A'}
               </div>
