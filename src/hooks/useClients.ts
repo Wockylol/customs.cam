@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
+import { createNewClientNotification } from '../lib/notificationHelpers';
 
 type Client = Database['public']['Tables']['clients']['Row'];
 type ClientInsert = Database['public']['Tables']['clients']['Insert'];
@@ -62,6 +63,23 @@ export const useClients = () => {
 
       // Add the new client to the local state
       setClients(prev => [data, ...prev]);
+
+      // Get current user's team member ID
+      const { data: { user } } = await supabase.auth.getUser();
+      let teamMemberId: string | null = null;
+      
+      if (user) {
+        const { data: teamMember } = await supabase
+          .from('team_members')
+          .select('id')
+          .eq('email', user.email)
+          .single();
+        teamMemberId = teamMember?.id || null;
+      }
+
+      // Send notification (database trigger also handles this, but this provides a backup)
+      await createNewClientNotification(data.id, data.username, teamMemberId);
+
       return { data, error: null };
     } catch (err: any) {
       console.error('Error adding client:', err);
