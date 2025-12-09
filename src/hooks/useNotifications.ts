@@ -37,15 +37,20 @@ export const useNotifications = () => {
   
   // Use ref to store latest fetchNotifications to avoid stale closure
   const fetchNotificationsRef = useRef<() => Promise<void>>();
+  // Track if this is the initial fetch
+  const isInitialFetch = useRef(true);
 
-  const fetchNotifications = useCallback(async () => {
+  const fetchNotifications = useCallback(async (silent = false) => {
     if (!teamMember) {
       setLoading(false);
       return;
     }
 
     try {
-      setLoading(true);
+      // Only show loading on initial fetch, not on polling updates
+      if (!silent && isInitialFetch.current) {
+        setLoading(true);
+      }
       setError(null);
 
       // Fetch notifications for the current user
@@ -94,11 +99,18 @@ export const useNotifications = () => {
       const unread = transformedNotifications.filter(n => !n.recipient_is_read).length;
       setUnreadCount(unread);
 
+      // Mark that initial fetch is complete
+      if (isInitialFetch.current) {
+        isInitialFetch.current = false;
+      }
+
     } catch (err) {
       console.error('Error fetching notifications:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch notifications');
     } finally {
-      setLoading(false);
+      if (!silent || isInitialFetch.current) {
+        setLoading(false);
+      }
     }
   }, [teamMember]);
   
@@ -248,12 +260,13 @@ export const useNotifications = () => {
 
   // Use polling to check for new notifications every 5 seconds
   useEffect(() => {
-    fetchNotifications();
+    // Initial fetch (will show loading)
+    fetchNotifications(false);
 
-    // Poll for new notifications every 5 seconds
+    // Poll for new notifications every 5 seconds (silent updates)
     const pollInterval = setInterval(() => {
       if (fetchNotificationsRef.current) {
-        fetchNotificationsRef.current();
+        fetchNotificationsRef.current(true); // Silent update
       }
     }, 5000);
 
