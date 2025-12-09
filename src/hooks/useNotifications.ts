@@ -45,7 +45,6 @@ export const useNotifications = () => {
     }
 
     try {
-      console.log('🔄 Fetching notifications for team member:', teamMember.id);
       setLoading(true);
       setError(null);
 
@@ -89,12 +88,10 @@ export const useNotifications = () => {
         };
       }) || [];
 
-      console.log('📬 Fetched notifications:', transformedNotifications.length, 'total');
       setNotifications(transformedNotifications);
       
       // Calculate unread count
       const unread = transformedNotifications.filter(n => !n.recipient_is_read).length;
-      console.log('🔔 Unread count:', unread);
       setUnreadCount(unread);
 
     } catch (err) {
@@ -249,27 +246,21 @@ export const useNotifications = () => {
     }
   };
 
-  // Use polling instead of realtime subscriptions (more reliable)
+  // Use polling to check for new notifications every 5 seconds
   useEffect(() => {
     fetchNotifications();
 
-    console.log('🔄 [useNotifications] Setting up polling (checking every 5 seconds)...');
-
     // Poll for new notifications every 5 seconds
     const pollInterval = setInterval(() => {
-      console.log('⏱️ [useNotifications] Polling for new notifications...');
       if (fetchNotificationsRef.current) {
         fetchNotificationsRef.current();
       }
-    }, 5000); // Check every 5 seconds
-
-    console.log('✅ [useNotifications] Polling started');
+    }, 5000);
 
     return () => {
-      console.log('🛑 [useNotifications] Stopping polling...');
       clearInterval(pollInterval);
     };
-  }, []); // Empty dependency array - set up polling ONCE
+  }, []);
 
   return {
     notifications,
