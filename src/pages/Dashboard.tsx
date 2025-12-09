@@ -8,7 +8,6 @@ import { useUpcomingBirthdays } from '../hooks/useUpcomingBirthdays';
 import ClientAvatar from '../components/ui/ClientAvatar';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 
-
 const Dashboard: React.FC = () => {
   const { customRequests, loading: customsLoading, error: customsError, fetchCustomRequests } = useCustomRequests();
   const { clients, loading: clientsLoading, error: clientsError } = useClients();
@@ -503,10 +502,11 @@ const Dashboard: React.FC = () => {
           onUpdate={fetchCustomRequests}
         />
       </div>
+
+      {/* Debug Panel - Remove after testing */}
+      <RealtimeDebugPanel />
     </Layout>
   );
 };
-
-<RealtimeDebugPanel />
 
 export default Dashboard;
