@@ -16,6 +16,7 @@ export interface Notification {
   created_by: string | null;
   recipient_is_read?: boolean;
   recipient_read_at?: string | null;
+  recipient_id?: string;
 }
 
 export interface NotificationRecipient {
@@ -245,7 +246,7 @@ export const useNotifications = () => {
 
     // Subscribe to new notifications
     const channel = supabase
-      .channel('notifications')
+      .channel(`notifications-${teamMember.id}`)
       .on(
         'postgres_changes',
         {
@@ -254,8 +255,55 @@ export const useNotifications = () => {
           table: 'notification_recipients',
           filter: `team_member_id=eq.${teamMember.id}`
         },
-        () => {
-          fetchNotifications();
+        async (payload) => {
+          console.log('New notification received:', payload);
+          
+          // Fetch the full notification details
+          const { data: recipient, error } = await supabase
+            .from('notification_recipients')
+            .select(`
+              id,
+              notification_id,
+              team_member_id,
+              is_read,
+              read_at,
+              created_at,
+              notifications (
+                id,
+                type,
+                title,
+                message,
+                link,
+                is_read,
+                created_at,
+                updated_at,
+                related_entity_type,
+                related_entity_id,
+                created_by
+              )
+            `)
+            .eq('id', payload.new.id)
+            .single();
+
+          if (!error && recipient) {
+            const notification = recipient.notifications as any;
+            const transformedNotification = {
+              ...notification,
+              recipient_is_read: recipient.is_read,
+              recipient_read_at: recipient.read_at,
+              recipient_id: recipient.id
+            };
+
+            // Add to the beginning of the list
+            setNotifications(prev => [transformedNotification, ...prev]);
+            setUnreadCount(prev => prev + 1);
+            
+            console.log('Notification added to state:', transformedNotification);
+          } else {
+            // Fallback to full refresh
+            console.log('Fetching all notifications as fallback');
+            fetchNotifications();
+          }
         }
       )
       .on(
@@ -266,13 +314,37 @@ export const useNotifications = () => {
           table: 'notification_recipients',
           filter: `team_member_id=eq.${teamMember.id}`
         },
-        () => {
-          fetchNotifications();
+        (payload) => {
+          console.log('Notification updated:', payload);
+          
+          // Update the notification in local state
+          const updatedRecipient = payload.new as NotificationRecipient;
+          setNotifications(prev => 
+            prev.map(n => 
+              n.recipient_id === updatedRecipient.id
+                ? { 
+                    ...n, 
+                    recipient_is_read: updatedRecipient.is_read,
+                    recipient_read_at: updatedRecipient.read_at 
+                  }
+                : n
+            )
+          );
+          
+          // Recalculate unread count
+          setNotifications(prev => {
+            const unread = prev.filter(n => !n.recipient_is_read).length;
+            setUnreadCount(unread);
+            return prev;
+          });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Notification subscription status:', status);
+      });
 
     return () => {
+      console.log('Unsubscribing from notifications channel');
       supabase.removeChannel(channel);
     };
   }, [teamMember?.id]);
