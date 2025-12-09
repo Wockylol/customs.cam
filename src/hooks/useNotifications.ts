@@ -249,42 +249,28 @@ export const useNotifications = () => {
     }
   };
 
-  // Subscribe to real-time updates - Use INSERT event only like messages table
+  // Subscribe to real-time updates - Listen to notifications table like threads does
   useEffect(() => {
     fetchNotifications();
 
-    console.log('🚀 [useNotifications] Setting up subscription...');
+    console.log('🚀 [useNotifications] Setting up subscription to notifications table...');
 
-    // Copy the messages table pattern from useThreads - INSERT only, no wildcards
+    // Listen to the notifications table (parent) instead of notification_recipients (junction)
+    // This is similar to how threads listens to threads table
     const notificationsSubscription = supabase
-      .channel('notifications-realtime')
+      .channel('notifications-changes')
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'notification_recipients'
+          table: 'notifications'
         },
         (payload) => {
-          console.log('🔔 [useNotifications] INSERT detected!');
+          console.log('🔔 [useNotifications] New notification INSERT detected!');
           console.log('📦 [useNotifications] Payload:', payload);
-          console.log('🔄 [useNotifications] Calling fetchNotifications via ref...');
-          // Call the latest version via ref to avoid stale closure
-          if (fetchNotificationsRef.current) {
-            fetchNotificationsRef.current();
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notification_recipients'
-        },
-        (payload) => {
-          console.log('📝 [useNotifications] UPDATE detected!');
-          console.log('🔄 [useNotifications] Calling fetchNotifications via ref...');
+          console.log('🔄 [useNotifications] Refreshing all notifications...');
+          // Refresh will filter by team_member_id
           if (fetchNotificationsRef.current) {
             fetchNotificationsRef.current();
           }
@@ -293,7 +279,7 @@ export const useNotifications = () => {
       .subscribe((status) => {
         console.log('📡 [useNotifications] Subscription status:', status);
         if (status === 'SUBSCRIBED') {
-          console.log('✅ [useNotifications] Successfully subscribed and listening!');
+          console.log('✅ [useNotifications] Successfully subscribed to notifications table!');
         } else if (status === 'CLOSED') {
           console.log('❌ [useNotifications] Subscription closed');
         } else if (status === 'CHANNEL_ERROR') {
@@ -301,10 +287,10 @@ export const useNotifications = () => {
         }
       });
 
-    console.log('📌 [useNotifications] Subscription object created');
+    console.log('📌 [useNotifications] Subscription created for notifications table');
 
     return () => {
-      console.log('🛑 [useNotifications] Cleanup called - unsubscribing...');
+      console.log('🛑 [useNotifications] Cleanup - unsubscribing...');
       if (notificationsSubscription) {
         supabase.removeChannel(notificationsSubscription);
       }
