@@ -339,6 +339,75 @@ export async function createUserApprovalNotification(
 }
 
 /**
+ * Create a notification for new client creation
+ * Sends to: all team members (admins, managers, and chatters)
+ */
+export async function createNewClientNotification(
+  clientId: string,
+  clientUsername: string,
+  createdByTeamMemberId?: string | null
+) {
+  try {
+    // Get all active team members
+    const { data: teamMembers, error: teamError } = await supabase
+      .from('team_members')
+      .select('id')
+      .eq('is_active', true);
+
+    if (teamError) {
+      console.error('Error fetching team members:', teamError);
+      return;
+    }
+
+    if (!teamMembers || teamMembers.length === 0) {
+      console.log('No recipients for new client notification');
+      return;
+    }
+
+    // Get all team member IDs, excluding the creator if they exist
+    const recipients = teamMembers
+      .map((tm: any) => tm.id)
+      .filter((id: string) => !createdByTeamMemberId || id !== createdByTeamMemberId);
+
+    if (recipients.length === 0) {
+      console.log('No recipients for new client notification after filtering');
+      return;
+    }
+
+    const { data: notification, error: notificationError } = await supabase
+      .from('notifications')
+      .insert({
+        type: 'client_added',
+        title: 'New Client Added',
+        message: `A new client "${clientUsername}" has been added to the system`,
+        link: `/client-profile/${clientId}`,
+        related_entity_type: 'client',
+        related_entity_id: clientId,
+        created_by: createdByTeamMemberId || null
+      })
+      .select()
+      .single();
+
+    if (notificationError) throw notificationError;
+
+    const recipientRecords = recipients.map((recipientId: string) => ({
+      notification_id: notification.id,
+      team_member_id: recipientId
+    }));
+
+    const { error: recipientsError } = await supabase
+      .from('notification_recipients')
+      .insert(recipientRecords);
+
+    if (recipientsError) throw recipientsError;
+
+    console.log(`Created new client notification for ${recipients.length} recipients`);
+  } catch (error) {
+    console.error('Error creating new client notification:', error);
+  }
+}
+
+/**
  * Create a notification for thread messages (handled by database trigger)
  * This is mainly for manual/test purposes - the database trigger handles it automatically
  * 
