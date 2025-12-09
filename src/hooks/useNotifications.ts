@@ -249,53 +249,27 @@ export const useNotifications = () => {
     }
   };
 
-  // Subscribe to real-time updates - Listen to notifications table like threads does
+  // Use polling instead of realtime subscriptions (more reliable)
   useEffect(() => {
     fetchNotifications();
 
-    console.log('🚀 [useNotifications] Setting up subscription to notifications table...');
+    console.log('🔄 [useNotifications] Setting up polling (checking every 5 seconds)...');
 
-    // Listen to the notifications table (parent) instead of notification_recipients (junction)
-    // This is similar to how threads listens to threads table
-    const notificationsSubscription = supabase
-      .channel('notifications-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications'
-        },
-        (payload) => {
-          console.log('🔔 [useNotifications] New notification INSERT detected!');
-          console.log('📦 [useNotifications] Payload:', payload);
-          console.log('🔄 [useNotifications] Refreshing all notifications...');
-          // Refresh will filter by team_member_id
-          if (fetchNotificationsRef.current) {
-            fetchNotificationsRef.current();
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('📡 [useNotifications] Subscription status:', status);
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ [useNotifications] Successfully subscribed to notifications table!');
-        } else if (status === 'CLOSED') {
-          console.log('❌ [useNotifications] Subscription closed');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ [useNotifications] Channel error');
-        }
-      });
+    // Poll for new notifications every 5 seconds
+    const pollInterval = setInterval(() => {
+      console.log('⏱️ [useNotifications] Polling for new notifications...');
+      if (fetchNotificationsRef.current) {
+        fetchNotificationsRef.current();
+      }
+    }, 5000); // Check every 5 seconds
 
-    console.log('📌 [useNotifications] Subscription created for notifications table');
+    console.log('✅ [useNotifications] Polling started');
 
     return () => {
-      console.log('🛑 [useNotifications] Cleanup - unsubscribing...');
-      if (notificationsSubscription) {
-        supabase.removeChannel(notificationsSubscription);
-      }
+      console.log('🛑 [useNotifications] Stopping polling...');
+      clearInterval(pollInterval);
     };
-  }, []); // Empty dependency array - subscribe ONCE
+  }, []); // Empty dependency array - set up polling ONCE
 
   return {
     notifications,
