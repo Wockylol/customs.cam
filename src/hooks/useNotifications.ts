@@ -241,65 +241,41 @@ export const useNotifications = () => {
     }
   };
 
-  // Subscribe to real-time updates
+  // Subscribe to real-time updates - Copy the pattern from useThreads
   useEffect(() => {
     if (!teamMember) return;
 
-    console.log('🚀 Setting up notification subscription for:', teamMember.id);
+    console.log('🚀 Setting up notification subscription (threads pattern)');
     fetchNotifications();
 
-    // Use a simple channel name
-    const channelName = `notifications:${teamMember.id}`;
-    console.log('📡 Creating channel:', channelName);
-
-    // Subscribe to new notifications with explicit event types
-    const channel = supabase
-      .channel(channelName)
+    // Use the same pattern as threads - no filter, listen to all changes
+    const notificationsSubscription = supabase
+      .channel('notifications-realtime')
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
-          table: 'notification_recipients',
-          filter: `team_member_id=eq.${teamMember.id}`
+          table: 'notification_recipients'
+          // NO FILTER - fetchNotifications will get only this user's notifications
         },
         (payload) => {
-          console.log('🆕 [useNotifications] INSERT detected');
-          console.log('📦 [useNotifications] Payload:', payload);
-          console.log('🔄 [useNotifications] Refreshing notifications...');
+          console.log('🔔 [useNotifications] Change detected:', payload.eventType);
+          console.log('🔄 [useNotifications] Refreshing...');
+          // Refresh will filter by team_member_id automatically
           fetchNotifications();
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notification_recipients',
-          filter: `team_member_id=eq.${teamMember.id}`
-        },
-        (payload) => {
-          console.log('📝 [useNotifications] UPDATE detected');
-          console.log('📦 [useNotifications] Payload:', payload);
-          console.log('🔄 [useNotifications] Refreshing notifications...');
-          fetchNotifications();
-        }
-      )
-      .subscribe((status, err) => {
-        console.log('📡 [useNotifications] Subscription status:', status);
-        if (err) {
-          console.error('❌ [useNotifications] Subscription error:', err);
-        }
+      .subscribe((status) => {
+        console.log('📡 [useNotifications] Status:', status);
         if (status === 'SUBSCRIBED') {
           console.log('✅ [useNotifications] Successfully subscribed!');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ [useNotifications] Channel error!');
         }
       });
 
     return () => {
-      console.log('🛑 [useNotifications] Unsubscribing from notifications channel');
-      supabase.removeChannel(channel);
+      console.log('🛑 [useNotifications] Unsubscribing');
+      supabase.removeChannel(notificationsSubscription);
     };
   }, [teamMember?.id, fetchNotifications]);
 
