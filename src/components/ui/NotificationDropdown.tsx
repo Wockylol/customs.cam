@@ -17,12 +17,6 @@ const NotificationDropdown: React.FC = () => {
     deleteNotification 
   } = useNotifications();
 
-  // Debug: Log when notifications or unreadCount changes
-  useEffect(() => {
-    console.log('🔔 NotificationDropdown - Unread count updated:', unreadCount);
-    console.log('📋 NotificationDropdown - Total notifications:', notifications.length);
-  }, [notifications, unreadCount]);
-
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
