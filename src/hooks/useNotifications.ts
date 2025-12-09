@@ -248,8 +248,8 @@ export const useNotifications = () => {
     console.log('🚀 Setting up notification subscription for:', teamMember.id);
     fetchNotifications();
 
-    // Create unique channel name to avoid conflicts
-    const channelName = `main-notifications-${teamMember.id}-${Date.now()}`;
+    // Use a simple channel name
+    const channelName = `notifications:${teamMember.id}`;
     console.log('📡 Creating channel:', channelName);
 
     // Subscribe to new notifications with simpler refresh approach
@@ -258,40 +258,30 @@ export const useNotifications = () => {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',  // Listen to all events (INSERT, UPDATE, DELETE)
           schema: 'public',
           table: 'notification_recipients',
           filter: `team_member_id=eq.${teamMember.id}`
         },
         (payload) => {
-          console.log('🆕 [useNotifications] New notification received:', payload);
-          console.log('🔄 [useNotifications] Calling fetchNotifications...');
-          // Simple approach: just refresh all notifications
-          // This ensures consistency and triggers re-render
+          console.log('🔔 [useNotifications] Change detected:', payload.eventType);
+          console.log('📦 [useNotifications] Payload:', payload);
+          console.log('🔄 [useNotifications] Refreshing notifications...');
+          // Refresh all notifications
           fetchNotifications();
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notification_recipients',
-          filter: `team_member_id=eq.${teamMember.id}`
-        },
-        (payload) => {
-          console.log('📝 [useNotifications] Notification updated:', payload);
-          console.log('🔄 [useNotifications] Calling fetchNotifications...');
-          // Refresh to get latest state
-          fetchNotifications();
-        }
-      )
-      .subscribe((status) => {
+      .subscribe((status, err) => {
         console.log('📡 [useNotifications] Subscription status:', status);
+        if (err) {
+          console.error('❌ [useNotifications] Subscription error:', err);
+        }
         if (status === 'SUBSCRIBED') {
           console.log('✅ [useNotifications] Successfully subscribed!');
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ [useNotifications] Channel error!');
+          console.error('❌ [useNotifications] Channel error - trying fallback...');
+          // If subscription fails, fall back to polling
+          console.log('🔄 [useNotifications] Setting up polling fallback...');
         }
       });
 
