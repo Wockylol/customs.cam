@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Bell, AlertCircle, CheckCircle, Info, TrendingUp, Users, FileText } from 'lucide-react';
+import { X, Bell, AlertCircle, CheckCircle, Info, TrendingUp, Users, FileText, MessageSquare } from 'lucide-react';
 import { Notification } from '../../hooks/useNotifications';
 import { useNavigate } from 'react-router-dom';
 
