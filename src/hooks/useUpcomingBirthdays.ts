@@ -40,8 +40,6 @@ export const useUpcomingBirthdays = (daysAhead: number = 15) => {
         throw error;
       }
 
-      console.log('Birthday query raw data:', data);
-
       if (!data) {
         setUpcomingBirthdays([]);
         return;
@@ -55,8 +53,6 @@ export const useUpcomingBirthdays = (daysAhead: number = 15) => {
         return hasPublicBirthday || hasPersonalBirthday;
       });
 
-      console.log('Clients with birthday data:', clientsWithBirthdays);
-
       // Calculate days until birthday and filter
       const today = new Date();
       // Normalize to start of day to avoid time-of-day issues
@@ -69,12 +65,7 @@ export const useUpcomingBirthdays = (daysAhead: number = 15) => {
           const dobString = client.client_questionnaire?.public_birthday 
             || client.client_personal_info?.date_of_birth;
           
-          const birthdaySource = client.client_questionnaire?.public_birthday 
-            ? 'questionnaire.public_birthday' 
-            : 'personal_info.date_of_birth';
-          
           if (!dobString) {
-            console.log(`Skipping ${client.username}: No birthday data`);
             return null;
           }
           
@@ -84,8 +75,6 @@ export const useUpcomingBirthdays = (daysAhead: number = 15) => {
           // Get month and day from the date of birth using UTC methods
           const birthMonth = dob.getUTCMonth();
           const birthDay = dob.getUTCDate();
-          
-          console.log(`Processing ${client.username}: DOB = ${dobString} (from ${birthdaySource}), Month = ${birthMonth + 1}/${birthDay}`);
           
           // Create birthday date for this year at midnight
           let birthdayThisYear = new Date(currentYear, birthMonth, birthDay, 0, 0, 0, 0);
@@ -98,8 +87,6 @@ export const useUpcomingBirthdays = (daysAhead: number = 15) => {
           // Calculate days until birthday
           const timeDiff = birthdayThisYear.getTime() - today.getTime();
           const daysUntil = Math.round(timeDiff / (1000 * 3600 * 24));
-          
-          console.log(`${client.username}: Birthday this year = ${birthdayThisYear.toDateString()}, Days until = ${daysUntil}`);
           
           return {
             id: client.id,
@@ -116,7 +103,6 @@ export const useUpcomingBirthdays = (daysAhead: number = 15) => {
           a.days_until_birthday - b.days_until_birthday
         );
 
-      console.log('Upcoming birthdays (filtered):', upcomingBirthdaysList);
       setUpcomingBirthdays(upcomingBirthdaysList);
     } catch (err: any) {
       console.error('Error fetching upcoming birthdays:', err);
