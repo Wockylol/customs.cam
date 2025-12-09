@@ -507,4 +507,6 @@ const Dashboard: React.FC = () => {
   );
 };
 
+<RealtimeDebugPanel />
+
 export default Dashboard;
