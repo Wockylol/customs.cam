@@ -503,8 +503,8 @@ const Dashboard: React.FC = () => {
         />
       </div>
 
-      {/* Debug Panel - Remove after testing */}
-      <RealtimeDebugPanel />
+      {/* Debug Panel - Temporarily disabled to avoid subscription conflict */}
+      {/* <RealtimeDebugPanel /> */}
     </Layout>
   );
 };
