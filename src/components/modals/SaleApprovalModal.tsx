@@ -45,6 +45,8 @@ const SaleApprovalModal: React.FC<SaleApprovalModalProps> = ({
       });
       setApprovalNotes('');
       setIsEditing(false);
+      setLoading(false); // Reset loading state when new sale is opened
+      setError(null); // Also reset any previous errors
     }
   }, [sale]);
 
