@@ -245,11 +245,16 @@ export const useNotifications = () => {
   useEffect(() => {
     if (!teamMember) return;
 
+    console.log('🚀 Setting up notification subscription for:', teamMember.id);
     fetchNotifications();
+
+    // Create unique channel name to avoid conflicts
+    const channelName = `main-notifications-${teamMember.id}-${Date.now()}`;
+    console.log('📡 Creating channel:', channelName);
 
     // Subscribe to new notifications with simpler refresh approach
     const channel = supabase
-      .channel(`notifications-${teamMember.id}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -259,8 +264,8 @@ export const useNotifications = () => {
           filter: `team_member_id=eq.${teamMember.id}`
         },
         (payload) => {
-          console.log('🆕 New notification received:', payload);
-          console.log('🔄 Calling fetchNotifications...');
+          console.log('🆕 [useNotifications] New notification received:', payload);
+          console.log('🔄 [useNotifications] Calling fetchNotifications...');
           // Simple approach: just refresh all notifications
           // This ensures consistency and triggers re-render
           fetchNotifications();
@@ -275,18 +280,23 @@ export const useNotifications = () => {
           filter: `team_member_id=eq.${teamMember.id}`
         },
         (payload) => {
-          console.log('📝 Notification updated:', payload);
-          console.log('🔄 Calling fetchNotifications...');
+          console.log('📝 [useNotifications] Notification updated:', payload);
+          console.log('🔄 [useNotifications] Calling fetchNotifications...');
           // Refresh to get latest state
           fetchNotifications();
         }
       )
       .subscribe((status) => {
-        console.log('📡 Notification subscription status:', status);
+        console.log('📡 [useNotifications] Subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ [useNotifications] Successfully subscribed!');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ [useNotifications] Channel error!');
+        }
       });
 
     return () => {
-      console.log('🛑 Unsubscribing from notifications channel');
+      console.log('🛑 [useNotifications] Unsubscribing from notifications channel');
       supabase.removeChannel(channel);
     };
   }, [teamMember?.id, fetchNotifications]);
