@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -34,6 +34,9 @@ export const useNotifications = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  
+  // Use ref to store latest fetchNotifications to avoid stale closure
+  const fetchNotificationsRef = useRef<() => Promise<void>>();
 
   const fetchNotifications = useCallback(async () => {
     if (!teamMember) {
@@ -101,6 +104,11 @@ export const useNotifications = () => {
       setLoading(false);
     }
   }, [teamMember]);
+  
+  // Update ref whenever fetchNotifications changes
+  useEffect(() => {
+    fetchNotificationsRef.current = fetchNotifications;
+  }, [fetchNotifications]);
 
   const markAsRead = async (notificationId: string) => {
     if (!teamMember) return;
@@ -241,14 +249,13 @@ export const useNotifications = () => {
     }
   };
 
-  // Subscribe to real-time updates - Copy the pattern from useThreads
+  // Subscribe to real-time updates - EXACT pattern from useThreads with ref fix
   useEffect(() => {
-    if (!teamMember) return;
-
-    console.log('🚀 Setting up notification subscription (threads pattern)');
     fetchNotifications();
 
-    // Use the same pattern as threads - no filter, listen to all changes
+    console.log('🚀 [useNotifications] Setting up subscription');
+
+    // Use the EXACT same pattern as threads - no filter, empty deps
     const notificationsSubscription = supabase
       .channel('notifications-realtime')
       .on(
@@ -257,27 +264,27 @@ export const useNotifications = () => {
           event: '*',
           schema: 'public',
           table: 'notification_recipients'
-          // NO FILTER - fetchNotifications will get only this user's notifications
         },
         (payload) => {
           console.log('🔔 [useNotifications] Change detected:', payload.eventType);
-          console.log('🔄 [useNotifications] Refreshing...');
-          // Refresh will filter by team_member_id automatically
-          fetchNotifications();
+          console.log('🔄 [useNotifications] Calling fetchNotifications via ref...');
+          // Call the latest version via ref to avoid stale closure
+          if (fetchNotificationsRef.current) {
+            fetchNotificationsRef.current();
+          }
         }
       )
       .subscribe((status) => {
-        console.log('📡 [useNotifications] Status:', status);
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ [useNotifications] Successfully subscribed!');
-        }
+        console.log('📡 [useNotifications] Subscription status:', status);
       });
 
     return () => {
-      console.log('🛑 [useNotifications] Unsubscribing');
-      supabase.removeChannel(notificationsSubscription);
+      if (notificationsSubscription) {
+        console.log('🛑 [useNotifications] Cleaning up subscription');
+        supabase.removeChannel(notificationsSubscription);
+      }
     };
-  }, [teamMember?.id, fetchNotifications]);
+  }, []); // Empty dependency array - subscribe ONCE like threads
 
   return {
     notifications,
