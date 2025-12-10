@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, GripVertical, Video, Image as ImageIcon, Upload, FileText, ClipboardPaste } from 'lucide-react';
+import { X, Trash2, GripVertical, Video, Image as ImageIcon, Upload, FileText, ClipboardPaste } from 'lucide-react';
 import { useContentScenes } from '../../hooks/useContentScenes';
 import { useSceneExamples } from '../../hooks/useSceneExamples';
 import { SceneInstruction } from '../../types';
@@ -14,7 +14,7 @@ interface AddSceneModalProps {
 
 const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSuccess, scene }) => {
   const { createScene, updateScene } = useContentScenes();
-  const { examples, uploadExamples, deleteExample, getDownloadUrl } = useSceneExamples(scene?.id);
+  const { examples, uploadExamples, deleteExample } = useSceneExamples(scene?.id);
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [props, setProps] = useState('');
@@ -61,7 +61,7 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
       setExampleFiles(prev => [...prev, ...newFiles]);
       
       // Generate previews for images
-      newFiles.forEach((file, index) => {
+      newFiles.forEach((file) => {
         if (file.type.startsWith('image/')) {
           const reader = new FileReader();
           reader.onloadend = () => {
@@ -114,15 +114,15 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
         return null;
       }
 
-      // Parse first data row
-      const dataRow = lines[1];
+      // Parse data rows - handle multi-line fields by combining lines within quotes
+      let dataText = lines.slice(1).join('\n');
       const values: string[] = [];
       let currentValue = '';
       let insideQuotes = false;
 
-      // Handle CSV with quotes properly
-      for (let i = 0; i < dataRow.length; i++) {
-        const char = dataRow[i];
+      // Handle CSV with quotes properly, including multi-line fields
+      for (let i = 0; i < dataText.length; i++) {
+        const char = dataText[i];
         if (char === '"') {
           insideQuotes = !insideQuotes;
         } else if (char === ',' && !insideQuotes) {
@@ -403,12 +403,15 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
     } else {
       // Upload example files if any
       if (exampleFiles.length > 0 && result.data) {
-        setSaving(true);
-        const { error: uploadError } = await uploadExamples(result.data.id, exampleFiles);
-        setSaving(false);
-        
-        if (uploadError) {
-          alert(`Scene ${scene ? 'updated' : 'created'} but error uploading examples: ${uploadError}`);
+        const sceneId = (result.data as any).id;
+        if (sceneId) {
+          setSaving(true);
+          const { error: uploadError } = await uploadExamples(sceneId, exampleFiles);
+          setSaving(false);
+          
+          if (uploadError) {
+            alert(`Scene ${scene ? 'updated' : 'created'} but error uploading examples: ${uploadError}`);
+          }
         }
       }
       
