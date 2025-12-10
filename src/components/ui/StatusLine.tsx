@@ -11,14 +11,14 @@ const StatusLine: React.FC<StatusLineProps> = ({ itemCount }) => {
       {/* Status Message */}
       {itemCount === 0 ? (
         <>
-          <CheckCircle className="w-4 h-4 text-green-400 mr-2" />
-          <span className="text-pink-100 font-medium">All caught up! 🎉</span>
+          <CheckCircle className="w-4 h-4 text-green-300 mr-2" />
+          <span className="text-white font-semibold opacity-95">All caught up! 🎉</span>
         </>
       ) : (
         <>
           <AlertCircle className="w-4 h-4 text-yellow-300 mr-2" />
-          <span className="text-pink-100 font-medium">
-            {itemCount} {itemCount === 1 ? 'thing needs' : 'things need'} your attention
+          <span className="text-white font-semibold opacity-95">
+            {itemCount} {itemCount === 1 ? 'thing needs' : 'things need'} attention
           </span>
         </>
       )}
