@@ -56,7 +56,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
     location.pathname === '/user-approvals'
   );
   const [isSalesManagementExpanded, setIsSalesManagementExpanded] = useState(
-    location.pathname.startsWith('/sales-management')
+    location.pathname.startsWith('/sales-management') || location.pathname === '/payroll'
   );
   
   // Check if user has manager or admin role
@@ -66,7 +66,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
   
   // Keep sections expanded when on their respective pages
   React.useEffect(() => {
-    if (location.pathname.startsWith('/sales-management')) {
+    if (location.pathname.startsWith('/sales-management') || location.pathname === '/payroll') {
       setIsSalesManagementExpanded(true);
     }
     if (location.pathname === '/chats' || location.pathname === '/sms-messaging') {
