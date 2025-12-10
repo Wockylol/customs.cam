@@ -12,6 +12,7 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
   const { hasPin, isLocked, lockedUntil, loading, createPin, verifyPin } = useClientPin(clientId);
   
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const [showContent, setShowContent] = useState(false);
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [isConfirming, setIsConfirming] = useState(false);
@@ -36,15 +37,18 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
           if (now - unlockTime < thirtyMinutes) {
             // Update timestamp to extend the session
             sessionStorage.setItem(`pin_unlocked_${clientId}_timestamp`, now.toString());
+            setShowContent(true);
             setIsUnlocked(true);
           } else {
             // Expired - clear the storage
             sessionStorage.removeItem(`pin_unlocked_${clientId}`);
             sessionStorage.removeItem(`pin_unlocked_${clientId}_timestamp`);
             setIsUnlocked(false);
+            setShowContent(false);
           }
         } else {
           setIsUnlocked(false);
+          setShowContent(false);
         }
       } catch (e) {
         console.error('Error checking unlock state:', e);
@@ -103,6 +107,7 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
               sessionStorage.removeItem(`pin_unlocked_${clientId}`);
               sessionStorage.removeItem(`pin_unlocked_${clientId}_timestamp`);
               setIsUnlocked(false);
+              setShowContent(false);
             }
           }
         } catch (e) {
@@ -141,8 +146,9 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
                 console.error('Failed to store unlock state:', e);
               }
               setTimeout(() => {
-                setIsUnlocked(true);
-              }, 500);
+                setShowContent(true);
+                setTimeout(() => setIsUnlocked(true), 100);
+              }, 800);
             } else {
               setError(result.error || 'Incorrect PIN');
               setShake(true);
@@ -187,8 +193,9 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
                     console.error('Failed to store unlock state:', e);
                   }
                   setTimeout(() => {
-                    setIsUnlocked(true);
-                  }, 500);
+                    setShowContent(true);
+                    setTimeout(() => setIsUnlocked(true), 100);
+                  }, 800);
                 } else {
                   setError(result.error);
                   setShake(true);
@@ -249,8 +256,21 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
     );
   }
 
-  if (isUnlocked) {
-    return <>{children}</>;
+  // Show content with fade-in animation once unlocked
+  if (showContent) {
+    return (
+      <>
+        {/* Overlay to prevent flash during transition */}
+        {!isUnlocked && (
+          <div className="fixed inset-0 bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 z-50 animate-fade-out" />
+        )}
+        
+        {/* Content with fade-in */}
+        <div className={isUnlocked ? 'animate-fade-in-fast' : 'opacity-0'}>
+          {children}
+        </div>
+      </>
+    );
   }
 
   const currentPin = isConfirming ? confirmPin : pin;
@@ -402,6 +422,24 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
           }
         }
 
+        @keyframes fade-in-fast {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes fade-out {
+          from {
+            opacity: 1;
+          }
+          to {
+            opacity: 0;
+          }
+        }
+
         @keyframes scale-in {
           from {
             transform: scale(0);
@@ -425,6 +463,15 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
 
         .animate-fade-in {
           animation: fade-in 0.5s ease-out;
+        }
+
+        .animate-fade-in-fast {
+          animation: fade-in-fast 0.3s ease-out;
+        }
+
+        .animate-fade-out {
+          animation: fade-out 0.3s ease-out forwards;
+          pointer-events: none;
         }
 
         .animate-scale-in {
