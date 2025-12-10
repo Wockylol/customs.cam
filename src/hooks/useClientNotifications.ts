@@ -13,7 +13,7 @@ interface NotificationOptions {
   requireInteraction?: boolean;
 }
 
-export const useClientNotifications = (clientId?: string, clientUsername?: string) => {
+export const useClientNotifications = (clientId?: string) => {
   const permissionGranted = useRef(false);
   const lastNotificationTime = useRef<{ [key: string]: number }>({});
 
@@ -165,7 +165,7 @@ export const useClientNotifications = (clientId?: string, clientUsername?: strin
           table: 'client_scene_assignments',
           filter: `client_id=eq.${clientId}`,
         },
-        (payload) => {
+        () => {
           showNotification({
             title: '🎬 New Scene Assigned!',
             body: 'Your team assigned you a new content scene',
@@ -181,14 +181,10 @@ export const useClientNotifications = (clientId?: string, clientUsername?: strin
   }, [clientId, showNotification]);
 
   /**
-   * Request permission on mount (but don't be annoying about it)
+   * Request permission on mount (after short delay)
    */
   useEffect(() => {
-    // Only auto-request if user has visited before (lastVisit exists)
-    const lastVisitKey = clientId ? `lastVisit_${clientId}` : null;
-    const hasVisitedBefore = lastVisitKey && localStorage.getItem(lastVisitKey);
-    
-    if (hasVisitedBefore && Notification.permission === 'default') {
+    if (clientId && Notification.permission === 'default') {
       // Wait 5 seconds before asking
       const timer = setTimeout(() => {
         requestPermission();
