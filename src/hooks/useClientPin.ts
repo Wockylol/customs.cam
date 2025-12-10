@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { errorLogger } from '../lib/errorLogger';
 
 // Simple hash function for PIN (in production, consider using a proper crypto library)
 const hashPin = (pin: string): string => {
@@ -24,17 +25,30 @@ export const useClientPin = (clientId: string | undefined) => {
   const [loading, setLoading] = useState<boolean>(true);
 
   const checkPinExists = useCallback(async () => {
-    if (!clientId) return;
+    if (!clientId) {
+      setLoading(false);
+      return;
+    }
 
     try {
-      const { data, error } = await supabase
+      // Add timeout to database query
+      const queryPromise = supabase
         .from('client_pins')
         .select('id, failed_attempts, locked_until')
         .eq('client_id', clientId)
         .maybeSingle(); // Use maybeSingle() instead of single() to handle no rows gracefully
 
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Database query timeout')), 8000);
+      });
+
+      const { data, error } = await Promise.race([
+        queryPromise,
+        timeoutPromise
+      ]) as { data: any; error: any };
+
       if (error) {
-        console.error('Error checking PIN:', error);
+        errorLogger.log('pin_check_error', 'Error checking PIN', error);
         setLoading(false);
         return;
       }
@@ -54,7 +68,9 @@ export const useClientPin = (clientId: string | undefined) => {
         }
       }
     } catch (err) {
-      console.error('Error in checkPinExists:', err);
+      errorLogger.log('pin_check_error', 'Error in checkPinExists', err);
+      // On error, default to no PIN to allow access
+      setHasPin(false);
     } finally {
       setLoading(false);
     }
@@ -66,7 +82,20 @@ export const useClientPin = (clientId: string | undefined) => {
       return;
     }
 
-    checkPinExists();
+    // Add timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.warn('PIN check timed out after 10 seconds, defaulting to unlocked state');
+      setLoading(false);
+      setHasPin(false); // Default to no PIN if check times out
+    }, 10000); // 10 second timeout
+
+    checkPinExists().finally(() => {
+      clearTimeout(timeoutId);
+    });
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
   }, [clientId, checkPinExists]);
 
   const createPin = async (pin: string): Promise<{ error: string | null }> => {
