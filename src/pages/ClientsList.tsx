@@ -13,6 +13,7 @@ import { useClientPlatforms } from '../hooks/useClientPlatforms';
 import { usePlatforms } from '../hooks/usePlatforms';
 import { useCustomRequests } from '../hooks/useCustomRequests';
 import { useChatterAssignments } from '../hooks/useChatterAssignments';
+import { useImagePreloader } from '../hooks/useImagePreloader';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -28,6 +29,9 @@ const ClientsList: React.FC = () => {
   const [sortField, setSortField] = useState<'customCount' | 'totalPaid' | 'totalPending' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const { clients, loading, error, addClient, updateClient, deleteClient } = useClients();
+  
+  // Preload all client avatars for faster rendering
+  useImagePreloader(clients.map(c => c.avatar_url));
   const { platforms } = usePlatforms();
   const { customRequests } = useCustomRequests();
   const { assignments } = useChatterAssignments();
