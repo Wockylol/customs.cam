@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Building2 } from 'lucide-react';
 import { useAgencies } from '../../hooks/useAgencies';
 
 interface AddClientModalProps {
@@ -115,20 +115,25 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose, onSubm
               <label htmlFor="agencyId" className="block text-sm font-medium text-gray-700 mb-1">
                 Agency (Optional)
               </label>
-              <select
-                id="agencyId"
-                value={formData.agencyId}
-                onChange={(e) => setFormData({ ...formData, agencyId: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={loading}
-              >
-                <option value="">No agency</option>
-                {agencies.map((agency) => (
-                  <option key={agency.id} value={agency.id}>
-                    {agency.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-600 z-10 pointer-events-none" />
+                <div className="pl-8">
+                  <select
+                    id="agencyId"
+                    value={formData.agencyId}
+                    onChange={(e) => setFormData({ ...formData, agencyId: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={loading}
+                  >
+                    <option value="">No agency</option>
+                    {agencies.map((agency) => (
+                      <option key={agency.id} value={agency.id}>
+                        {agency.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
 
             <div>
