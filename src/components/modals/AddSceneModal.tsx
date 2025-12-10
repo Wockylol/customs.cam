@@ -10,9 +10,10 @@ interface AddSceneModalProps {
   onClose: () => void;
   onSuccess?: () => void;
   scene?: any; // For editing existing scene
+  viewOnly?: boolean; // For read-only view mode
 }
 
-const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSuccess, scene }) => {
+const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSuccess, scene, viewOnly = false }) => {
   const { createScene, updateScene } = useContentScenes();
   const { examples, uploadExamples, deleteExample } = useSceneExamples(scene?.id);
   const [title, setTitle] = useState('');
@@ -453,9 +454,9 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-4">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              {scene ? 'Edit Scene' : 'Create New Scene'}
+              {viewOnly ? 'View Scene' : scene ? 'Edit Scene' : 'Create New Scene'}
             </h2>
-            {!scene && (
+            {!scene && !viewOnly && (
               <>
                 <label className="cursor-pointer">
                   <span className="flex items-center px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm rounded-lg transition-colors">
@@ -499,9 +500,10 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
                 placeholder="e.g., Bedroom Fantasy Scene"
                 required
+                disabled={viewOnly}
               />
             </div>
 
@@ -514,8 +516,9 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
                   type="text"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
                   placeholder="e.g., Bedroom, Living room"
+                  disabled={viewOnly}
                 />
               </div>
 
@@ -527,8 +530,9 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
                   type="text"
                   value={props}
                   onChange={(e) => setProps(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
                   placeholder="e.g., Toy, lingerie, candles"
+                  disabled={viewOnly}
                 />
               </div>
             </div>
@@ -545,19 +549,21 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
                   Scene-level reference shown before instructions
                 </p>
               </div>
-              <label className="cursor-pointer">
-                <span className="flex items-center px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors">
-                  <Upload className="w-4 h-4 mr-1" />
-                  Add Examples
-                </span>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*,video/*"
-                  onChange={handleExampleFileChange}
-                  className="hidden"
-                />
-              </label>
+              {!viewOnly && (
+                <label className="cursor-pointer">
+                  <span className="flex items-center px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors">
+                    <Upload className="w-4 h-4 mr-1" />
+                    Add Examples
+                  </span>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,video/*"
+                    onChange={handleExampleFileChange}
+                    className="hidden"
+                  />
+                </label>
+              )}
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Upload example images or videos showing the overall scene aesthetic (lighting, setup, positioning). Shown to clients before step-by-step instructions as general reference.
@@ -581,13 +587,15 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
                           <Video className="w-8 h-8 text-gray-400" />
                         </div>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteExample(example.id, example.file_path)}
-                        className="absolute top-1 right-1 p-1 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="w-3 h-3 text-white" />
-                      </button>
+                      {!viewOnly && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteExample(example.id, example.file_path)}
+                          className="absolute top-1 right-1 p-1 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3 text-white" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -641,24 +649,26 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Instructions *
               </label>
-              <div className="flex space-x-2">
-                <button
-                  type="button"
-                  onClick={() => addInstruction('video')}
-                  className="flex items-center px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors"
-                >
-                  <Video className="w-4 h-4 mr-1" />
-                  Add Video
-                </button>
-                <button
-                  type="button"
-                  onClick={() => addInstruction('photo')}
-                  className="flex items-center px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors"
-                >
-                  <ImageIcon className="w-4 h-4 mr-1" />
-                  Add Photo
-                </button>
-              </div>
+              {!viewOnly && (
+                <div className="flex space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => addInstruction('video')}
+                    className="flex items-center px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors"
+                  >
+                    <Video className="w-4 h-4 mr-1" />
+                    Add Video
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addInstruction('photo')}
+                    className="flex items-center px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors"
+                  >
+                    <ImageIcon className="w-4 h-4 mr-1" />
+                    Add Photo
+                  </button>
+                </div>
+              )}
             </div>
 
             {instructions.length === 0 ? (
@@ -690,21 +700,23 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
                 {instructions.map((instruction, index) => (
                   <div
                     key={index}
-                    draggable
-                    onDragStart={() => handleDragStart(index)}
-                    onDragOver={(e) => handleDragOver(e, index)}
+                    draggable={!viewOnly}
+                    onDragStart={() => !viewOnly && handleDragStart(index)}
+                    onDragOver={(e) => !viewOnly && handleDragOver(e, index)}
                     onDragEnd={handleDragEnd}
                     className={`bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4 ${
                       draggedIndex === index ? 'opacity-50' : ''
                     }`}
                   >
                     <div className="flex items-start space-x-3">
-                      <button
-                        type="button"
-                        className="mt-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-move"
-                      >
-                        <GripVertical className="w-5 h-5" />
-                      </button>
+                      {!viewOnly && (
+                        <button
+                          type="button"
+                          className="mt-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-move"
+                        >
+                          <GripVertical className="w-5 h-5" />
+                        </button>
+                      )}
 
                       <div className="flex-1 space-y-3">
                         <div className="flex items-center space-x-3">
@@ -726,8 +738,9 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
                               type="text"
                               value={instruction.duration || ''}
                               onChange={(e) => updateInstruction(index, 'duration', e.target.value)}
-                              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm w-32"
+                              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm w-32 disabled:opacity-60 disabled:cursor-not-allowed"
                               placeholder="0:15-0:20"
+                              disabled={viewOnly}
                             />
                           )}
                         </div>
@@ -735,20 +748,23 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
                         <textarea
                           value={instruction.description}
                           onChange={(e) => updateInstruction(index, 'description', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                           placeholder="Describe what the client should do in this step..."
                           rows={3}
                           required
+                          disabled={viewOnly}
                         />
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => removeInstruction(index)}
-                        className="mt-2 text-red-500 hover:text-red-700 dark:hover:text-red-400"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                      {!viewOnly && (
+                        <button
+                          type="button"
+                          onClick={() => removeInstruction(index)}
+                          className="mt-2 text-red-500 hover:text-red-700 dark:hover:text-red-400"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -757,44 +773,58 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
           </div>
 
           {/* Settings */}
-          <div className="space-y-3 border-t border-gray-200 dark:border-gray-700 pt-4">
-            <label className="flex items-center space-x-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isTemplate}
-                onChange={(e) => setIsTemplate(e.target.checked)}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                Save as reusable template
-              </span>
-            </label>
+          {!viewOnly && (
+            <div className="space-y-3 border-t border-gray-200 dark:border-gray-700 pt-4">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isTemplate}
+                  onChange={(e) => setIsTemplate(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Save as reusable template
+                </span>
+              </label>
 
-            <label className="flex items-center space-x-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isDefaultForNewClients}
-                onChange={(e) => setIsDefaultForNewClients(e.target.checked)}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                Auto-assign to new clients (future feature)
-              </span>
-            </label>
-          </div>
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isDefaultForNewClients}
+                  onChange={(e) => setIsDefaultForNewClients(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Auto-assign to new clients (future feature)
+                </span>
+              </label>
+            </div>
+          )}
 
           {/* Footer */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              Cancel
-            </button>
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Saving...' : scene ? 'Update Scene' : 'Create Scene'}
-            </Button>
+            {viewOnly ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <Button type="submit" disabled={saving}>
+                  {saving ? 'Saving...' : scene ? 'Update Scene' : 'Create Scene'}
+                </Button>
+              </>
+            )}
           </div>
         </form>
       </div>
