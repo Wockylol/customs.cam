@@ -248,7 +248,7 @@ const MobileClientView: React.FC = () => {
 
   return (
     <MobilePinLock clientId={client.id} clientUsername={clientUsername || ''}>
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Confetti Effect */}
       {showConfetti && (
         <div className="fixed inset-0 pointer-events-none z-50">
@@ -257,19 +257,15 @@ const MobileClientView: React.FC = () => {
       )}
 
       {/* Header Section */}
-      <div className="relative overflow-hidden ios-hero safe-area-pt">
+      <div className="relative overflow-hidden safe-area-pt">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500"></div>
-        <div className="absolute inset-0 bg-black opacity-10"></div>
-        <div className={`relative px-4 transition-all duration-500 ease-in-out ${
-          activeFilter === 'pending_approval' || activeFilter === 'needs_upload' || activeFilter === 'settings' || activeFilter === 'content_scenes'
-            ? 'pt-4 pb-2'
-            : 'pt-12 pb-8'
+        <div className="absolute inset-0 bg-black opacity-5"></div>
+        <div className={`relative px-5 transition-all duration-300 ease-in-out ${
+          activeFilter !== 'all' ? 'pt-5 pb-4' : 'pt-8 pb-6'
         }`}>
-          <div className="flex items-center mb-6">
-            <div className={`bg-white bg-opacity-20 backdrop-blur-sm rounded-full flex items-center justify-center mr-4 transition-all duration-500 ease-in-out overflow-hidden ${
-              activeFilter === 'pending_approval' || activeFilter === 'needs_upload' || activeFilter === 'settings' || activeFilter === 'content_scenes'
-                ? 'w-12 h-12'
-                : 'w-16 h-16'
+          <div className="flex items-center mb-5">
+            <div className={`bg-white bg-opacity-25 backdrop-blur-sm rounded-full flex items-center justify-center mr-4 transition-all duration-300 ease-in-out overflow-hidden shadow-lg ${
+              activeFilter !== 'all' ? 'w-14 h-14' : 'w-20 h-20'
             }`}>
               {client.avatar_url ? (
                 <img
@@ -297,7 +293,7 @@ const MobileClientView: React.FC = () => {
               )}
             </div>
             <div className="flex-1">
-              <h1 className={`font-bold text-white mb-1 transition-all duration-500 ease-in-out ${
+              <h1 className={`font-bold text-white mb-1.5 tracking-tight transition-all duration-300 ease-in-out ${
                 activeFilter !== 'all' ? 'text-xl' : 'text-2xl'
               }`}>
                 {activeFilter === 'customs' ? 'Custom Requests' :
@@ -322,17 +318,17 @@ const MobileClientView: React.FC = () => {
 
           {/* Earnings Pills */}
           {activeFilter === 'all' && (
-            <div className="flex space-x-3 mb-6">
-              <div className="stagger-item ios-pill px-4 py-2 flex-1 hover:scale-105 transition-transform duration-200" style={{ animationDelay: '0.1s' }}>
+            <div className="flex space-x-3">
+              <div className="stagger-item bg-white bg-opacity-25 backdrop-blur-sm rounded-2xl px-4 py-3 flex-1 shadow-lg" style={{ animationDelay: '0.1s' }}>
                 <div className="text-center">
-                  <div className="text-gray-900 font-extrabold text-lg transition-all duration-300">${totalEarned.toFixed(0)}</div>
-                  <div className="text-gray-500 text-xs font-medium">Total Earned</div>
+                  <div className="text-white font-bold text-xl tracking-tight">${totalEarned.toFixed(0)}</div>
+                  <div className="text-white text-xs opacity-90 font-medium mt-0.5">Total Earned</div>
                 </div>
               </div>
-              <div className="stagger-item ios-pill px-4 py-2 flex-1 hover:scale-105 transition-transform duration-200" style={{ animationDelay: '0.15s' }}>
+              <div className="stagger-item bg-white bg-opacity-25 backdrop-blur-sm rounded-2xl px-4 py-3 flex-1 shadow-lg" style={{ animationDelay: '0.15s' }}>
                 <div className="text-center">
-                  <div className="text-gray-900 font-extrabold text-lg transition-all duration-300">${pendingEarnings.toFixed(0)}</div>
-                  <div className="text-gray-500 text-xs font-medium">Pending</div>
+                  <div className="text-white font-bold text-xl tracking-tight">${pendingEarnings.toFixed(0)}</div>
+                  <div className="text-white text-xs opacity-90 font-medium mt-0.5">Pending</div>
                 </div>
               </div>
             </div>
@@ -342,7 +338,7 @@ const MobileClientView: React.FC = () => {
 
       {/* Priority Feed - Replaces Quick Action Tiles */}
       {activeFilter === 'all' && (
-        <div className="px-4 -mt-4 mb-6">
+        <div className="px-5 -mt-4 mb-6">
           <PriorityFeed 
             items={priorityFeedItems}
             totalEarned={totalEarned}
@@ -354,7 +350,7 @@ const MobileClientView: React.FC = () => {
       {/* Active Filter Indicator */}
 
       {/* Content Feed */}
-      <div className={`px-4 pb-24 transition-all duration-300 ${activeFilter !== 'all' ? 'mt-4' : ''}`}>
+      <div className={`px-5 pb-24 transition-all duration-300 ${activeFilter !== 'all' ? 'mt-4' : ''}`}>
         <div className="page-transition-enter" key={activeFilter}>
         {activeFilter === 'settings' ? (
           <div className="animate-fade-in-scale">
@@ -367,14 +363,14 @@ const MobileClientView: React.FC = () => {
         ) : activeFilter === 'customs' ? (
           // Customs Tab - Show all custom requests as priority cards
           filteredCustoms.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 shadow-lg text-center animate-bounce-in">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-float">
-                <Sparkles className="w-8 h-8 text-purple-500" />
+            <div className="bg-white rounded-2xl p-8 shadow-sm text-center animate-bounce-in">
+              <div className="w-16 h-16 bg-purple-50 border-2 border-purple-200 rounded-full flex items-center justify-center mx-auto mb-4 animate-float">
+                <Sparkles className="w-7 h-7 text-purple-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                No customs yet! ✨
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                No customs yet
               </h3>
-              <p className="text-gray-600 text-sm">
+              <p className="text-gray-600 text-sm leading-relaxed">
                 Custom requests will appear here when fans place orders
               </p>
             </div>
@@ -402,14 +398,14 @@ const MobileClientView: React.FC = () => {
         ) : activeFilter === 'scenes' ? (
           // Scenes Tab - Show all scene assignments
           filteredScenes.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 shadow-lg text-center animate-bounce-in">
-              <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-red-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-float">
-                <Sparkles className="w-8 h-8 text-orange-500" />
+            <div className="bg-white rounded-2xl p-8 shadow-sm text-center animate-bounce-in">
+              <div className="w-16 h-16 bg-orange-50 border-2 border-orange-200 rounded-full flex items-center justify-center mx-auto mb-4 animate-float">
+                <CheckCircle className="w-7 h-7 text-orange-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                No content scenes yet! 📹
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                No content scenes yet
               </h3>
-              <p className="text-gray-600 text-sm">
+              <p className="text-gray-600 text-sm leading-relaxed">
                 Your team will assign content scenes for you to work on
               </p>
             </div>
@@ -432,31 +428,37 @@ const MobileClientView: React.FC = () => {
       </div>
 
       {/* Bottom Navigation - Type-Based Organization */}
-      <div className="fixed bottom-0 left-0 right-0 ios-tabbar px-4 py-2 safe-area-pb shadow-[0_-6px_20px_rgba(16,24,40,0.08)] animate-slide-down z-40">
+      <div className="fixed bottom-0 left-0 right-0 bg-white px-5 py-3 safe-area-pb shadow-[0_-2px_16px_rgba(0,0,0,0.08)] z-40">
         <div className="flex justify-around items-center">
           {/* Home - Priority Feed */}
           <button 
             onClick={() => setActiveFilter('all')}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-all duration-300 transform hover:scale-110 active:scale-95 ${
-              activeFilter === 'all' ? 'text-purple-600 bg-purple-50' : 'text-gray-600'
+            className={`flex flex-col items-center py-2 px-4 rounded-xl transition-all duration-200 relative ${
+              activeFilter === 'all' ? 'text-pink-600' : 'text-gray-500'
             }`}
           >
-            <Home className={`w-5 h-5 mb-1 transition-transform duration-200 ${activeFilter === 'all' ? 'scale-110' : ''}`} />
-            <span className="text-xs font-medium">Home</span>
+            <Home className={`w-5 h-5 mb-1 ${activeFilter === 'all' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+            <span className={`text-xs ${activeFilter === 'all' ? 'font-semibold' : 'font-medium'}`}>Home</span>
+            {activeFilter === 'all' && (
+              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-12 h-1 bg-pink-600 rounded-full"></div>
+            )}
           </button>
           
           {/* Customs - All Custom Requests */}
           <button 
             onClick={() => setActiveFilter('customs')}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-all duration-300 transform hover:scale-110 active:scale-95 relative ${
-              activeFilter === 'customs' ? 'text-pink-600 bg-pink-50' : 'text-gray-600'
+            className={`flex flex-col items-center py-2 px-4 rounded-xl transition-all duration-200 relative ${
+              activeFilter === 'customs' ? 'text-pink-600' : 'text-gray-500'
             }`}
           >
-            <Sparkles className={`w-5 h-5 mb-1 transition-transform duration-200 ${activeFilter === 'customs' ? 'scale-110' : ''}`} />
-            <span className="text-xs font-medium">Customs</span>
+            <Sparkles className={`w-5 h-5 mb-1 ${activeFilter === 'customs' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+            <span className={`text-xs ${activeFilter === 'customs' ? 'font-semibold' : 'font-medium'}`}>Customs</span>
+            {activeFilter === 'customs' && (
+              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-12 h-1 bg-pink-600 rounded-full"></div>
+            )}
             {(pendingApproval.length + needsUpload.length) > 0 && (
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-pink-500 rounded-full flex items-center justify-center">
-                <span className="text-xs font-bold text-white">{pendingApproval.length + needsUpload.length}</span>
+              <div className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full flex items-center justify-center border-2 border-white">
+                <span className="text-[10px] font-bold text-white">{pendingApproval.length + needsUpload.length}</span>
               </div>
             )}
           </button>
@@ -464,15 +466,18 @@ const MobileClientView: React.FC = () => {
           {/* Scenes - Content Scene Assignments */}
           <button 
             onClick={() => setActiveFilter('scenes')}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-all duration-300 transform hover:scale-110 active:scale-95 relative ${
-              activeFilter === 'scenes' ? 'text-orange-600 bg-orange-50' : 'text-gray-600'
+            className={`flex flex-col items-center py-2 px-4 rounded-xl transition-all duration-200 relative ${
+              activeFilter === 'scenes' ? 'text-pink-600' : 'text-gray-500'
             }`}
           >
-            <CheckCircle className={`w-5 h-5 mb-1 transition-transform duration-200 ${activeFilter === 'scenes' ? 'scale-110' : ''}`} />
-            <span className="text-xs font-medium">Scenes</span>
+            <CheckCircle className={`w-5 h-5 mb-1 ${activeFilter === 'scenes' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+            <span className={`text-xs ${activeFilter === 'scenes' ? 'font-semibold' : 'font-medium'}`}>Scenes</span>
+            {activeFilter === 'scenes' && (
+              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-12 h-1 bg-pink-600 rounded-full"></div>
+            )}
             {pendingScenes.length > 0 && (
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
-                <span className="text-xs font-bold text-white">{pendingScenes.length}</span>
+              <div className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full flex items-center justify-center border-2 border-white">
+                <span className="text-[10px] font-bold text-white">{pendingScenes.length}</span>
               </div>
             )}
           </button>
@@ -480,12 +485,15 @@ const MobileClientView: React.FC = () => {
           {/* Settings */}
           <button 
             onClick={() => setActiveFilter('settings')}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-all duration-300 transform hover:scale-110 active:scale-95 ${
-              activeFilter === 'settings' ? 'text-gray-600 bg-gray-50' : 'text-gray-600'
+            className={`flex flex-col items-center py-2 px-4 rounded-xl transition-all duration-200 relative ${
+              activeFilter === 'settings' ? 'text-pink-600' : 'text-gray-500'
             }`}
           >
-            <Settings className={`w-5 h-5 mb-1 transition-transform duration-200 ${activeFilter === 'settings' ? 'scale-110 rotate-90' : ''}`} />
-            <span className="text-xs font-medium">Settings</span>
+            <Settings className={`w-5 h-5 mb-1 ${activeFilter === 'settings' ? 'stroke-[2.5] rotate-90' : 'stroke-2'}`} />
+            <span className={`text-xs ${activeFilter === 'settings' ? 'font-semibold' : 'font-medium'}`}>Settings</span>
+            {activeFilter === 'settings' && (
+              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-12 h-1 bg-pink-600 rounded-full"></div>
+            )}
           </button>
         </div>
       </div>
