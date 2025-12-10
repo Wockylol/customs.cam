@@ -3,6 +3,7 @@ import { DollarSign, Calendar, Plus, Edit2, Users, Award } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import AddBonusModal from '../components/modals/AddBonusModal';
 import EditPayrollSettingsModal from '../components/modals/EditPayrollSettingsModal';
+import ModernSelect from '../components/ui/ModernSelect';
 import { usePayroll } from '../hooks/usePayroll';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -28,7 +29,17 @@ const PayrollSheet: React.FC = () => {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
+  const monthOptions = months.map((month, index) => ({
+    value: index + 1,
+    label: month,
+  }));
+
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
+  
+  const yearOptions = years.map((year) => ({
+    value: year,
+    label: year.toString(),
+  }));
 
   // Only admins can view this page
   if (teamMember?.role !== 'admin') {
@@ -147,29 +158,21 @@ const PayrollSheet: React.FC = () => {
 
             {/* Month/Year Selector */}
             <div className="flex items-center space-x-3">
-              <Calendar className="w-5 h-5" />
-              <select
+              <div className="w-10 h-10 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <ModernSelect
                 value={selectedMonth}
-                onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                className="bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
-              >
-                {months.map((month, index) => (
-                  <option key={index} value={index + 1} className="text-gray-900">
-                    {month}
-                  </option>
-                ))}
-              </select>
-              <select
+                onChange={(value) => setSelectedMonth(Number(value))}
+                options={monthOptions}
+                className="w-40"
+              />
+              <ModernSelect
                 value={selectedYear}
-                onChange={(e) => setSelectedYear(Number(e.target.value))}
-                className="bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
-              >
-                {years.map((year) => (
-                  <option key={year} value={year} className="text-gray-900">
-                    {year}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => setSelectedYear(Number(value))}
+                options={yearOptions}
+                className="w-28"
+              />
             </div>
           </div>
 
