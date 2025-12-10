@@ -15,7 +15,6 @@ import { useClients } from '../hooks/useClients';
 import { useClientPreferences } from '../hooks/useClientPreferences';
 import { useContentScenes } from '../hooks/useContentScenes';
 import { Database } from '../lib/database.types';
-import MobileCustomCard from '../components/ui/MobileCustomCard';
 import MobileApprovalModal from '../components/modals/MobileApprovalModal';
 import MobileUploadModal from '../components/modals/MobileUploadModal';
 import MobileSettingsView from '../components/ui/MobileSettingsView';
@@ -78,14 +77,9 @@ const MobileClientView: React.FC = () => {
     return status === 'pending' || status === 'pending_client_approval';
   });
   const needsUpload = allClientCustoms.filter(c => c.status === 'in_progress');
-  const completedCustoms = allClientCustoms.filter(c => {
-    const status = (c as any).status;
-    return status === 'completed' || status === 'delivered';
-  });
 
   // Scene metrics
   const pendingScenes = clientSceneAssignments.filter(a => a.status === 'pending');
-  const completedScenes = clientSceneAssignments.filter(a => a.status === 'completed');
 
   // Load client scene assignments
   useEffect(() => {
@@ -118,25 +112,29 @@ const MobileClientView: React.FC = () => {
   // Filter customs based on active filter
   const getFilteredCustoms = () => {
     switch (activeFilter) {
-      case 'pending_approval':
-        return pendingApproval;
-      case 'needs_upload':
-        return needsUpload;
+      case 'customs':
+        // Show all customs (pending approval + needs upload + completed)
+        return allClientCustoms;
+      case 'scenes':
+        return [];
       case 'settings':
         return [];
-      case 'content_scenes':
-        return [];
-      case 'work':
-        // Show all pending work (approvals + uploads)
-        return [...pendingApproval, ...needsUpload];
-      case 'done':
-        return completedCustoms;
       default:
-        return allClientCustoms.filter(c => (c as any).status !== 'delivered');
+        return [];
     }
   };
 
   const filteredCustoms = getFilteredCustoms();
+  
+  // Get filtered scenes for scenes tab
+  const getFilteredScenes = () => {
+    if (activeFilter === 'scenes') {
+      return clientSceneAssignments;
+    }
+    return [];
+  };
+  
+  const filteredScenes = getFilteredScenes();
 
   const loading = customsLoading || clientsLoading || preferencesLoading || scenesLoading;
   const error = customsError || clientsError;
@@ -312,31 +310,21 @@ const MobileClientView: React.FC = () => {
             </div>
             <div className="flex-1">
               <h1 className={`font-bold text-white mb-1 transition-all duration-500 ease-in-out ${
-                activeFilter === 'pending_approval' || activeFilter === 'needs_upload' || activeFilter === 'settings' || activeFilter === 'content_scenes' || activeFilter === 'done'
-                  ? 'text-xl'
-                  : 'text-2xl'
+                activeFilter !== 'all' ? 'text-xl' : 'text-2xl'
               }`}>
-                {activeFilter === 'pending_approval' ? 'Pending Requests' :
-                 activeFilter === 'needs_upload' ? 'Ready to Upload' :
+                {activeFilter === 'customs' ? 'Custom Requests' :
+                 activeFilter === 'scenes' ? 'Content Scenes' :
                  activeFilter === 'settings' ? 'Settings' :
-                 activeFilter === 'content_scenes' ? 'Content Scenes' :
-                 activeFilter === 'done' ? 'Completed Work' :
                  `Hey @${client.username}! 👋`}
               </h1>
               {activeFilter === 'all' ? (
                 <StatusLine itemCount={totalActionableItems} lastVisit={lastVisit} />
               ) : (
-                <p className={`text-pink-100 text-sm transition-all duration-500 ease-in-out ${
-                  activeFilter === 'pending_approval' || activeFilter === 'needs_upload' || activeFilter === 'settings' || activeFilter === 'content_scenes' || activeFilter === 'done'
-                    ? 'opacity-100'
-                    : 'opacity-90'
-                }`}>
-                  {activeFilter === 'pending_approval' ? `${pendingApproval.length} request${pendingApproval.length !== 1 ? 's' : ''} need${pendingApproval.length === 1 ? 's' : ''} your approval` :
-                   activeFilter === 'needs_upload' ? `${needsUpload.length} custom${needsUpload.length !== 1 ? 's' : ''} ready for content` :
+                <p className={`text-pink-100 text-sm transition-all duration-500 ease-in-out opacity-100`}>
+                  {activeFilter === 'customs' ? `${allClientCustoms.length} custom${allClientCustoms.length !== 1 ? 's' : ''} total` :
+                   activeFilter === 'scenes' ? `${clientSceneAssignments.length} scene${clientSceneAssignments.length !== 1 ? 's' : ''} assigned` :
                    activeFilter === 'settings' ? 'Manage your preferences and pricing' :
-                 activeFilter === 'content_scenes' ? `${clientSceneAssignments.length} scene${clientSceneAssignments.length !== 1 ? 's' : ''} assigned to you` :
-                 activeFilter === 'done' ? `${completedScenes.length + completedCustoms.length} completed items` :
-                   `You've got ${pendingApproval.length + needsUpload.length} customs waiting`}
+                   ''}
                 </p>
               )}
             </div>
@@ -371,15 +359,14 @@ const MobileClientView: React.FC = () => {
             items={priorityFeedItems}
             totalEarned={totalEarned}
             onNavigateSettings={() => setActiveFilter('settings')}
-            onNavigateCompleted={() => setActiveFilter('done')}
           />
         </div>
       )}
 
       {/* Active Filter Indicator */}
 
-      {/* Requests Feed */}
-      <div className={`px-4 pb-24 transition-all duration-300 ${activeFilter === 'pending_approval' || activeFilter === 'needs_upload' || activeFilter === 'settings' || activeFilter === 'content_scenes' || activeFilter === 'work' || activeFilter === 'done' ? 'mt-4' : ''}`}>
+      {/* Content Feed */}
+      <div className={`px-4 pb-24 transition-all duration-300 ${activeFilter !== 'all' ? 'mt-4' : ''}`}>
         <div className="page-transition-enter" key={activeFilter}>
         {activeFilter === 'settings' ? (
           <div className="animate-fade-in-scale">
@@ -389,8 +376,44 @@ const MobileClientView: React.FC = () => {
               onSave={handleSavePreferences}
             />
           </div>
-        ) : activeFilter === 'content_scenes' ? (
-          clientSceneAssignments.length === 0 ? (
+        ) : activeFilter === 'customs' ? (
+          // Customs Tab - Show all custom requests as priority cards
+          filteredCustoms.length === 0 ? (
+            <div className="bg-white rounded-2xl p-8 shadow-lg text-center animate-bounce-in">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-float">
+                <Sparkles className="w-8 h-8 text-purple-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No customs yet! ✨
+              </h3>
+              <p className="text-gray-600 text-sm">
+                Custom requests will appear here when fans place orders
+              </p>
+            </div>
+          ) : (
+            <PriorityFeed 
+              items={priorityEngine.processFeed(
+                filteredCustoms,
+                [],
+                {
+                  onCustomAction: (custom) => {
+                    const status = (custom as any).status;
+                    if (status === 'pending' || status === 'pending_client_approval') {
+                      handleApprovalClick(custom);
+                    } else if (custom.status === 'in_progress') {
+                      handleUploadClick(custom);
+                    }
+                  },
+                  onSceneAction: () => {}
+                }
+              )}
+              totalEarned={totalEarned}
+              maxVisibleItems={50}
+            />
+          )
+        ) : activeFilter === 'scenes' ? (
+          // Scenes Tab - Show all scene assignments
+          filteredScenes.length === 0 ? (
             <div className="bg-white rounded-2xl p-8 shadow-lg text-center animate-bounce-in">
               <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-red-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-float">
                 <Sparkles className="w-8 h-8 text-orange-500" />
@@ -399,13 +422,13 @@ const MobileClientView: React.FC = () => {
                 No content scenes yet! 📹
               </h3>
               <p className="text-gray-600 text-sm">
-                Your team will assign content scenes for you to work on. Check back soon!
+                Your team will assign content scenes for you to work on
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {clientSceneAssignments.map((assignment, index) => (
-                <div key={assignment.id} className="stagger-item" style={{ animationDelay: `${index * 0.1}s` }}>
+              {filteredScenes.map((assignment, index) => (
+                <div key={assignment.id} className="stagger-item" style={{ animationDelay: `${index * 0.08}s` }}>
                   <MobileSceneCard
                     assignment={assignment}
                     scene={assignment.content_scenes}
@@ -416,125 +439,14 @@ const MobileClientView: React.FC = () => {
               ))}
             </div>
           )
-        ) : activeFilter === 'work' ? (
-          // Combined Work View - Shows both customs and scenes
-          <div className="space-y-4">
-            {/* Show customs first */}
-            {filteredCustoms.map((custom, index) => (
-              <div key={custom.id} className="stagger-item" style={{ animationDelay: `${index * 0.08}s` }}>
-                <MobileCustomCard
-                  custom={custom}
-                  onApprove={() => handleApprovalClick(custom)}
-                  onUpload={() => handleUploadClick(custom)}
-                  onMarkComplete={() => handleMarkComplete(custom.id)}
-                />
-              </div>
-            ))}
-            
-            {/* Show pending scenes */}
-            {pendingScenes.map((assignment, index) => (
-              <div key={assignment.id} className="stagger-item" style={{ animationDelay: `${(filteredCustoms.length + index) * 0.08}s` }}>
-                <MobileSceneCard
-                  assignment={assignment}
-                  scene={assignment.content_scenes}
-                  onUploadClick={(stepIndex) => handleSceneUploadClick(assignment, assignment.content_scenes, stepIndex)}
-                  onMarkComplete={() => handleMarkSceneComplete(assignment.id)}
-                />
-              </div>
-            ))}
-            
-            {/* Empty state for work view */}
-            {filteredCustoms.length === 0 && pendingScenes.length === 0 && (
-              <div className="bg-white rounded-2xl p-8 shadow-lg text-center animate-bounce-in">
-                <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-float">
-                  <CheckCircle className="w-8 h-8 text-green-500" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  All caught up! ✨
-                </h3>
-                <p className="text-gray-600 text-sm">
-                  No pending work right now. Great job!
-                </p>
-              </div>
-            )}
-          </div>
-        ) : activeFilter === 'done' ? (
-          // Completed Work View
-          <div className="space-y-4">
-            {/* Show completed scenes */}
-            {completedScenes.map((assignment, index) => (
-              <div key={assignment.id} className="stagger-item" style={{ animationDelay: `${index * 0.08}s` }}>
-                <MobileSceneCard
-                  assignment={assignment}
-                  scene={assignment.content_scenes}
-                  onUploadClick={(stepIndex) => handleSceneUploadClick(assignment, assignment.content_scenes, stepIndex)}
-                  onMarkComplete={() => handleMarkSceneComplete(assignment.id)}
-                />
-              </div>
-            ))}
-            
-            {/* Show delivered customs */}
-            {completedCustoms.map((custom, index) => (
-              <div key={custom.id} className="stagger-item" style={{ animationDelay: `${(completedScenes.length + index) * 0.08}s` }}>
-                <MobileCustomCard
-                  custom={custom}
-                  onApprove={() => handleApprovalClick(custom)}
-                  onUpload={() => handleUploadClick(custom)}
-                  onMarkComplete={() => handleMarkComplete(custom.id)}
-                />
-              </div>
-            ))}
-            
-            {/* Empty state for done view */}
-            {completedScenes.length === 0 && completedCustoms.length === 0 && (
-              <div className="bg-white rounded-2xl p-8 shadow-lg text-center animate-bounce-in">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-float">
-                  <Sparkles className="w-8 h-8 text-purple-500" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  No completed work yet
-                </h3>
-                <p className="text-gray-600 text-sm">
-                  Completed customs and scenes will appear here
-                </p>
-              </div>
-            )}
-          </div>
-        ) : filteredCustoms.length === 0 ? (
-          <div className="bg-white rounded-2xl p-8 shadow-lg text-center animate-bounce-in">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-float">
-              <Sparkles className="w-8 h-8 text-purple-500" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {activeFilter === 'all' ? 'All caught up! ✨' : 'Nothing here yet!'}
-            </h3>
-            <p className="text-gray-600 text-sm">
-              {activeFilter === 'all' 
-                ? 'No active customs right now. Time to relax!' 
-                : 'No items in this category right now.'}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredCustoms.map((custom, index) => (
-              <div key={custom.id} className="stagger-item" style={{ animationDelay: `${index * 0.08}s` }}>
-                <MobileCustomCard
-                  custom={custom}
-                  onApprove={() => handleApprovalClick(custom)}
-                  onUpload={() => handleUploadClick(custom)}
-                  onMarkComplete={() => handleMarkComplete(custom.id)}
-                />
-              </div>
-            ))}
-          </div>
-        )}
+        ) : null}
         </div>
       </div>
 
-      {/* Bottom Navigation - Simplified */}
+      {/* Bottom Navigation - Type-Based Organization */}
       <div className="fixed bottom-0 left-0 right-0 ios-tabbar px-4 py-2 safe-area-pb shadow-[0_-6px_20px_rgba(16,24,40,0.08)] animate-slide-down z-40">
         <div className="flex justify-around items-center">
-          {/* Home */}
+          {/* Home - Priority Feed */}
           <button 
             onClick={() => setActiveFilter('all')}
             className={`flex flex-col items-center py-2 px-3 rounded-lg transition-all duration-300 transform hover:scale-110 active:scale-95 ${
@@ -545,31 +457,36 @@ const MobileClientView: React.FC = () => {
             <span className="text-xs font-medium">Home</span>
           </button>
           
-          {/* Work - Combines customs + scenes */}
+          {/* Customs - All Custom Requests */}
           <button 
-            onClick={() => setActiveFilter('work')}
+            onClick={() => setActiveFilter('customs')}
             className={`flex flex-col items-center py-2 px-3 rounded-lg transition-all duration-300 transform hover:scale-110 active:scale-95 relative ${
-              activeFilter === 'work' || activeFilter === 'pending_approval' || activeFilter === 'needs_upload' || activeFilter === 'content_scenes' ? 'text-pink-600 bg-pink-50' : 'text-gray-600'
+              activeFilter === 'customs' ? 'text-pink-600 bg-pink-50' : 'text-gray-600'
             }`}
           >
-            <Sparkles className={`w-5 h-5 mb-1 transition-transform duration-200 ${activeFilter === 'work' ? 'scale-110' : ''}`} />
-            <span className="text-xs font-medium">Work</span>
-            {totalActionableItems > 0 && (
+            <Sparkles className={`w-5 h-5 mb-1 transition-transform duration-200 ${activeFilter === 'customs' ? 'scale-110' : ''}`} />
+            <span className="text-xs font-medium">Customs</span>
+            {(pendingApproval.length + needsUpload.length) > 0 && (
               <div className="absolute -top-1 -right-1 w-5 h-5 bg-pink-500 rounded-full flex items-center justify-center">
-                <span className="text-xs font-bold text-white">{totalActionableItems}</span>
+                <span className="text-xs font-bold text-white">{pendingApproval.length + needsUpload.length}</span>
               </div>
             )}
           </button>
           
-          {/* Done - Completed work */}
+          {/* Scenes - Content Scene Assignments */}
           <button 
-            onClick={() => setActiveFilter('done')}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-all duration-300 transform hover:scale-110 active:scale-95 ${
-              activeFilter === 'done' ? 'text-green-600 bg-green-50' : 'text-gray-600'
+            onClick={() => setActiveFilter('scenes')}
+            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-all duration-300 transform hover:scale-110 active:scale-95 relative ${
+              activeFilter === 'scenes' ? 'text-orange-600 bg-orange-50' : 'text-gray-600'
             }`}
           >
-            <CheckCircle className={`w-5 h-5 mb-1 transition-transform duration-200 ${activeFilter === 'done' ? 'scale-110' : ''}`} />
-            <span className="text-xs font-medium">Done</span>
+            <CheckCircle className={`w-5 h-5 mb-1 transition-transform duration-200 ${activeFilter === 'scenes' ? 'scale-110' : ''}`} />
+            <span className="text-xs font-medium">Scenes</span>
+            {pendingScenes.length > 0 && (
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
+                <span className="text-xs font-bold text-white">{pendingScenes.length}</span>
+              </div>
+            )}
           </button>
           
           {/* Settings */}
