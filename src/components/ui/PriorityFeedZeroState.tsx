@@ -1,15 +1,13 @@
 import React from 'react';
-import { CheckCircle, TrendingUp, Settings, History } from 'lucide-react';
+import { CheckCircle, TrendingUp, Settings } from 'lucide-react';
 
 interface PriorityFeedZeroStateProps {
   onNavigateSettings?: () => void;
-  onNavigateCompleted?: () => void;
   totalEarned?: number;
 }
 
 const PriorityFeedZeroState: React.FC<PriorityFeedZeroStateProps> = ({
   onNavigateSettings,
-  onNavigateCompleted,
   totalEarned = 0,
 }) => {
   return (
@@ -46,20 +44,10 @@ const PriorityFeedZeroState: React.FC<PriorityFeedZeroStateProps> = ({
       )}
 
       {/* Suggested Actions */}
-      <div className="space-y-3">
-        <p className="text-sm text-gray-500 font-medium mb-3">What would you like to do?</p>
-        
-        {onNavigateCompleted && (
-          <button
-            onClick={onNavigateCompleted}
-            className="w-full flex items-center justify-center bg-gray-50 hover:bg-gray-100 text-gray-700 py-3 px-4 rounded-xl font-medium text-sm transition-all duration-200 transform hover:scale-105 active:scale-95"
-          >
-            <History className="w-4 h-4 mr-2" />
-            View Completed Work
-          </button>
-        )}
-
-        {onNavigateSettings && (
+      {onNavigateSettings && (
+        <div>
+          <p className="text-sm text-gray-500 font-medium mb-3">What would you like to do?</p>
+          
           <button
             onClick={onNavigateSettings}
             className="w-full flex items-center justify-center bg-gray-50 hover:bg-gray-100 text-gray-700 py-3 px-4 rounded-xl font-medium text-sm transition-all duration-200 transform hover:scale-105 active:scale-95"
@@ -67,8 +55,8 @@ const PriorityFeedZeroState: React.FC<PriorityFeedZeroStateProps> = ({
             <Settings className="w-4 h-4 mr-2" />
             Update Settings
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
