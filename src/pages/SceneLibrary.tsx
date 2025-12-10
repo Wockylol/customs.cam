@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Search, Film, Edit, Copy, Trash2, UserPlus, TrendingUp, CheckCircle } from 'lucide-react';
+import { Plus, Search, Film, Edit, Eye, Trash2, UserPlus, TrendingUp, CheckCircle } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { useContentScenes } from '../hooks/useContentScenes';
 import AddSceneModal from '../components/modals/AddSceneModal';
@@ -13,6 +13,8 @@ const SceneLibrary: React.FC = () => {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [selectedScene, setSelectedScene] = useState<any>(null);
   const [editingScene, setEditingScene] = useState<any>(null);
+  const [viewingScene, setViewingScene] = useState<any>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
   // Filter scenes based on search query
@@ -40,6 +42,11 @@ const SceneLibrary: React.FC = () => {
     if (error) {
       alert(`Error duplicating scene: ${error}`);
     }
+  };
+
+  const handleView = (scene: any) => {
+    setViewingScene(scene);
+    setIsViewModalOpen(true);
   };
 
   const handleEdit = (scene: any) => {
@@ -223,18 +230,18 @@ const SceneLibrary: React.FC = () => {
                         Assign
                       </button>
                       <button
+                        onClick={() => handleView(scene)}
+                        className="flex items-center justify-center px-3 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+                        title="View"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => handleEdit(scene)}
                         className="flex items-center justify-center px-3 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
                         title="Edit"
                       >
                         <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDuplicate(scene.id)}
-                        className="flex items-center justify-center px-3 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
-                        title="Duplicate"
-                      >
-                        <Copy className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setShowDeleteConfirm(scene.id)}
@@ -288,6 +295,16 @@ const SceneLibrary: React.FC = () => {
           }}
           onSuccess={fetchScenes}
           scene={editingScene}
+        />
+
+        <AddSceneModal
+          isOpen={isViewModalOpen}
+          onClose={() => {
+            setIsViewModalOpen(false);
+            setViewingScene(null);
+          }}
+          scene={viewingScene}
+          viewOnly={true}
         />
 
         <AssignSceneModal
