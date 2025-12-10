@@ -36,6 +36,7 @@ import PendingSalesApproval from './pages/PendingSalesApproval';
 import AllSalesView from './pages/AllSalesView';
 import ChatterPerformance from './pages/ChatterPerformance';
 import NotificationsPage from './pages/NotificationsPage';
+import PayrollSheet from './pages/PayrollSheet';
 
 function App() {
   return (
@@ -249,6 +250,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <NotificationsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route 
+              path="/payroll" 
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <PayrollSheet />
                 </ProtectedRoute>
               }
             />
