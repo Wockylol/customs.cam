@@ -45,7 +45,6 @@ const MobileClientView: React.FC = () => {
   const [selectedStepIndex, setSelectedStepIndex] = useState<number>(0);
   const [isSceneUploadModalOpen, setIsSceneUploadModalOpen] = useState(false);
   const [scenesLoading, setScenesLoading] = useState(false);
-  const [lastVisit, setLastVisit] = useState<Date | null>(null);
   
   const { customRequests, loading: customsLoading, error: customsError, approveByClient, markAsCompleted } = useCustomRequests();
   const { clients, loading: clientsLoading, error: clientsError } = useClients();
@@ -55,7 +54,7 @@ const MobileClientView: React.FC = () => {
   const { preferences, loading: preferencesLoading, savePreferences } = useClientPreferences(client?.id);
   
   // Client-side notifications
-  useClientNotifications(client?.id, client?.username);
+  useClientNotifications(client?.id);
   const allClientCustoms: CustomRequest[] = customRequests.filter((c: CustomRequest) => 
     (c as any).clients?.username?.toLowerCase() === clientUsername?.toLowerCase() &&
     c.status !== 'pending'
@@ -93,21 +92,6 @@ const MobileClientView: React.FC = () => {
       }
     };
     loadSceneAssignments();
-  }, [client?.id]);
-
-  // Track last visit
-  useEffect(() => {
-    if (client?.id) {
-      const lastVisitKey = `lastVisit_${client.id}`;
-      const storedLastVisit = localStorage.getItem(lastVisitKey);
-      
-      if (storedLastVisit) {
-        setLastVisit(new Date(storedLastVisit));
-      }
-      
-      // Update last visit
-      localStorage.setItem(lastVisitKey, new Date().toISOString());
-    }
   }, [client?.id]);
 
   // Filter customs based on active filter
@@ -322,7 +306,7 @@ const MobileClientView: React.FC = () => {
                  `Hey @${client.username}! 👋`}
               </h1>
               {activeFilter === 'all' ? (
-                <StatusLine itemCount={totalActionableItems} lastVisit={lastVisit} />
+                <StatusLine itemCount={totalActionableItems} />
               ) : (
                 <p className={`text-pink-100 text-sm transition-all duration-500 ease-in-out opacity-100`}>
                   {activeFilter === 'customs' ? `${allClientCustoms.length} custom${allClientCustoms.length !== 1 ? 's' : ''} total` :
