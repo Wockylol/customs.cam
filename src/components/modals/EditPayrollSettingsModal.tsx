@@ -16,8 +16,21 @@ const EditPayrollSettingsModal: React.FC<EditPayrollSettingsModalProps> = ({ isO
 
   useEffect(() => {
     if (member) {
-      setBaseSalary(String(member.payroll_settings?.base_salary || 0));
-      setCommissionPercentage(String(member.payroll_settings?.commission_percentage || 0));
+      // Auto-calculate base salary based on sales if not already set
+      const currentBaseSalary = member.payroll_settings?.base_salary;
+      let calculatedBaseSalary = 0;
+      
+      if (currentBaseSalary === undefined || currentBaseSalary === null || currentBaseSalary === 0) {
+        // Auto-calculate based on sales threshold for chatters
+        if (member.role === 'chatter') {
+          calculatedBaseSalary = member.total_valid_sales >= 10000 ? 450 : 250;
+        }
+      } else {
+        calculatedBaseSalary = currentBaseSalary;
+      }
+      
+      setBaseSalary(String(calculatedBaseSalary));
+      setCommissionPercentage(String(member.payroll_settings?.commission_percentage || 2.5));
     }
   }, [member]);
 
@@ -120,6 +133,11 @@ const EditPayrollSettingsModal: React.FC<EditPayrollSettingsModalProps> = ({ isO
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Fixed monthly salary amount
+                {member.role === 'chatter' && (
+                  <span className="block mt-1 text-blue-600 dark:text-blue-400">
+                    Auto: ${member.total_valid_sales >= 10000 ? '450' : '250'} (based on {member.total_valid_sales >= 10000 ? '≥' : '<'} $10k sales)
+                  </span>
+                )}
               </p>
             </div>
 
@@ -146,7 +164,7 @@ const EditPayrollSettingsModal: React.FC<EditPayrollSettingsModalProps> = ({ isO
                 />
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Percentage of total valid sales (0-100%)
+                Percentage of total valid sales (0-100%). Default: 2.5%
               </p>
             </div>
 
