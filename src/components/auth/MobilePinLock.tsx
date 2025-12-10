@@ -240,6 +240,12 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
   };
 
   if (loading) {
+    // If already unlocked, show content immediately while security check completes in background
+    if (initiallyUnlocked) {
+      return <>{children}</>;
+    }
+    
+    // Otherwise show loading screen with PIN lock background
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 flex items-center justify-center">
         <div className="text-center">
@@ -252,8 +258,14 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
     );
   }
 
-  // Show content with fade-in animation once unlocked
+  // Show content - skip transitions if already unlocked from start (route navigation)
   if (showContent) {
+    // If user was already unlocked on mount (navigating between pages), show content immediately
+    if (initiallyUnlocked) {
+      return <>{children}</>;
+    }
+    
+    // Otherwise, use transition animation (just unlocked via PIN entry)
     return (
       <>
         {/* Overlay to prevent flash during transition */}
