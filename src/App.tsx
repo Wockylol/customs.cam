@@ -1,7 +1,7 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { ImageCacheProvider } from './contexts/ImageCacheContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
 import ClientsList from './pages/ClientsList';
@@ -42,8 +42,9 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <Router>
-          <Routes>
+        <ImageCacheProvider>
+          <Router>
+            <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route 
               path="/dashboard" 
@@ -268,8 +269,9 @@ function App() {
             <Route path="/agency/:agencySlug/all-customs" element={<AgencyAllCustoms />} />
             <Route path="/app/:clientUsername" element={<MobileClientView />} />
             <Route path="/app/:clientUsername/scene/:assignmentId" element={<SceneViewerPage />} />
-          </Routes>
-        </Router>
+            </Routes>
+          </Router>
+        </ImageCacheProvider>
       </AuthProvider>
     </ThemeProvider>
   );
