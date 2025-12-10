@@ -5,6 +5,7 @@ import CustomDetailModal from '../components/modals/CustomDetailModal';
 import { useCustomRequests } from '../hooks/useCustomRequests';
 import { useClients } from '../hooks/useClients';
 import { useUpcomingBirthdays } from '../hooks/useUpcomingBirthdays';
+import { useImagePreloader } from '../hooks/useImagePreloader';
 import ClientAvatar from '../components/ui/ClientAvatar';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 
@@ -12,6 +13,9 @@ const Dashboard: React.FC = () => {
   const { customRequests, loading: customsLoading, error: customsError, fetchCustomRequests } = useCustomRequests();
   const { clients, loading: clientsLoading, error: clientsError } = useClients();
   const { upcomingBirthdays, loading: birthdaysLoading, error: birthdaysError } = useUpcomingBirthdays(15);
+  
+  // Preload birthday client avatars
+  useImagePreloader(upcomingBirthdays.map(b => b.avatar_url));
   const [sortField, setSortField] = React.useState<'client' | 'date' | 'amount' | null>(null);
   const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>('desc');
   const [selectedCustom, setSelectedCustom] = React.useState<any>(null);
