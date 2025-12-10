@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, GripVertical, Video, Image as ImageIcon, Upload, FileText } from 'lucide-react';
+import { X, Plus, Trash2, GripVertical, Video, Image as ImageIcon, Upload, FileText, ClipboardPaste } from 'lucide-react';
 import { useContentScenes } from '../../hooks/useContentScenes';
 import { useSceneExamples } from '../../hooks/useSceneExamples';
 import { SceneInstruction } from '../../types';
@@ -25,6 +25,8 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [exampleFiles, setExampleFiles] = useState<File[]>([]);
   const [examplePreviews, setExamplePreviews] = useState<{ [key: string]: string }>({});
+  const [showPasteModal, setShowPasteModal] = useState(false);
+  const [pastedCSV, setPastedCSV] = useState('');
 
   useEffect(() => {
     if (scene) {
@@ -219,6 +221,59 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
     }
   };
 
+  const processCSVImport = async (csvText: string) => {
+    const parsed = parseCSV(csvText);
+    
+    if (parsed) {
+      setTitle(parsed.title);
+      setLocation(parsed.location);
+      setProps(parsed.props);
+      setInstructions(parsed.instructions);
+      
+      // Download example media from URLs if provided
+      if (parsed.exampleMediaUrls && parsed.exampleMediaUrls.length > 0) {
+        setSaving(true);
+        alert(`CSV imported! Downloading ${parsed.exampleMediaUrls.length} example media file(s)...`);
+        
+        const downloadedFiles: File[] = [];
+        for (const url of parsed.exampleMediaUrls) {
+          const downloadedFile = await downloadFileFromUrl(url);
+          if (downloadedFile) {
+            downloadedFiles.push(downloadedFile);
+          } else {
+            console.warn(`Failed to download: ${url}`);
+          }
+        }
+        
+        if (downloadedFiles.length > 0) {
+          // Add downloaded files to example files
+          setExampleFiles(prev => [...prev, ...downloadedFiles]);
+          
+          // Generate previews for images
+          downloadedFiles.forEach((downloadedFile) => {
+            if (downloadedFile.type.startsWith('image/')) {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                setExamplePreviews(prev => ({
+                  ...prev,
+                  [downloadedFile.name]: reader.result as string
+                }));
+              };
+              reader.readAsDataURL(downloadedFile);
+            }
+          });
+          
+          alert(`CSV imported successfully! Downloaded ${downloadedFiles.length} of ${parsed.exampleMediaUrls.length} example media files. Review and click Save.`);
+        } else {
+          alert('CSV imported but failed to download example media. You can add them manually.');
+        }
+        setSaving(false);
+      } else {
+        alert('CSV imported successfully! Review the fields and click Save.');
+      }
+    }
+  };
+
   const handleCSVImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -226,61 +281,23 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
     const reader = new FileReader();
     reader.onload = async (event) => {
       const csvText = event.target?.result as string;
-      const parsed = parseCSV(csvText);
-      
-      if (parsed) {
-        setTitle(parsed.title);
-        setLocation(parsed.location);
-        setProps(parsed.props);
-        setInstructions(parsed.instructions);
-        
-        // Download example media from URLs if provided
-        if (parsed.exampleMediaUrls && parsed.exampleMediaUrls.length > 0) {
-          setSaving(true);
-          alert(`CSV imported! Downloading ${parsed.exampleMediaUrls.length} example media file(s)...`);
-          
-          const downloadedFiles: File[] = [];
-          for (const url of parsed.exampleMediaUrls) {
-            const downloadedFile = await downloadFileFromUrl(url);
-            if (downloadedFile) {
-              downloadedFiles.push(downloadedFile);
-            } else {
-              console.warn(`Failed to download: ${url}`);
-            }
-          }
-          
-          if (downloadedFiles.length > 0) {
-            // Add downloaded files to example files
-            setExampleFiles(prev => [...prev, ...downloadedFiles]);
-            
-            // Generate previews for images
-            downloadedFiles.forEach((downloadedFile) => {
-              if (downloadedFile.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                  setExamplePreviews(prev => ({
-                    ...prev,
-                    [downloadedFile.name]: reader.result as string
-                  }));
-                };
-                reader.readAsDataURL(downloadedFile);
-              }
-            });
-            
-            alert(`CSV imported successfully! Downloaded ${downloadedFiles.length} of ${parsed.exampleMediaUrls.length} example media files. Review and click Save.`);
-          } else {
-            alert('CSV imported but failed to download example media. You can add them manually.');
-          }
-          setSaving(false);
-        } else {
-          alert('CSV imported successfully! Review the fields and click Save.');
-        }
-      }
+      await processCSVImport(csvText);
     };
     reader.readAsText(file);
     
     // Reset input so the same file can be imported again
     e.target.value = '';
+  };
+
+  const handlePasteCSV = async () => {
+    if (!pastedCSV.trim()) {
+      alert('Please paste CSV content first');
+      return;
+    }
+    
+    await processCSVImport(pastedCSV);
+    setShowPasteModal(false);
+    setPastedCSV('');
   };
 
   const addInstruction = (type: 'video' | 'photo') => {
@@ -417,18 +434,27 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
               {scene ? 'Edit Scene' : 'Create New Scene'}
             </h2>
             {!scene && (
-              <label className="cursor-pointer">
-                <span className="flex items-center px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm rounded-lg transition-colors">
-                  <FileText className="w-4 h-4 mr-1" />
-                  Import CSV
-                </span>
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleCSVImport}
-                  className="hidden"
-                />
-              </label>
+              <>
+                <label className="cursor-pointer">
+                  <span className="flex items-center px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm rounded-lg transition-colors">
+                    <FileText className="w-4 h-4 mr-1" />
+                    Import CSV
+                  </span>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleCSVImport}
+                    className="hidden"
+                  />
+                </label>
+                <button
+                  onClick={() => setShowPasteModal(true)}
+                  className="flex items-center px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors"
+                >
+                  <ClipboardPaste className="w-4 h-4 mr-1" />
+                  Paste CSV
+                </button>
+              </>
             )}
           </div>
           <button
@@ -750,6 +776,53 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
           </div>
         </form>
       </div>
+
+      {/* Paste CSV Modal */}
+      {showPasteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Paste CSV Content
+              </h3>
+              <button
+                onClick={() => {
+                  setShowPasteModal(false);
+                  setPastedCSV('');
+                }}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Paste your CSV content below. Expected format: Title, Location, Props, Instructions, ExampleMedia
+              </p>
+              <textarea
+                value={pastedCSV}
+                onChange={(e) => setPastedCSV(e.target.value)}
+                placeholder="Title,Location,Props,Instructions,ExampleMedia&#10;Bedroom Scene,Bedroom,Toy|Candles,&quot;Video #1 (0:15-0:20) Description|Photo #1 Description&quot;,https://example.com/image.jpg"
+                className="w-full h-64 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+              />
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowPasteModal(false);
+                    setPastedCSV('');
+                  }}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <Button onClick={handlePasteCSV}>
+                  Import from Paste
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
