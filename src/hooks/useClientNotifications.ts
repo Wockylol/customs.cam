@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { errorLogger } from '../lib/errorLogger';
 
 interface NotificationOptions {
   title: string;
@@ -18,11 +19,18 @@ export const useClientNotifications = (clientId?: string) => {
   const lastNotificationTime = useRef<{ [key: string]: number }>({});
 
   /**
+   * Check if Notification API is available
+   */
+  const isNotificationSupported = useCallback(() => {
+    return typeof window !== 'undefined' && 'Notification' in window;
+  }, []);
+
+  /**
    * Request notification permission from the browser
    */
   const requestPermission = useCallback(async () => {
-    if (!('Notification' in window)) {
-      console.warn('This browser does not support notifications');
+    if (!isNotificationSupported()) {
+      errorLogger.log('notification_support', 'Browser does not support notifications');
       return false;
     }
 
@@ -38,12 +46,16 @@ export const useClientNotifications = (clientId?: string) => {
     }
 
     return false;
-  }, []);
+  }, [isNotificationSupported]);
 
   /**
    * Show a browser notification
    */
   const showNotification = useCallback((options: NotificationOptions) => {
+    if (!isNotificationSupported()) {
+      return;
+    }
+
     if (!permissionGranted.current || Notification.permission !== 'granted') {
       return;
     }
@@ -60,26 +72,30 @@ export const useClientNotifications = (clientId?: string) => {
 
     lastNotificationTime.current[tag] = now;
 
-    const notification = new Notification(options.title, {
-      body: options.body,
-      icon: options.icon || '/favicon.ico',
-      badge: options.badge || '/favicon.ico',
-      tag: options.tag,
-      requireInteraction: options.requireInteraction || false,
-      silent: false,
-    });
+    try {
+      const notification = new Notification(options.title, {
+        body: options.body,
+        icon: options.icon || '/favicon.ico',
+        badge: options.badge || '/favicon.ico',
+        tag: options.tag,
+        requireInteraction: options.requireInteraction || false,
+        silent: false,
+      });
 
-    // Auto-close after 10 seconds unless requireInteraction is true
-    if (!options.requireInteraction) {
-      setTimeout(() => notification.close(), 10000);
+      // Auto-close after 10 seconds unless requireInteraction is true
+      if (!options.requireInteraction) {
+        setTimeout(() => notification.close(), 10000);
+      }
+
+      // Handle click - focus the window
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+      };
+    } catch (error) {
+      errorLogger.log('notification_error', 'Failed to show notification', error);
     }
-
-    // Handle click - focus the window
-    notification.onclick = () => {
-      window.focus();
-      notification.close();
-    };
-  }, []);
+  }, [isNotificationSupported]);
 
   /**
    * Subscribe to new custom requests for this client
@@ -184,6 +200,10 @@ export const useClientNotifications = (clientId?: string) => {
    * Request permission on mount (after short delay)
    */
   useEffect(() => {
+    if (!isNotificationSupported()) {
+      return;
+    }
+
     if (clientId && Notification.permission === 'default') {
       // Wait 5 seconds before asking
       const timer = setTimeout(() => {
@@ -194,13 +214,13 @@ export const useClientNotifications = (clientId?: string) => {
     } else if (Notification.permission === 'granted') {
       permissionGranted.current = true;
     }
-  }, [clientId, requestPermission]);
+  }, [clientId, requestPermission, isNotificationSupported]);
 
   return {
     requestPermission,
     showNotification,
-    isSupported: 'Notification' in window,
-    permission: typeof window !== 'undefined' && 'Notification' in window 
+    isSupported: isNotificationSupported(),
+    permission: isNotificationSupported() 
       ? Notification.permission 
       : 'denied',
   };
