@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { DollarSign, Calendar, Plus, Edit2, TrendingUp, Users, Award } from 'lucide-react';
+import { DollarSign, Calendar, Plus, Edit2, Users, Award } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import AddBonusModal from '../components/modals/AddBonusModal';
 import EditPayrollSettingsModal from '../components/modals/EditPayrollSettingsModal';
@@ -44,8 +44,13 @@ const PayrollSheet: React.FC = () => {
   // Calculate totals
   const totals = useMemo(() => {
     return payrollData.reduce((acc, member) => {
-      const baseSalary = member.payroll_settings?.base_salary || 0;
-      const commissionRate = (member.payroll_settings?.commission_percentage || 0) / 100;
+      // Auto-calculate base salary for chatters if not set
+      let baseSalary = member.payroll_settings?.base_salary || 0;
+      if (baseSalary === 0 && member.role === 'chatter') {
+        baseSalary = member.total_valid_sales >= 10000 ? 450 : 250;
+      }
+      
+      const commissionRate = (member.payroll_settings?.commission_percentage || 2.5) / 100;
       const commission = member.total_valid_sales * commissionRate;
       const bonusTotal = member.bonuses.reduce((sum, b) => sum + Number(b.amount), 0);
       const total = baseSalary + commission + bonusTotal;
@@ -247,8 +252,13 @@ const PayrollSheet: React.FC = () => {
                   </tr>
                 ) : (
                   payrollData.map((member) => {
-                    const baseSalary = member.payroll_settings?.base_salary || 0;
-                    const commissionRate = (member.payroll_settings?.commission_percentage || 0) / 100;
+                    // Auto-calculate base salary for chatters if not set
+                    let baseSalary = member.payroll_settings?.base_salary || 0;
+                    if (baseSalary === 0 && member.role === 'chatter') {
+                      baseSalary = member.total_valid_sales >= 10000 ? 450 : 250;
+                    }
+                    
+                    const commissionRate = (member.payroll_settings?.commission_percentage || 2.5) / 100;
                     const commission = member.total_valid_sales * commissionRate;
                     const bonusTotal = member.bonuses.reduce((sum, b) => sum + Number(b.amount), 0);
                     const totalPay = baseSalary + commission + bonusTotal;
@@ -277,10 +287,20 @@ const PayrollSheet: React.FC = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900 dark:text-white">
-                            ${baseSalary.toFixed(2)}
+                            <div className="flex flex-col items-end">
+                              <span>${baseSalary.toFixed(2)}</span>
+                              {member.role === 'chatter' && !member.payroll_settings?.base_salary && (
+                                <span className="text-xs text-blue-600 dark:text-blue-400">auto</span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900 dark:text-white">
-                            {(member.payroll_settings?.commission_percentage || 0).toFixed(2)}%
+                            <div className="flex flex-col items-end">
+                              <span>{(member.payroll_settings?.commission_percentage || 2.5).toFixed(2)}%</span>
+                              {!member.payroll_settings?.commission_percentage && (
+                                <span className="text-xs text-blue-600 dark:text-blue-400">default</span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900 dark:text-white">
                             ${member.total_valid_sales.toFixed(2)}
