@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Users, Search, Check, Clock, Layers } from 'lucide-react';
 import ClientAvatar from '../ui/ClientAvatar';
 import PlatformBadge from '../ui/PlatformBadge';
+import ModernSelect from '../ui/ModernSelect';
 import { useClientPlatforms } from '../../hooks/useClientPlatforms';
 
 interface AssignChatterModalProps {
@@ -116,6 +117,14 @@ const AssignChatterModal: React.FC<AssignChatterModalProps> = ({
     { value: '2-10', label: 'Night Shift (2am-10am)' }
   ];
 
+  const platformOptions = [
+    { value: '', label: 'General assignment (all platforms)' },
+    ...clientPlatforms.map((cp) => ({
+      value: cp.id,
+      label: `${cp.platform?.icon} ${cp.platform?.name}${cp.account_name ? ` - ${cp.account_name}` : ''}${cp.username_on_platform ? ` (@${cp.username_on_platform})` : ''}`
+    }))
+  ];
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
@@ -161,20 +170,22 @@ const AssignChatterModal: React.FC<AssignChatterModalProps> = ({
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Assign to specific platform account (optional)
                 </label>
-                <select
-                  value={selectedPlatformId}
-                  onChange={(e) => setSelectedPlatformId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="">General assignment (all platforms)</option>
-                  {clientPlatforms.map((clientPlatform) => (
-                    <option key={clientPlatform.id} value={clientPlatform.id}>
-                      {clientPlatform.platform?.icon} {clientPlatform.platform?.name}
-                      {clientPlatform.account_name && ` - ${clientPlatform.account_name}`}
-                      {clientPlatform.username_on_platform && ` (@${clientPlatform.username_on_platform})`}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <Layers className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-purple-600 z-10 pointer-events-none" />
+                  <div className="pl-8">
+                    <select
+                      value={selectedPlatformId}
+                      onChange={(e) => setSelectedPlatformId(e.target.value)}
+                      className="w-full px-3 py-2.5 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white hover:bg-purple-50 transition-colors"
+                    >
+                      {platformOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 <p className="text-xs text-purple-700 mt-1">
                   {selectedPlatformId 
                     ? 'Chatter will be assigned to this specific platform account'
@@ -231,18 +242,21 @@ const AssignChatterModal: React.FC<AssignChatterModalProps> = ({
                     className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
-                <div>
-                  <select
-                    value={shiftFilter}
-                    onChange={(e) => setShiftFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    {shifts.map((shift) => (
-                      <option key={shift.value} value={shift.value}>
-                        {shift.label}
-                      </option>
-                    ))}
-                  </select>
+                <div className="relative">
+                  <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-600 z-10 pointer-events-none" />
+                  <div className="pl-8">
+                    <select
+                      value={shiftFilter}
+                      onChange={(e) => setShiftFilter(e.target.value)}
+                      className="w-full px-3 py-2.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white hover:bg-blue-50 transition-colors"
+                    >
+                      {shifts.map((shift) => (
+                        <option key={shift.value} value={shift.value}>
+                          {shift.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
