@@ -25,6 +25,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                       !location.pathname.startsWith('/my-customs') &&
                       !location.pathname.startsWith('/sales-tracker') &&
                       !location.pathname.startsWith('/sales-management') &&
+                      !location.pathname.startsWith('/payroll') &&
                       !location.pathname.startsWith('/pending-approval') &&
                       !location.pathname.startsWith('/pending-completion') &&
                       !location.pathname.startsWith('/pending-delivery') &&
