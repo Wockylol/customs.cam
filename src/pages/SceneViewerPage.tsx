@@ -407,7 +407,7 @@ const SceneViewerPage: React.FC = () => {
 
   return (
     <MobilePinLock clientId={client.id} clientUsername={clientUsername || ''}>
-    <div className="fixed inset-0 bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50">
+    <div className="fixed inset-0 bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50 animate-slide-in-right">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10 p-4 safe-top">
         <div className="flex items-center justify-between">
@@ -427,8 +427,8 @@ const SceneViewerPage: React.FC = () => {
 
           {/* Close Button */}
           <button
-            onClick={() => navigate(`/app/${clientUsername}`)}
-            className="bg-white shadow-lg text-gray-700 p-2 rounded-full hover:bg-gray-50 transition-colors ml-4"
+            onClick={() => navigate(-1)}
+            className="bg-white shadow-lg text-gray-700 p-2 rounded-full hover:bg-gray-50 active:scale-95 transition-all ml-4"
           >
             <X className="w-5 h-5" />
           </button>
