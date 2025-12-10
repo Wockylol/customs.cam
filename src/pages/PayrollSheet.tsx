@@ -17,6 +17,19 @@ const PayrollSheet: React.FC = () => {
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [expandedBonuses, setExpandedBonuses] = useState<Set<string>>(new Set());
 
+  useEffect(() => {
+    if (teamMember?.role === 'admin') {
+      fetchPayrollData(selectedMonth, selectedYear);
+    }
+  }, [selectedMonth, selectedYear, teamMember]);
+
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
+
   // Only admins can view this page
   if (teamMember?.role !== 'admin') {
     return (
@@ -29,17 +42,6 @@ const PayrollSheet: React.FC = () => {
       </Layout>
     );
   }
-
-  useEffect(() => {
-    fetchPayrollData(selectedMonth, selectedYear);
-  }, [selectedMonth, selectedYear]);
-
-  const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-
-  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
 
   // Calculate totals
   const totals = useMemo(() => {
