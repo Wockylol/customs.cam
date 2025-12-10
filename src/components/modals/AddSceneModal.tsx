@@ -96,13 +96,32 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
   const parseCSV = (csvText: string): { title: string; location: string; props: string; instructions: SceneInstruction[]; exampleMediaUrls?: string[] } | null => {
     try {
       const lines = csvText.trim().split('\n');
-      if (lines.length < 2) {
-        alert('CSV file must have at least a header row and one data row');
+      if (lines.length < 1) {
+        alert('CSV content is empty');
         return null;
       }
 
-      // Parse header (should be: Title,Location,Props,Instructions,ExampleMedia)
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      // Check if first line looks like a header or data
+      const firstLine = lines[0].toLowerCase();
+      const hasHeader = firstLine.includes('title') && firstLine.includes('instructions');
+      
+      let headers: string[];
+      let dataStartIndex: number;
+      
+      if (hasHeader) {
+        // Has header row
+        if (lines.length < 2) {
+          alert('CSV file must have at least a header row and one data row');
+          return null;
+        }
+        headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
+        dataStartIndex = 1;
+      } else {
+        // No header, assume standard order: Title,Location,Props,Instructions,ExampleMedia
+        headers = ['title', 'location', 'props', 'instructions', 'examplemedia'];
+        dataStartIndex = 0;
+      }
+
       const titleIdx = headers.indexOf('title');
       const locationIdx = headers.indexOf('location');
       const propsIdx = headers.indexOf('props');
@@ -110,12 +129,12 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
       const exampleMediaIdx = headers.indexOf('examplemedia');
 
       if (titleIdx === -1 || instructionsIdx === -1) {
-        alert('CSV must have "Title" and "Instructions" columns');
+        alert('CSV must have "Title" and "Instructions" columns in header, or paste data in order: Title,Location,Props,Instructions,ExampleMedia');
         return null;
       }
 
       // Parse data rows - handle multi-line fields by combining lines within quotes
-      let dataText = lines.slice(1).join('\n');
+      let dataText = lines.slice(dataStartIndex).join('\n');
       const values: string[] = [];
       let currentValue = '';
       let insideQuotes = false;
@@ -800,12 +819,12 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
             </div>
             <div className="p-4 space-y-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Paste your CSV content below. Expected format: Title, Location, Props, Instructions, ExampleMedia
+                Paste your CSV content below. Header row is optional. Expected format: Title, Location, Props, Instructions, ExampleMedia
               </p>
               <textarea
                 value={pastedCSV}
                 onChange={(e) => setPastedCSV(e.target.value)}
-                placeholder="Title,Location,Props,Instructions,ExampleMedia&#10;Bedroom Scene,Bedroom,Toy|Candles,&quot;Video #1 (0:15-0:20) Description|Photo #1 Description&quot;,https://example.com/image.jpg"
+                placeholder="With header:&#10;Title,Location,Props,Instructions,ExampleMedia&#10;&quot;Scene Title&quot;,Bedroom,&quot;Toy|Candles&quot;,&quot;Video #1 (0:15-0:20) Desc|Photo #1 Desc&quot;,&#10;&#10;Without header (order matters):&#10;&quot;Scene Title&quot;,Bedroom,&quot;Toy|Candles&quot;,&quot;Video #1 (0:15-0:20) Desc|Photo #1 Desc&quot;,"
                 className="w-full h-64 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
               />
               <div className="flex justify-end space-x-3">
