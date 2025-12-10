@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Loader2, 
   AlertCircle, 
@@ -31,6 +31,7 @@ type Client = Database['public']['Tables']['clients']['Row'];
 
 const MobileClientView: React.FC = () => {
   const { clientUsername } = useParams<{ clientUsername: string }>();
+  const navigate = useNavigate();
   const [selectedCustom, setSelectedCustom] = useState<CustomRequest | null>(null);
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -208,8 +209,11 @@ const MobileClientView: React.FC = () => {
           handleUploadClick(custom);
         }
       },
-      onSceneAction: () => {
-        setActiveFilter('content_scenes');
+      onSceneAction: (assignment, scene) => {
+        // Navigate to scene viewer page
+        navigate(`/app/${clientUsername}/scene/${assignment.id}`, {
+          state: { assignment, scene }
+        });
       }
     }
   );
