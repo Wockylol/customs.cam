@@ -11,8 +11,33 @@ interface MobilePinLockProps {
 const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => {
   const { hasPin, isLocked, lockedUntil, loading, createPin, verifyPin } = useClientPin(clientId);
   
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [showContent, setShowContent] = useState(false);
+  // Check unlock state IMMEDIATELY (synchronously) to prevent flash on route navigation
+  const getInitialUnlockState = () => {
+    try {
+      const stored = sessionStorage.getItem(`pin_unlocked_${clientId}`);
+      const timestamp = sessionStorage.getItem(`pin_unlocked_${clientId}_timestamp`);
+      
+      if (stored === 'true' && timestamp) {
+        const unlockTime = parseInt(timestamp, 10);
+        const now = Date.now();
+        const thirtyMinutes = 30 * 60 * 1000;
+        
+        if (now - unlockTime < thirtyMinutes) {
+          // Update timestamp to extend the session
+          sessionStorage.setItem(`pin_unlocked_${clientId}_timestamp`, now.toString());
+          return true;
+        }
+      }
+    } catch (e) {
+      console.error('Error checking unlock state:', e);
+    }
+    return false;
+  };
+  
+  const initiallyUnlocked = getInitialUnlockState();
+  
+  const [isUnlocked, setIsUnlocked] = useState(initiallyUnlocked);
+  const [showContent, setShowContent] = useState(initiallyUnlocked);
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [isConfirming, setIsConfirming] = useState(false);
@@ -21,43 +46,14 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
   const [shake, setShake] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<string>('');
 
-  // Check and update unlock state when clientId changes
+  // Re-check unlock state when clientId changes (for client switching)
   useEffect(() => {
-    const checkUnlockState = () => {
-      try {
-        const stored = sessionStorage.getItem(`pin_unlocked_${clientId}`);
-        const timestamp = sessionStorage.getItem(`pin_unlocked_${clientId}_timestamp`);
-        
-        if (stored === 'true' && timestamp) {
-          const unlockTime = parseInt(timestamp, 10);
-          const now = Date.now();
-          const thirtyMinutes = 30 * 60 * 1000; // 30 minutes in milliseconds
-          
-          // Check if unlock state has expired
-          if (now - unlockTime < thirtyMinutes) {
-            // Update timestamp to extend the session
-            sessionStorage.setItem(`pin_unlocked_${clientId}_timestamp`, now.toString());
-            setShowContent(true);
-            setIsUnlocked(true);
-          } else {
-            // Expired - clear the storage
-            sessionStorage.removeItem(`pin_unlocked_${clientId}`);
-            sessionStorage.removeItem(`pin_unlocked_${clientId}_timestamp`);
-            setIsUnlocked(false);
-            setShowContent(false);
-          }
-        } else {
-          setIsUnlocked(false);
-          setShowContent(false);
-        }
-      } catch (e) {
-        console.error('Error checking unlock state:', e);
-        setIsUnlocked(false);
-      }
-    };
-
-    // Check unlock state whenever clientId changes
-    checkUnlockState();
+    const newUnlockState = getInitialUnlockState();
+    
+    if (newUnlockState !== isUnlocked) {
+      setIsUnlocked(newUnlockState);
+      setShowContent(newUnlockState);
+    }
     
     // Reset form state when switching clients
     setPin('');
