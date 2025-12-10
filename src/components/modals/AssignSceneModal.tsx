@@ -197,13 +197,8 @@ const AssignSceneModal: React.FC<AssignSceneModalProps> = ({
                           ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                           : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                       }`}
+                      onClick={() => toggleClientSelection(client.id)}
                     >
-                      <input
-                        type="checkbox"
-                        checked={selectedClientIds.includes(client.id)}
-                        onChange={() => toggleClientSelection(client.id)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
                       <ClientAvatar client={client} size="sm" />
                       <span className="flex-1 text-sm font-medium text-gray-900 dark:text-white">
                         @{client.username}
@@ -229,21 +224,15 @@ const AssignSceneModal: React.FC<AssignSceneModalProps> = ({
                     return (
                       <label
                         key={scene.id}
-                        className={`flex items-start space-x-3 p-4 rounded-lg border cursor-pointer transition-colors ${
+                        className={`flex items-start space-x-3 p-4 rounded-lg border transition-colors ${
                           selectedSceneIds.includes(scene.id)
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 cursor-pointer'
                             : isAlreadyAssigned
-                            ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 opacity-60'
-                            : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                            ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 opacity-60 cursor-not-allowed'
+                            : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer'
                         }`}
+                        onClick={() => !isAlreadyAssigned && toggleSceneSelection(scene.id)}
                       >
-                        <input
-                          type="checkbox"
-                          checked={selectedSceneIds.includes(scene.id)}
-                          onChange={() => !isAlreadyAssigned && toggleSceneSelection(scene.id)}
-                          className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          disabled={isAlreadyAssigned}
-                        />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-1">
                             <Film className="w-4 h-4 text-orange-500 flex-shrink-0" />
