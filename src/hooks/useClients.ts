@@ -92,14 +92,12 @@ export const useClients = () => {
     phone?: string;
     agencyId?: string;
     avatarUrl?: string;
-    avatarUrl?: string;
   }) => {
     try {
       const updateData: any = {};
       if (clientData.username !== undefined) updateData.username = clientData.username;
       if (clientData.phone !== undefined) updateData.phone = clientData.phone || null;
       if (clientData.agencyId !== undefined) updateData.agency_id = clientData.agencyId || null;
-      if (clientData.avatarUrl !== undefined) updateData.avatar_url = clientData.avatarUrl || null;
       if (clientData.avatarUrl !== undefined) updateData.avatar_url = clientData.avatarUrl || null;
 
       const { data, error } = await supabase
@@ -148,6 +146,33 @@ export const useClients = () => {
   useEffect(() => {
     fetchClients();
   }, []);
+
+  // Preload avatar images in the background after initial fetch
+  useEffect(() => {
+    if (!loading && clients.length > 0) {
+      // Use requestIdleCallback to preload images during idle time
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(() => {
+          clients.forEach(client => {
+            if (client.avatar_url) {
+              const img = new Image();
+              img.src = client.avatar_url;
+            }
+          });
+        });
+      } else {
+        // Fallback for browsers that don't support requestIdleCallback
+        setTimeout(() => {
+          clients.forEach(client => {
+            if (client.avatar_url) {
+              const img = new Image();
+              img.src = client.avatar_url;
+            }
+          });
+        }, 100);
+      }
+    }
+  }, [clients, loading]);
 
   return {
     clients,
