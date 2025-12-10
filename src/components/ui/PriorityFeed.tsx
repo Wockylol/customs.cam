@@ -8,7 +8,6 @@ interface PriorityFeedProps {
   items: PriorityFeedItem[];
   totalEarned?: number;
   onNavigateSettings?: () => void;
-  onNavigateCompleted?: () => void;
   maxVisibleItems?: number;
 }
 
@@ -16,7 +15,6 @@ const PriorityFeed: React.FC<PriorityFeedProps> = ({
   items,
   totalEarned = 0,
   onNavigateSettings,
-  onNavigateCompleted,
   maxVisibleItems = 5,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -27,7 +25,6 @@ const PriorityFeed: React.FC<PriorityFeedProps> = ({
       <PriorityFeedZeroState
         totalEarned={totalEarned}
         onNavigateSettings={onNavigateSettings}
-        onNavigateCompleted={onNavigateCompleted}
       />
     );
   }
