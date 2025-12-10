@@ -8,14 +8,17 @@ interface ClientAvatarProps {
   };
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
+  lazy?: boolean; // Enable lazy loading for off-screen images
 }
 
 const ClientAvatar: React.FC<ClientAvatarProps> = ({ 
   client, 
   size = 'md', 
-  className = '' 
+  className = '',
+  lazy = true // Default to lazy loading for performance
 }) => {
   const [imageError, setImageError] = React.useState(false);
+  const [imageLoaded, setImageLoaded] = React.useState(false);
 
   const sizeClasses = {
     sm: 'w-8 h-8 text-xs',
@@ -33,6 +36,10 @@ const ClientAvatar: React.FC<ClientAvatarProps> = ({
 
   const handleImageError = () => {
     setImageError(true);
+  };
+
+  const handleImageLoad = () => {
+    setImageLoaded(true);
   };
 
   const getInitials = () => {
@@ -62,12 +69,25 @@ const ClientAvatar: React.FC<ClientAvatarProps> = ({
   // Show avatar if URL exists and no error occurred
   if (client.avatar_url && !imageError) {
     return (
-      <img
-        src={client.avatar_url}
-        alt={`@${client.username}`}
-        className={`${sizeClasses[size]} rounded-full object-cover border-2 border-white shadow-sm ${className}`}
-        onError={handleImageError}
-      />
+      <div className={`${sizeClasses[size]} rounded-full overflow-hidden relative ${className}`}>
+        {/* Loading placeholder with same color scheme as fallback */}
+        {!imageLoaded && (
+          <div className={`absolute inset-0 ${getBackgroundColor()} flex items-center justify-center text-white font-bold`}>
+            {getInitials()}
+          </div>
+        )}
+        <img
+          src={client.avatar_url}
+          alt={`@${client.username}`}
+          className={`w-full h-full object-cover border-2 border-white shadow-sm transition-opacity duration-200 ${
+            imageLoaded ? 'opacity-100' : 'opacity-0'
+          }`}
+          onError={handleImageError}
+          onLoad={handleImageLoad}
+          loading={lazy ? 'lazy' : 'eager'}
+          decoding="async"
+        />
+      </div>
     );
   }
 
