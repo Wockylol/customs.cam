@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, Check, X, Shield, Loader2, Clock } from 'lucide-react';
 import { useClientPin } from '../../hooks/useClientPin';
+import { errorLogger } from '../../lib/errorLogger';
 
 interface MobilePinLockProps {
   clientId: string;
@@ -11,11 +12,62 @@ interface MobilePinLockProps {
 const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => {
   const { hasPin, isLocked, lockedUntil, loading, createPin, verifyPin } = useClientPin(clientId);
   
+  // Storage helper functions with fallback
+  const getStorageItem = (key: string): string | null => {
+    try {
+      return sessionStorage.getItem(key);
+    } catch (e) {
+      errorLogger.log('storage_error', 'SessionStorage read failed, trying localStorage', e);
+      try {
+        return localStorage.getItem(key);
+      } catch (localError) {
+        errorLogger.log('storage_error', 'All storage read methods failed', localError);
+        return null;
+      }
+    }
+  };
+
+  const setStorageItem = (key: string, value: string): boolean => {
+    let success = false;
+    
+    // Try sessionStorage first
+    try {
+      sessionStorage.setItem(key, value);
+      success = true;
+    } catch (e) {
+      errorLogger.log('storage_error', 'SessionStorage write failed, trying localStorage', e);
+    }
+    
+    // Try localStorage as fallback
+    try {
+      localStorage.setItem(key, value);
+      success = true;
+    } catch (localError) {
+      errorLogger.log('storage_error', 'All storage write methods failed', localError);
+    }
+    
+    return success;
+  };
+
+  const removeStorageItem = (key: string): void => {
+    try {
+      sessionStorage.removeItem(key);
+    } catch (e) {
+      console.warn('SessionStorage remove failed:', e);
+    }
+    
+    try {
+      localStorage.removeItem(key);
+    } catch (e) {
+      console.warn('LocalStorage remove failed:', e);
+    }
+  };
+
   // Check unlock state IMMEDIATELY (synchronously) to prevent flash on route navigation
   const getInitialUnlockState = () => {
     try {
-      const stored = sessionStorage.getItem(`pin_unlocked_${clientId}`);
-      const timestamp = sessionStorage.getItem(`pin_unlocked_${clientId}_timestamp`);
+      const stored = getStorageItem(`pin_unlocked_${clientId}`);
+      const timestamp = getStorageItem(`pin_unlocked_${clientId}_timestamp`);
       
       if (stored === 'true' && timestamp) {
         const unlockTime = parseInt(timestamp, 10);
@@ -24,8 +76,12 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
         
         if (now - unlockTime < thirtyMinutes) {
           // Update timestamp to extend the session
-          sessionStorage.setItem(`pin_unlocked_${clientId}_timestamp`, now.toString());
+          setStorageItem(`pin_unlocked_${clientId}_timestamp`, now.toString());
           return true;
+        } else {
+          // Session expired - clear storage
+          removeStorageItem(`pin_unlocked_${clientId}`);
+          removeStorageItem(`pin_unlocked_${clientId}_timestamp`);
         }
       }
     } catch (e) {
@@ -48,20 +104,27 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
 
   // Re-check unlock state when clientId changes (for client switching)
   useEffect(() => {
-    const newUnlockState = getInitialUnlockState();
-    
-    if (newUnlockState !== isUnlocked) {
-      setIsUnlocked(newUnlockState);
-      setShowContent(newUnlockState);
+    try {
+      const newUnlockState = getInitialUnlockState();
+      
+      if (newUnlockState !== isUnlocked) {
+        setIsUnlocked(newUnlockState);
+        setShowContent(newUnlockState);
+      }
+      
+      // Reset form state when switching clients
+      setPin('');
+      setConfirmPin('');
+      setIsConfirming(false);
+      setError('');
+      setSuccess(false);
+      setShake(false);
+    } catch (e) {
+      console.error('Error re-checking unlock state:', e);
+      // Default to locked state on error
+      setIsUnlocked(false);
+      setShowContent(false);
     }
-    
-    // Reset form state when switching clients
-    setPin('');
-    setConfirmPin('');
-    setIsConfirming(false);
-    setError('');
-    setSuccess(false);
-    setShake(false);
   }, [clientId]);
 
   useEffect(() => {
@@ -92,7 +155,7 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
     if (isUnlocked) {
       const checkExpiration = () => {
         try {
-          const timestamp = sessionStorage.getItem(`pin_unlocked_${clientId}_timestamp`);
+          const timestamp = getStorageItem(`pin_unlocked_${clientId}_timestamp`);
           if (timestamp) {
             const unlockTime = parseInt(timestamp, 10);
             const now = Date.now();
@@ -100,8 +163,8 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
             
             if (now - unlockTime >= thirtyMinutes) {
               // Session expired - clear storage and re-lock
-              sessionStorage.removeItem(`pin_unlocked_${clientId}`);
-              sessionStorage.removeItem(`pin_unlocked_${clientId}_timestamp`);
+              removeStorageItem(`pin_unlocked_${clientId}`);
+              removeStorageItem(`pin_unlocked_${clientId}_timestamp`);
               setIsUnlocked(false);
               setShowContent(false);
             }
@@ -131,22 +194,33 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
         if (newPin.length === 4) {
           // Verify PIN with database
           setTimeout(async () => {
-            const result = await verifyPin(newPin);
-            if (result.success) {
-              setSuccess(true);
-              // Store unlock state in sessionStorage with timestamp
-              try {
-                sessionStorage.setItem(`pin_unlocked_${clientId}`, 'true');
-                sessionStorage.setItem(`pin_unlocked_${clientId}_timestamp`, Date.now().toString());
-              } catch (e) {
-                console.error('Failed to store unlock state:', e);
+            try {
+              const result = await verifyPin(newPin);
+              if (result.success) {
+                setSuccess(true);
+                // Store unlock state with fallback support
+                const storageSuccess = setStorageItem(`pin_unlocked_${clientId}`, 'true') &&
+                                      setStorageItem(`pin_unlocked_${clientId}_timestamp`, Date.now().toString());
+                
+                if (!storageSuccess) {
+                  console.warn('Storage failed but proceeding with unlock');
+                }
+                
+                setTimeout(() => {
+                  setShowContent(true);
+                  setTimeout(() => setIsUnlocked(true), 100);
+                }, 800);
+              } else {
+                setError(result.error || 'Incorrect PIN');
+                setShake(true);
+                setTimeout(() => {
+                  setPin('');
+                  setShake(false);
+                }, 500);
               }
-              setTimeout(() => {
-                setShowContent(true);
-                setTimeout(() => setIsUnlocked(true), 100);
-              }, 800);
-            } else {
-              setError(result.error || 'Incorrect PIN');
+            } catch (e) {
+              console.error('Error verifying PIN:', e);
+              setError('Connection error. Please try again.');
               setShake(true);
               setTimeout(() => {
                 setPin('');
@@ -177,23 +251,35 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
           if (newConfirmPin.length === 4) {
             // Verify both PINs match and save to database
             setTimeout(async () => {
-              if (pin === newConfirmPin) {
-                const result = await createPin(pin);
-                if (!result.error) {
-                  setSuccess(true);
-                  // Store unlock state in sessionStorage with timestamp
-                  try {
-                    sessionStorage.setItem(`pin_unlocked_${clientId}`, 'true');
-                    sessionStorage.setItem(`pin_unlocked_${clientId}_timestamp`, Date.now().toString());
-                  } catch (e) {
-                    console.error('Failed to store unlock state:', e);
+              try {
+                if (pin === newConfirmPin) {
+                  const result = await createPin(pin);
+                  if (!result.error) {
+                    setSuccess(true);
+                    // Store unlock state with fallback support
+                    const storageSuccess = setStorageItem(`pin_unlocked_${clientId}`, 'true') &&
+                                          setStorageItem(`pin_unlocked_${clientId}_timestamp`, Date.now().toString());
+                    
+                    if (!storageSuccess) {
+                      console.warn('Storage failed but proceeding with unlock');
+                    }
+                    
+                    setTimeout(() => {
+                      setShowContent(true);
+                      setTimeout(() => setIsUnlocked(true), 100);
+                    }, 800);
+                  } else {
+                    setError(result.error);
+                    setShake(true);
+                    setTimeout(() => {
+                      setPin('');
+                      setConfirmPin('');
+                      setIsConfirming(false);
+                      setShake(false);
+                    }, 800);
                   }
-                  setTimeout(() => {
-                    setShowContent(true);
-                    setTimeout(() => setIsUnlocked(true), 100);
-                  }, 800);
                 } else {
-                  setError(result.error);
+                  setError('PINs do not match');
                   setShake(true);
                   setTimeout(() => {
                     setPin('');
@@ -202,8 +288,9 @@ const MobilePinLock: React.FC<MobilePinLockProps> = ({ clientId, children }) => 
                     setShake(false);
                   }, 800);
                 }
-              } else {
-                setError('PINs do not match');
+              } catch (e) {
+                console.error('Error creating PIN:', e);
+                setError('Connection error. Please try again.');
                 setShake(true);
                 setTimeout(() => {
                   setPin('');
