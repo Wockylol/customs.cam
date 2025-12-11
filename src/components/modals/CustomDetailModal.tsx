@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calendar, DollarSign, Clock, MessageCircle, FileText, User, CheckCircle, Mail, Hash, AlertCircle, Download, Paperclip, Loader2, Edit, Save, XCircle, MessageSquare, Trash2 } from 'lucide-react';
+import { X, Calendar, DollarSign, Clock, MessageCircle, FileText, User, CheckCircle, Mail, Hash, AlertCircle, Download, Paperclip, Loader2, Edit, Save, XCircle, MessageSquare, Trash2, AlertTriangle } from 'lucide-react';
 import { Database } from '../../lib/database.types';
 import StatusBadge from '../ui/StatusBadge';
 import FileUploadButton from '../ui/FileUploadButton';
@@ -38,6 +38,8 @@ const CustomDetailModal: React.FC<CustomDetailModalProps> = ({
   const [editError, setEditError] = React.useState<string | null>(null);
   const [markingComplete, setMarkingComplete] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
   const [editFormData, setEditFormData] = React.useState({
     fan_name: '',
     fan_email: '',
@@ -184,13 +186,16 @@ const CustomDetailModal: React.FC<CustomDetailModalProps> = ({
     setMarkingComplete(false);
   };
 
-  const handleDelete = async () => {
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+    setDeleteError(null);
+  };
+
+  const handleDeleteConfirm = async () => {
     if (!currentCustom || !denyByTeam) return;
     
-    const confirmDelete = confirm('Are you sure you want to delete this custom request? This action cannot be undone.');
-    if (!confirmDelete) return;
-    
     setDeleting(true);
+    setDeleteError(null);
     const { error } = await denyByTeam(currentCustom.id);
     
     if (!error) {
@@ -198,11 +203,19 @@ const CustomDetailModal: React.FC<CustomDetailModalProps> = ({
       if (onUpdate) {
         onUpdate();
       }
+      setShowDeleteConfirm(false);
       onClose(); // Close modal after deleting
     } else {
-      alert(`Failed to delete: ${error}`);
+      setDeleteError(error);
     }
     setDeleting(false);
+  };
+
+  const handleDeleteCancel = () => {
+    if (!deleting) {
+      setShowDeleteConfirm(false);
+      setDeleteError(null);
+    }
   };
 
   const handleEditToggle = () => {
@@ -990,21 +1003,12 @@ const CustomDetailModal: React.FC<CustomDetailModalProps> = ({
                 </button>
               )}
               <button
-                onClick={handleDelete}
+                onClick={handleDeleteClick}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isEditing || markingComplete || deleting}
               >
-                {deleting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Deleting...
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete Request
-                  </>
-                )}
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Request
               </button>
             </div>
             <div>
@@ -1029,6 +1033,87 @@ const CustomDetailModal: React.FC<CustomDetailModalProps> = ({
         fileName={selectedImage?.fileName}
         onDownload={selectedImage ? handleDownloadFromImageModal : undefined}
       />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={handleDeleteCancel} />
+
+            <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mr-3">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Delete Custom Request
+                  </h3>
+                </div>
+                <button
+                  onClick={handleDeleteCancel}
+                  className="text-gray-400 hover:text-gray-600"
+                  disabled={deleting}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-6">
+                {deleteError && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+                    <div className="flex">
+                      <AlertCircle className="h-5 w-5 text-red-400" />
+                      <div className="ml-3">
+                        <p className="text-sm text-red-800">{deleteError}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-gray-700 mb-4">
+                  Are you sure you want to delete the custom request from <strong>{currentCustom.fan_name}</strong>? 
+                </p>
+                
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                  <div className="flex">
+                    <AlertTriangle className="h-5 w-5 text-yellow-400 flex-shrink-0" />
+                    <div className="ml-3">
+                      <p className="text-sm text-yellow-800">
+                        <strong>Warning:</strong> This action cannot be undone. All associated files, notes, and data will be permanently deleted.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={handleDeleteCancel}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                  disabled={deleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={deleting}
+                >
+                  {deleting ? (
+                    <div className="flex items-center">
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Deleting...
+                    </div>
+                  ) : (
+                    'Delete Request'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
