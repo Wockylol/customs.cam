@@ -307,7 +307,7 @@ export interface Database {
           proposed_amount: number
           amount_paid: number | null
           length_duration: string | null
-          status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+          status: 'pending' | 'pending_team_approval' | 'pending_client_approval' | 'in_progress' | 'completed' | 'delivered' | 'cancelled'
           priority: 'low' | 'medium' | 'high' | 'urgent'
           notes: string | null
           chat_link: string | null
