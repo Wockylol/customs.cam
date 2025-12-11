@@ -1,12 +1,14 @@
 import React from 'react';
 
 interface StatusBadgeProps {
-  status: 'pending_team_approval' | 'pending_client_approval' | 'in_progress' | 'completed' | 'delivered' | 'cancelled';
+  status: 'pending' | 'pending_team_approval' | 'pending_client_approval' | 'in_progress' | 'completed' | 'delivered' | 'cancelled';
 }
 
 const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
   const getStatusStyles = () => {
     switch (status) {
+      case 'pending':
+        return 'bg-gray-100 text-gray-800';
       case 'pending_team_approval':
         return 'bg-orange-100 text-orange-800';
       case 'pending_client_approval':
@@ -26,6 +28,8 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
 
   const getStatusText = () => {
     switch (status) {
+      case 'pending':
+        return 'Pending';
       case 'pending_team_approval':
         return 'Pending Team Approval';
       case 'pending_client_approval':
