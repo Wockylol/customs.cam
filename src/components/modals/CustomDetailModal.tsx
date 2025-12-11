@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calendar, DollarSign, Clock, MessageCircle, FileText, User, CheckCircle, Mail, Hash, AlertCircle, Download, Paperclip, Loader2, Edit, Save, XCircle, MessageSquare } from 'lucide-react';
+import { X, Calendar, DollarSign, Clock, MessageCircle, FileText, User, CheckCircle, Mail, Hash, AlertCircle, Download, Paperclip, Loader2, Edit, Save, XCircle, MessageSquare, Trash2 } from 'lucide-react';
 import { Database } from '../../lib/database.types';
 import StatusBadge from '../ui/StatusBadge';
 import FileUploadButton from '../ui/FileUploadButton';
@@ -25,11 +25,10 @@ const CustomDetailModal: React.FC<CustomDetailModalProps> = ({
   onClose, 
   custom, 
   onMarkComplete, 
-  showMarkComplete = false,
   onUpdate
 }) => {
   const { uploads, loading: uploadsLoading, downloadFile, downloadAllFiles } = useContentUploads(custom?.id);
-  const { customRequests, updateCustomRequest } = useCustomRequests();
+  const { customRequests, updateCustomRequest, markAsCompleted, denyByTeam } = useCustomRequests();
   const { notes, loading: notesLoading, addNote, updateNote, deleteNote } = useCustomNotes(custom?.id);
   const { teamMember } = useAuth();
   const [downloadingFile, setDownloadingFile] = React.useState<string | null>(null);
@@ -37,6 +36,8 @@ const CustomDetailModal: React.FC<CustomDetailModalProps> = ({
   const [isEditing, setIsEditing] = React.useState(false);
   const [editLoading, setEditLoading] = React.useState(false);
   const [editError, setEditError] = React.useState<string | null>(null);
+  const [markingComplete, setMarkingComplete] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
   const [editFormData, setEditFormData] = React.useState({
     fan_name: '',
     fan_email: '',
@@ -161,14 +162,48 @@ const CustomDetailModal: React.FC<CustomDetailModalProps> = ({
     return `$${amount.toFixed(2)}`;
   };
 
-  const handleMarkComplete = () => {
-    if (onMarkComplete) {
-      onMarkComplete(currentCustom.id);
+  const handleMarkComplete = async () => {
+    if (!currentCustom || !markAsCompleted) return;
+    
+    setMarkingComplete(true);
+    const { error } = await markAsCompleted(currentCustom.id);
+    
+    if (!error) {
+      // Trigger parent component refresh if callback provided
+      if (onUpdate) {
+        onUpdate();
+      }
+      // Also call the onMarkComplete callback if provided (for backwards compatibility)
+      if (onMarkComplete) {
+        onMarkComplete(currentCustom.id);
+      }
       onClose(); // Close modal after marking complete
+    } else {
+      alert(`Failed to mark as complete: ${error}`);
     }
+    setMarkingComplete(false);
   };
 
-  const canMarkComplete = currentCustom.status === 'in_progress';
+  const handleDelete = async () => {
+    if (!currentCustom || !denyByTeam) return;
+    
+    const confirmDelete = confirm('Are you sure you want to delete this custom request? This action cannot be undone.');
+    if (!confirmDelete) return;
+    
+    setDeleting(true);
+    const { error } = await denyByTeam(currentCustom.id);
+    
+    if (!error) {
+      // Trigger parent component refresh if callback provided
+      if (onUpdate) {
+        onUpdate();
+      }
+      onClose(); // Close modal after deleting
+    } else {
+      alert(`Failed to delete: ${error}`);
+    }
+    setDeleting(false);
+  };
 
   const handleEditToggle = () => {
     setIsEditing(!isEditing);
@@ -341,7 +376,7 @@ const CustomDetailModal: React.FC<CustomDetailModalProps> = ({
             {/* Status and Amount in Header */}
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-white border-opacity-20">
               <div className="bg-white bg-opacity-20 rounded-lg px-3 py-1">
-                <StatusBadge status={currentCustom.status} />
+                <StatusBadge status={currentCustom.status as 'pending' | 'pending_team_approval' | 'pending_client_approval' | 'in_progress' | 'completed' | 'delivered' | 'cancelled'} />
               </div>
               <div className="text-right">
                 {isEditing ? (
@@ -934,21 +969,49 @@ const CustomDetailModal: React.FC<CustomDetailModalProps> = ({
 
           {/* Footer */}
           <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-t border-gray-200">
-            {showMarkComplete && canMarkComplete && (
+            <div className="flex items-center space-x-3">
+              {currentCustom.status !== 'completed' && (
+                <button
+                  onClick={handleMarkComplete}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isEditing || markingComplete || deleting}
+                >
+                  {markingComplete ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Marking Complete...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Mark as Complete
+                    </>
+                  )}
+                </button>
+              )}
               <button
-                onClick={handleMarkComplete}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 transition-colors shadow-sm"
-                disabled={isEditing}
+                onClick={handleDelete}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isEditing || markingComplete || deleting}
               >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Mark as Complete
+                {deleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Request
+                  </>
+                )}
               </button>
-            )}
-            <div className={showMarkComplete && canMarkComplete ? '' : 'ml-auto'}>
+            </div>
+            <div>
               <button
                 onClick={onClose}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
-                disabled={editLoading}
+                disabled={editLoading || markingComplete || deleting}
               >
                 Close
               </button>
