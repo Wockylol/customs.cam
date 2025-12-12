@@ -6,6 +6,7 @@ import EditPayrollSettingsModal from '../components/modals/EditPayrollSettingsMo
 import ModernSelect from '../components/ui/ModernSelect';
 import { usePayroll } from '../hooks/usePayroll';
 import { useAuth } from '../contexts/AuthContext';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const PayrollSheet: React.FC = () => {
   const { teamMember } = useAuth();
