@@ -459,7 +459,7 @@ const UserApprovals: React.FC = () => {
             )}
           </div>
         </div>
-      </div>
+      </StaggerContainer>
 
       <EditUserModal
         isOpen={editModalOpen}
@@ -480,7 +480,6 @@ const UserApprovals: React.FC = () => {
         user={selectedUser}
         onConfirm={handleDeleteUser}
       />
-      </StaggerContainer>
     </Layout>
   );
 };
