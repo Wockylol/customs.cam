@@ -6,6 +6,7 @@ import CustomDetailModal from '../components/modals/CustomDetailModal';
 import AddCustomModal from '../components/modals/AddCustomModal';
 import { useCustomRequests } from '../hooks/useCustomRequests';
 import { useAuth } from '../contexts/AuthContext';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const MyCustoms: React.FC = () => {
   const [selectedCustom, setSelectedCustom] = useState<any>(null);
@@ -170,7 +171,7 @@ const MyCustoms: React.FC = () => {
 
   return (
     <Layout title="My Customs">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         {/* Header with Stats */}
         <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-6 lg:p-8 text-white shadow-2xl">
           <div className="flex items-center mb-6">
@@ -444,7 +445,7 @@ const MyCustoms: React.FC = () => {
           onClose={() => setIsAddModalOpen(false)}
           onSubmit={handleAddCustom}
         />
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
