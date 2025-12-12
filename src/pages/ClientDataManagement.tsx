@@ -412,7 +412,7 @@ const ClientDataManagement: React.FC = () => {
 
   return (
     <Layout title="Client Data Management">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -663,7 +663,7 @@ const ClientDataManagement: React.FC = () => {
             </p>
           </div>
         )}
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
