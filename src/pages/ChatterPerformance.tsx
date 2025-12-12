@@ -3,6 +3,7 @@ import { TrendingUp, DollarSign, CheckCircle, Clock, XCircle, Calendar, Award, T
 import Layout from '../components/layout/Layout';
 import { useSales } from '../hooks/useSales';
 import SaleApprovalModal from '../components/modals/SaleApprovalModal';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const ChatterPerformance: React.FC = () => {
   const [selectedChatterId, setSelectedChatterId] = useState<string | null>(null);
