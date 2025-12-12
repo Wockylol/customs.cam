@@ -5,6 +5,7 @@ import { useContentScenes } from '../hooks/useContentScenes';
 import AddSceneModal from '../components/modals/AddSceneModal';
 import AssignSceneModal from '../components/modals/AssignSceneModal';
 import { Button } from '../components/ui/Button';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const SceneLibrary: React.FC = () => {
   const { scenes, loading, error, fetchScenes, deleteScene, duplicateScene } = useContentScenes();
@@ -89,7 +90,7 @@ const SceneLibrary: React.FC = () => {
 
   return (
     <Layout title="Scene Library">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center space-x-3">
@@ -315,7 +316,7 @@ const SceneLibrary: React.FC = () => {
           }}
           scene={selectedScene}
         />
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
