@@ -3,6 +3,7 @@ import { Calendar, ChevronLeft, ChevronRight, DollarSign, TrendingUp, Users, Che
 import Layout from '../components/layout/Layout';
 import SaleApprovalModal from '../components/modals/SaleApprovalModal';
 import { useSales } from '../hooks/useSales';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const AllSalesView: React.FC = () => {
   const [selectedSale, setSelectedSale] = useState<any>(null);
@@ -137,7 +138,7 @@ const AllSalesView: React.FC = () => {
 
   return (
     <Layout title="All Sales">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         {/* Header with Stats */}
         <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-6 lg:p-8 text-white shadow-2xl">
           <div className="flex items-center mb-6">
@@ -479,7 +480,7 @@ const AllSalesView: React.FC = () => {
             return { error };
           }}
         />
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
