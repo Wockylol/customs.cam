@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ImageCacheProvider } from './contexts/ImageCacheContext';
@@ -39,14 +40,13 @@ import NotificationsPage from './pages/NotificationsPage';
 import PayrollSheet from './pages/PayrollSheet';
 import DebugLogsPage from './pages/DebugLogsPage';
 
-function App() {
+function AnimatedRoutes() {
+  const location = useLocation();
+
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <ImageCacheProvider>
-          <Router>
-            <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route 
               path="/dashboard" 
               element={
@@ -271,7 +271,18 @@ function App() {
             <Route path="/app/:clientUsername" element={<MobileClientView />} />
             <Route path="/app/:clientUsername/scene/:assignmentId" element={<SceneViewerPage />} />
             <Route path="/debug-logs" element={<DebugLogsPage />} />
-            </Routes>
+      </Routes>
+    </AnimatePresence>
+  );
+}
+
+function App() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <ImageCacheProvider>
+          <Router>
+            <AnimatedRoutes />
           </Router>
         </ImageCacheProvider>
       </AuthProvider>
