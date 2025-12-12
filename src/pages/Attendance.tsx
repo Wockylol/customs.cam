@@ -460,7 +460,7 @@ const Attendance: React.FC = () => {
 
   return (
     <Layout title="Attendance">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         {/* Header */}
         <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-6 lg:p-8 text-white shadow-2xl">
           <div className="flex items-center mb-4">
@@ -1189,7 +1189,7 @@ const Attendance: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
