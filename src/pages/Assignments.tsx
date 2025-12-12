@@ -134,7 +134,7 @@ const Assignments: React.FC = () => {
 
   return (
     <Layout title="Assignments">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         {/* Header */}
         <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-6 lg:p-8 text-white shadow-2xl">
           <div className="flex items-center justify-between mb-4">
@@ -520,7 +520,7 @@ const Assignments: React.FC = () => {
           }}
           target={historyTarget}
         />
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
