@@ -6,6 +6,7 @@ import EditAgencyModal from '../components/modals/EditAgencyModal';
 import DeleteAgencyModal from '../components/modals/DeleteAgencyModal';
 import { useAgencies } from '../hooks/useAgencies';
 import { useClients } from '../hooks/useClients';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const AgenciesList: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -124,7 +125,7 @@ const AgenciesList: React.FC = () => {
 
   return (
     <Layout title="Agencies">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center">
             <Building2 className="w-6 h-6 text-gray-400 mr-2" />
@@ -338,7 +339,7 @@ const AgenciesList: React.FC = () => {
           agency={selectedAgency}
           onConfirm={handleDeleteAgency}
         />
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
