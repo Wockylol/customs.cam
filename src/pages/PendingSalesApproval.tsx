@@ -109,7 +109,7 @@ const PendingSalesApproval: React.FC = () => {
 
   return (
     <Layout title="Pending Sales Approval">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         {/* Header with Stats */}
         <div className="bg-gradient-to-br from-yellow-500 to-orange-600 rounded-2xl p-6 lg:p-8 text-white shadow-2xl">
           <div className="flex items-center mb-6">
@@ -339,7 +339,7 @@ const PendingSalesApproval: React.FC = () => {
             return { error };
           }}
         />
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
