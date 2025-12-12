@@ -5,6 +5,7 @@ import CustomTableRow from '../components/ui/CustomTableRow';
 import AddCustomModal from '../components/modals/AddCustomModal';
 import CustomDetailModal from '../components/modals/CustomDetailModal';
 import { useCustomRequests } from '../hooks/useCustomRequests';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const AllCustoms: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -160,7 +161,7 @@ const AllCustoms: React.FC = () => {
 
   return (
     <Layout title="All Customs">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <span className="text-lg text-gray-600">{filteredCustoms.length} customs</span>
@@ -361,7 +362,7 @@ const AllCustoms: React.FC = () => {
           custom={selectedCustom}
           onUpdate={fetchCustomRequests}
         />
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
