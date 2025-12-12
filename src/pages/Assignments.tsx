@@ -8,6 +8,7 @@ import AssignmentHistoryModal from '../components/modals/AssignmentHistoryModal'
 import { useChatterAssignments } from '../hooks/useChatterAssignments';
 import { useTeamMembers } from '../hooks/useTeamMembers';
 import { useClients } from '../hooks/useClients';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const Assignments: React.FC = () => {
   const [viewMode, setViewMode] = useState<'chatters' | 'clients'>('chatters');
