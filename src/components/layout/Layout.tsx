@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useTheme } from '../../contexts/ThemeContext';
+import { AnimatePresence, motion } from 'framer-motion';
 import SidebarNav from './SidebarNav';
 import TopbarHeader from './TopbarHeader';
 
@@ -13,7 +13,6 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const location = useLocation();
-  const { isDarkMode } = useTheme();
   
   // Don't show sidebar for public client pages
   const isPublicPage = !location.pathname.startsWith('/dashboard') && 
@@ -47,9 +46,18 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{title}</h1>
         </div>
         <main className="flex-1 py-8 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            {children}
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
     );
@@ -71,9 +79,18 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
         />
         
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {children}
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
     </div>
