@@ -134,7 +134,12 @@ const SceneAssignments: React.FC = () => {
   const filteredAssignments = useMemo(() => {
     return assignments.filter(assignment => {
       // Status filter
-      if (statusFilter !== 'all' && assignment.status !== statusFilter) {
+      if (statusFilter === 'all') {
+        // When 'all' is selected, exclude archived assignments
+        if (assignment.status === 'archived') {
+          return false;
+        }
+      } else if (assignment.status !== statusFilter) {
         return false;
       }
 
