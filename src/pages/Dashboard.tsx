@@ -8,6 +8,7 @@ import { useUpcomingBirthdays } from '../hooks/useUpcomingBirthdays';
 import { useImagePreloader } from '../hooks/useImagePreloader';
 import ClientAvatar from '../components/ui/ClientAvatar';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
+import { StaggeredItem } from '../components/ui/StaggeredItem';
 
 const Dashboard: React.FC = () => {
   const { customRequests, loading: customsLoading, error: customsError, fetchCustomRequests } = useCustomRequests();
@@ -266,106 +267,114 @@ const Dashboard: React.FC = () => {
       <div className="space-y-8">
         {/* Overview Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {overviewStats.map((stat) => {
+          {overviewStats.map((stat, index) => {
             const Icon = stat.icon;
             const colorClasses = getColorClasses(stat.color);
             
             return (
-              <div key={stat.name} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">{stat.name}</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{stat.description}</p>
-                  </div>
-                  <div className={`flex-shrink-0 w-14 h-14 flex items-center justify-center rounded-xl bg-opacity-10 ${colorClasses.split(' ')[0]}`}>
-                    <Icon className={`w-7 h-7 ${colorClasses.split(' ')[1]}`} />
+              <StaggeredItem key={stat.name} delay={0.1 + index * 0.05}>
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">{stat.name}</p>
+                      <p className="text-3xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{stat.description}</p>
+                    </div>
+                    <div className={`flex-shrink-0 w-14 h-14 flex items-center justify-center rounded-xl bg-opacity-10 ${colorClasses.split(' ')[0]}`}>
+                      <Icon className={`w-7 h-7 ${colorClasses.split(' ')[1]}`} />
+                    </div>
                   </div>
                 </div>
-              </div>
+              </StaggeredItem>
             );
           })}
         </div>
 
         {/* Upcoming Birthdays */}
-        <div className="bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-900/20 dark:to-purple-900/20 rounded-xl border border-pink-200 dark:border-pink-700 p-6 shadow-sm">
-          <div className="flex items-center mb-4">
-            <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-lg bg-pink-500 bg-opacity-20">
-              <Cake className="w-6 h-6 text-pink-600 dark:text-pink-400" />
+        <StaggeredItem delay={0.3}>
+          <div className="bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-900/20 dark:to-purple-900/20 rounded-xl border border-pink-200 dark:border-pink-700 p-6 shadow-sm">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-lg bg-pink-500 bg-opacity-20">
+                <Cake className="w-6 h-6 text-pink-600 dark:text-pink-400" />
+              </div>
+              <div className="ml-3">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Upcoming Birthdays</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {upcomingBirthdays.length > 0 
+                    ? `${upcomingBirthdays.length} client${upcomingBirthdays.length !== 1 ? 's' : ''} with birthdays in the next 15 days`
+                    : 'No upcoming birthdays in the next 15 days'
+                  }
+                </p>
+              </div>
             </div>
-            <div className="ml-3">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Upcoming Birthdays</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {upcomingBirthdays.length > 0 
-                  ? `${upcomingBirthdays.length} client${upcomingBirthdays.length !== 1 ? 's' : ''} with birthdays in the next 15 days`
-                  : 'No upcoming birthdays in the next 15 days'
-                }
-              </p>
-            </div>
-          </div>
-          {upcomingBirthdays.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {upcomingBirthdays.map((client) => (
-                <div
-                  key={client.id}
-                  className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-center space-x-3">
-                    <ClientAvatar
-                      client={{ username: client.username, avatar_url: client.avatar_url }}
-                      size="md"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                        @{client.username}
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {formatBirthdayDate(client.date_of_birth)}
-                      </p>
-                      <p className={`text-xs font-medium mt-1 ${
-                        client.days_until_birthday === 0
-                          ? 'text-pink-600 dark:text-pink-400'
-                          : client.days_until_birthday <= 3
-                          ? 'text-orange-600 dark:text-orange-400'
-                          : 'text-purple-600 dark:text-purple-400'
-                      }`}>
-                        {formatBirthdayMessage(client.days_until_birthday)}
-                      </p>
+            {upcomingBirthdays.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {upcomingBirthdays.map((client) => (
+                  <div
+                    key={client.id}
+                    className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <ClientAvatar
+                        client={{ username: client.username, avatar_url: client.avatar_url }}
+                        size="md"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                          @{client.username}
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          {formatBirthdayDate(client.date_of_birth)}
+                        </p>
+                        <p className={`text-xs font-medium mt-1 ${
+                          client.days_until_birthday === 0
+                            ? 'text-pink-600 dark:text-pink-400'
+                            : client.days_until_birthday <= 3
+                            ? 'text-orange-600 dark:text-orange-400'
+                            : 'text-purple-600 dark:text-purple-400'
+                        }`}>
+                          {formatBirthdayMessage(client.days_until_birthday)}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-gray-500 dark:text-gray-400 text-sm">
-                Add birthday information to client profiles to see upcoming birthdays here.
-              </p>
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500 dark:text-gray-400 text-sm">
+                  Add birthday information to client profiles to see upcoming birthdays here.
+                </p>
+              </div>
+            )}
+          </div>
+        </StaggeredItem>
 
         {/* Workflow Status Cards */}
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Workflow Status</h2>
+          <StaggeredItem delay={0.35}>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Workflow Status</h2>
+          </StaggeredItem>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {workflowStats.map((stat) => {
+            {workflowStats.map((stat, index) => {
               const Icon = stat.icon;
               const colorClasses = getColorClasses(stat.color);
               
               return (
-                <div key={stat.name} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="flex items-center">
-                    <div className={`flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg bg-opacity-20 ${colorClasses.split(' ')[0]}`}>
-                      <Icon className={`w-6 h-6 ${colorClasses.split(' ')[1]}`} />
-                    </div>
-                    <div className="ml-4 flex-1">
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.name}</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{stat.description}</p>
+                <StaggeredItem key={stat.name} delay={0.4 + index * 0.05}>
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center">
+                      <div className={`flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg bg-opacity-20 ${colorClasses.split(' ')[0]}`}>
+                        <Icon className={`w-6 h-6 ${colorClasses.split(' ')[1]}`} />
+                      </div>
+                      <div className="ml-4 flex-1">
+                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.name}</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{stat.description}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </StaggeredItem>
               );
             })}
           </div>
@@ -374,130 +383,136 @@ const Dashboard: React.FC = () => {
         {/* Completion & Financial Stats */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Completion Stats */}
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Completion Status</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {completionStats.map((stat) => {
-                const Icon = stat.icon;
-                const colorClasses = getColorClasses(stat.color);
-                
-                return (
-                  <div key={stat.name} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex items-center">
-                      <div className={`flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-lg bg-opacity-20 ${colorClasses.split(' ')[0]}`}>
-                        <Icon className={`w-5 h-5 ${colorClasses.split(' ')[1]}`} />
-                      </div>
-                      <div className="ml-3 flex-1">
-                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.name}</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{stat.description}</p>
+          <StaggeredItem delay={0.55}>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Completion Status</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {completionStats.map((stat) => {
+                  const Icon = stat.icon;
+                  const colorClasses = getColorClasses(stat.color);
+                  
+                  return (
+                    <div key={stat.name} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-center">
+                        <div className={`flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-lg bg-opacity-20 ${colorClasses.split(' ')[0]}`}>
+                          <Icon className={`w-5 h-5 ${colorClasses.split(' ')[1]}`} />
+                        </div>
+                        <div className="ml-3 flex-1">
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.name}</p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{stat.description}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          </StaggeredItem>
 
           {/* Financial Stats */}
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Financial Overview</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {financialStats.map((stat) => {
-                const Icon = stat.icon;
-                const colorClasses = getColorClasses(stat.color);
-                
-                return (
-                  <div key={stat.name} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex items-center">
-                      <div className={`flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-lg bg-opacity-20 ${colorClasses.split(' ')[0]}`}>
-                        <Icon className={`w-5 h-5 ${colorClasses.split(' ')[1]}`} />
-                      </div>
-                      <div className="ml-3 flex-1">
-                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.name}</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{stat.description}</p>
+          <StaggeredItem delay={0.6}>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Financial Overview</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {financialStats.map((stat) => {
+                  const Icon = stat.icon;
+                  const colorClasses = getColorClasses(stat.color);
+                  
+                  return (
+                    <div key={stat.name} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-center">
+                        <div className={`flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-lg bg-opacity-20 ${colorClasses.split(' ')[0]}`}>
+                          <Icon className={`w-5 h-5 ${colorClasses.split(' ')[1]}`} />
+                        </div>
+                        <div className="ml-3 flex-1">
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.name}</p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{stat.description}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          </StaggeredItem>
         </div>
 
         {/* Recent Activity */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Custom Requests</h2>
-          </div>
-          <div className="overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-900">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    <SortButton field="client">Client</SortButton>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Fan Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    <SortButton field="date">Date Submitted</SortButton>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    <SortButton field="amount">Payment Status</SortButton>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {getSortedCustoms(recentCustoms).map((custom) => (
-                  <tr key={custom.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onClick={() => handleCustomClick(custom)}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                      {(custom as any).clients?.username ? (
-                        <span className="text-blue-600 font-medium">
-                          @{(custom as any).clients.username}
-                        </span>
-                      ) : (
-                        <span className="text-gray-500 dark:text-gray-400">Unknown Client</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                      <div className="flex items-center">
-                        {custom.fan_name}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {formatDate(custom.date_submitted)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {formatPaymentRatio(custom.amount_paid, custom.proposed_amount)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        custom.status === 'pending_team_approval' ? 'bg-orange-100 text-orange-800' :
-                        custom.status === 'pending_client_approval' ? 'bg-blue-100 text-blue-800' :
-                        custom.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                        custom.status === 'completed' ? 'bg-purple-100 text-purple-800' :
-                        custom.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {custom.status === 'pending_team_approval' ? 'Pending Team' :
-                         custom.status === 'pending_client_approval' ? 'Pending Client' :
-                         custom.status === 'in_progress' ? 'In Progress' :
-                         custom.status === 'completed' ? 'Completed' :
-                         custom.status === 'delivered' ? 'Delivered' :
-                         custom.status.charAt(0).toUpperCase() + custom.status.slice(1)}
-                      </span>
-                    </td>
+        <StaggeredItem delay={0.65}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Custom Requests</h2>
+            </div>
+            <div className="overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-900">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <SortButton field="client">Client</SortButton>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Fan Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <SortButton field="date">Date Submitted</SortButton>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <SortButton field="amount">Payment Status</SortButton>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Status
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {getSortedCustoms(recentCustoms).map((custom) => (
+                    <tr key={custom.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onClick={() => handleCustomClick(custom)}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                        {(custom as any).clients?.username ? (
+                          <span className="text-blue-600 font-medium">
+                            @{(custom as any).clients.username}
+                          </span>
+                        ) : (
+                          <span className="text-gray-500 dark:text-gray-400">Unknown Client</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                        <div className="flex items-center">
+                          {custom.fan_name}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {formatDate(custom.date_submitted)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {formatPaymentRatio(custom.amount_paid, custom.proposed_amount)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          custom.status === 'pending_team_approval' ? 'bg-orange-100 text-orange-800' :
+                          custom.status === 'pending_client_approval' ? 'bg-blue-100 text-blue-800' :
+                          custom.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                          custom.status === 'completed' ? 'bg-purple-100 text-purple-800' :
+                          custom.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {custom.status === 'pending_team_approval' ? 'Pending Team' :
+                           custom.status === 'pending_client_approval' ? 'Pending Client' :
+                           custom.status === 'in_progress' ? 'In Progress' :
+                           custom.status === 'completed' ? 'Completed' :
+                           custom.status === 'delivered' ? 'Delivered' :
+                           custom.status.charAt(0).toUpperCase() + custom.status.slice(1)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </StaggeredItem>
 
         <CustomDetailModal
           isOpen={isModalOpen}
