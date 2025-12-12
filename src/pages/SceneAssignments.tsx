@@ -6,6 +6,7 @@ import { useClients } from '../hooks/useClients';
 import { supabase } from '../lib/supabase';
 import SceneContentViewerModal from '../components/modals/SceneContentViewerModal';
 import CustomSelect from '../components/ui/CustomSelect';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 interface AssignmentWithDetails {
   id: string;
@@ -200,7 +201,7 @@ const SceneAssignments: React.FC = () => {
 
   return (
     <Layout title="Scene Assignments">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         {/* Header with Stats */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center space-x-3">
@@ -579,7 +580,7 @@ const SceneAssignments: React.FC = () => {
             sceneTitle={viewingAssignment.sceneTitle}
           />
         )}
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
