@@ -3,6 +3,7 @@ import { Database, Users, Search, ChevronDown, ChevronRight, Edit2, Save, X, Loa
 import Layout from '../components/layout/Layout';
 import { useAllClientsData } from '../hooks/useAllClientsData';
 import ClientAvatar from '../components/ui/ClientAvatar';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 interface EditingData {
   personalInfo: any;
