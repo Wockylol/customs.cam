@@ -4,6 +4,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import NotificationItem from '../components/ui/NotificationItem';
 import { Bell, CheckCheck, Filter } from 'lucide-react';
 import { Button } from '../components/ui/Button';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const NotificationsPage: React.FC = () => {
   const { 
@@ -58,7 +59,7 @@ const NotificationsPage: React.FC = () => {
 
   return (
     <Layout title="Notifications">
-      <div>
+      <StaggerContainer>
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="mb-6">
@@ -213,7 +214,7 @@ const NotificationsPage: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
