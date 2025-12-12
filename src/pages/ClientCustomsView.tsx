@@ -104,7 +104,7 @@ const ClientCustomsView: React.FC = () => {
 
   return (
     <Layout title={`Customs for @${client.username}`}>
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         {/* Client Header with Preferences */}
         <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-6 lg:p-8 text-white shadow-xl">
           <div className="flex items-center justify-between mb-4">
@@ -426,7 +426,7 @@ const ClientCustomsView: React.FC = () => {
           onClose={() => setPlatformsModalOpen(false)}
           client={client}
         />
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
