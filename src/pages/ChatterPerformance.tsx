@@ -182,7 +182,7 @@ const ChatterPerformance: React.FC = () => {
 
   return (
     <Layout title="Chatter Performance">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         {/* Header */}
         <div className="bg-gradient-to-br from-green-500 to-teal-600 rounded-2xl p-6 lg:p-8 text-white shadow-2xl">
           <div className="flex items-center mb-6">
@@ -533,7 +533,7 @@ const ChatterPerformance: React.FC = () => {
             return { error };
           }}
         />
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
