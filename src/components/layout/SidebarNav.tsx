@@ -949,30 +949,30 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
               </li>
             )}
           </ul>
-          
-          {/* Dark Mode Toggle */}
-          <div className={`mt-auto pt-4 border-t border-gray-200 dark:border-gray-700 ${isCollapsed ? 'px-0' : ''} transition-all duration-300`}>
-            <button
-              onClick={toggleDarkMode}
-              className={`flex items-center w-full ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800 group relative`}
-              title={isCollapsed ? (isDarkMode ? 'Light Mode' : 'Dark Mode') : undefined}
-            >
-              {isDarkMode ? (
-                <Sun className={`${isCollapsed ? '' : 'mr-3'} h-5 w-5 flex-shrink-0 text-gray-400 dark:text-yellow-400`} />
-              ) : (
-                <Moon className={`${isCollapsed ? '' : 'mr-3'} h-5 w-5 flex-shrink-0 text-gray-400`} />
-              )}
-              {!isCollapsed && <span className="flex-1 whitespace-nowrap overflow-hidden">{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>}
-              
-              {/* Tooltip for collapsed state */}
-              {isCollapsed && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-                  {isDarkMode ? 'Light Mode' : 'Dark Mode'}
-                </div>
-              )}
-            </button>
-          </div>
         </nav>
+        
+        {/* Sidebar Footer - Dark Mode Toggle */}
+        <div className={`${isCollapsed ? 'px-2' : 'px-4'} py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 transition-all duration-300`}>
+          <button
+            onClick={toggleDarkMode}
+            className={`flex items-center w-full ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800 group relative`}
+            title={isCollapsed ? (isDarkMode ? 'Light Mode' : 'Dark Mode') : undefined}
+          >
+            {isDarkMode ? (
+              <Sun className={`${isCollapsed ? '' : 'mr-3'} h-5 w-5 flex-shrink-0 text-gray-400 dark:text-yellow-400`} />
+            ) : (
+              <Moon className={`${isCollapsed ? '' : 'mr-3'} h-5 w-5 flex-shrink-0 text-gray-400`} />
+            )}
+            {!isCollapsed && <span className="flex-1 whitespace-nowrap overflow-hidden">{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>}
+            
+            {/* Tooltip for collapsed state */}
+            {isCollapsed && (
+              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+              </div>
+            )}
+          </button>
+        </div>
       </div>
     </>
   );
