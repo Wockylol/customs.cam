@@ -518,7 +518,7 @@ const AgencyAllCustoms: React.FC = () => {
             )}
           </div>
         </div>
-      </div>
+      </StaggerContainer>
 
       <CustomDetailModal
         isOpen={isModalOpen}
@@ -526,7 +526,6 @@ const AgencyAllCustoms: React.FC = () => {
         custom={selectedCustom}
         onUpdate={fetchCustomRequests}
       />
-      </StaggerContainer>
     </AgencyLayout>
   );
 };
