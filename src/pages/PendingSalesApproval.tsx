@@ -3,6 +3,7 @@ import { Clock, CheckCircle, XCircle, Calendar, DollarSign, User, Image as Image
 import Layout from '../components/layout/Layout';
 import SaleApprovalModal from '../components/modals/SaleApprovalModal';
 import { useSales } from '../hooks/useSales';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const PendingSalesApproval: React.FC = () => {
   const [selectedSale, setSelectedSale] = useState<any>(null);
