@@ -8,6 +8,7 @@ import { useAgencies } from '../hooks/useAgencies';
 import { useClients } from '../hooks/useClients';
 import { useCustomRequests } from '../hooks/useCustomRequests';
 import { Database } from '../lib/database.types';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 type Agency = Database['public']['Tables']['agencies']['Row'];
 type Client = Database['public']['Tables']['clients']['Row'];
@@ -210,7 +211,7 @@ const AgencyAllCustoms: React.FC = () => {
 
   return (
     <AgencyLayout title={`${agency.name} - All Customs`}>
-      <div className="space-y-6 lg:space-y-8">
+      <StaggerContainer className="space-y-6 lg:space-y-8">
         {/* Header Section */}
         <div className="bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl p-6 lg:p-8 text-white shadow-2xl">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
@@ -525,6 +526,7 @@ const AgencyAllCustoms: React.FC = () => {
         custom={selectedCustom}
         onUpdate={fetchCustomRequests}
       />
+      </StaggerContainer>
     </AgencyLayout>
   );
 };
