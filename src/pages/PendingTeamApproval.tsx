@@ -6,6 +6,7 @@ import CustomDetailModal from '../components/modals/CustomDetailModal';
 import TeamApprovalModal from '../components/modals/TeamApprovalModal';
 import { useCustomRequests } from '../hooks/useCustomRequests';
 import { useAuth } from '../contexts/AuthContext';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const PendingTeamApproval: React.FC = () => {
   const [selectedCustom, setSelectedCustom] = useState<any>(null);
@@ -162,7 +163,7 @@ const PendingTeamApproval: React.FC = () => {
 
   return (
     <Layout title="Pending Team Approval">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center">
             <Clock className="w-6 h-6 text-gray-400 mr-2" />
@@ -395,6 +396,7 @@ const PendingTeamApproval: React.FC = () => {
           onApprove={handleApprove}
           onDeny={handleDeny}
         />
+      </StaggerContainer>
     </Layout>
   );
 };
