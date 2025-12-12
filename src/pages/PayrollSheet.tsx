@@ -143,7 +143,7 @@ const PayrollSheet: React.FC = () => {
 
   return (
     <Layout title="Payroll Sheet">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         {/* Header */}
         <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-6 lg:p-8 text-white shadow-2xl">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
@@ -413,7 +413,7 @@ const PayrollSheet: React.FC = () => {
             </table>
           </div>
         </div>
-      </div>
+      </StaggerContainer>
 
       <AddBonusModal
         isOpen={addBonusModalOpen}
