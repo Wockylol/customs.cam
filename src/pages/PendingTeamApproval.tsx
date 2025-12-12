@@ -380,23 +380,22 @@ const PendingTeamApproval: React.FC = () => {
             )}
           </>
         )}
-            </div>
-
-        <CustomDetailModal
-          isOpen={isDetailModalOpen}
-          onClose={handleCloseDetailModal}
-          custom={selectedCustom}
-          onUpdate={fetchCustomRequests}
-        />
-
-        <TeamApprovalModal
-          isOpen={isApprovalModalOpen}
-          onClose={handleCloseApprovalModal}
-          custom={selectedCustom}
-          onApprove={handleApprove}
-          onDeny={handleDeny}
-        />
       </StaggerContainer>
+
+      <CustomDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={handleCloseDetailModal}
+        custom={selectedCustom}
+        onUpdate={fetchCustomRequests}
+      />
+
+      <TeamApprovalModal
+        isOpen={isApprovalModalOpen}
+        onClose={handleCloseApprovalModal}
+        custom={selectedCustom}
+        onApprove={handleApprove}
+        onDeny={handleDeny}
+      />
     </Layout>
   );
 };
