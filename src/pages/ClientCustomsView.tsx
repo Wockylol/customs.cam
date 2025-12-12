@@ -12,6 +12,7 @@ import { useClients } from '../hooks/useClients';
 import { useClientPreferences } from '../hooks/useClientPreferences';
 import { useClientPlatforms } from '../hooks/useClientPlatforms';
 import { useThreadNotes } from '../hooks/useThreadNotes';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const ClientCustomsView: React.FC = () => {
   const { clientUsername } = useParams<{ clientUsername: string }>();
