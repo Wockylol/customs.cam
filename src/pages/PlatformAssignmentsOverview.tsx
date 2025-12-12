@@ -9,6 +9,7 @@ import { useClients } from '../hooks/useClients';
 import { useClientPlatforms } from '../hooks/useClientPlatforms';
 import { usePlatforms } from '../hooks/usePlatforms';
 import { supabase } from '../lib/supabase';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 interface PlatformAssignmentData {
   clientPlatformId: string;
@@ -280,7 +281,7 @@ const PlatformAssignmentsOverview: React.FC = () => {
 
   return (
     <Layout title="Platform Overview">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         {/* Header */}
         <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-6 lg:p-8 text-white shadow-2xl">
           <div className="flex items-center justify-between mb-4">
@@ -709,7 +710,7 @@ const PlatformAssignmentsOverview: React.FC = () => {
             </>
           )}
         </div>
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
