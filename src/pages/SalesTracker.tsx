@@ -4,6 +4,7 @@ import Layout from '../components/layout/Layout';
 import AddSaleModal from '../components/modals/AddSaleModal';
 import { useSales } from '../hooks/useSales';
 import { useAuth } from '../contexts/AuthContext';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const SalesTracker: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -178,7 +179,7 @@ const SalesTracker: React.FC = () => {
 
   return (
     <Layout title="Sales Tracker">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         {/* Header with Stats */}
         <div className="bg-gradient-to-br from-green-500 to-blue-600 rounded-2xl p-6 lg:p-8 text-white shadow-2xl">
           <div className="flex items-center mb-6">
@@ -469,7 +470,7 @@ const SalesTracker: React.FC = () => {
           onClose={() => setIsAddModalOpen(false)}
           onSubmit={handleAddSale}
         />
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
