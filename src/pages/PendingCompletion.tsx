@@ -4,6 +4,7 @@ import Layout from '../components/layout/Layout';
 import CustomCard from '../components/ui/CustomCard';
 import CustomDetailModal from '../components/modals/CustomDetailModal';
 import { useCustomRequests } from '../hooks/useCustomRequests';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const PendingCompletion: React.FC = () => {
   const [selectedCustom, setSelectedCustom] = useState<any>(null);
@@ -143,7 +144,7 @@ const PendingCompletion: React.FC = () => {
 
   return (
     <Layout title="Pending Completion">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center">
             <TrendingUp className="w-6 h-6 text-gray-400 mr-2" />
@@ -382,7 +383,7 @@ const PendingCompletion: React.FC = () => {
           custom={selectedCustom}
           onUpdate={fetchCustomRequests}
         />
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
