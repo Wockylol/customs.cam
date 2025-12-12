@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { DollarSign, TrendingUp, Clock, CheckCircle, XCircle, Users, Calendar, ArrowRight, Trophy } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { useSales } from '../hooks/useSales';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const SalesManagement: React.FC = () => {
   const { sales, loading, error } = useSales();
@@ -104,7 +105,7 @@ const SalesManagement: React.FC = () => {
 
   return (
     <Layout title="Sales Management">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         {/* Header */}
         <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl p-6 lg:p-8 text-white shadow-2xl">
           <div className="flex items-center mb-6">
@@ -270,7 +271,7 @@ const SalesManagement: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
