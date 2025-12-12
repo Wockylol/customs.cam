@@ -3,6 +3,7 @@ import { Filter, ChevronUp, ChevronDown, Phone, Calendar, List, ChevronLeft, Che
 import Layout from '../components/layout/Layout';
 import CustomDetailModal from '../components/modals/CustomDetailModal';
 import { useCustomRequests } from '../hooks/useCustomRequests';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 type ViewMode = 'table' | 'calendar';
 
@@ -214,7 +215,7 @@ const Calls: React.FC = () => {
 
   return (
     <Layout title="Calls">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
@@ -736,7 +737,7 @@ const Calls: React.FC = () => {
           custom={selectedCustom}
           onUpdate={fetchCustomRequests}
         />
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
