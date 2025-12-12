@@ -16,6 +16,7 @@ import { useChatterAssignments } from '../hooks/useChatterAssignments';
 import { useImagePreloader } from '../hooks/useImagePreloader';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const ClientsList: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -352,7 +353,7 @@ const ClientsList: React.FC = () => {
 
   return (
     <Layout title="Clients">
-      <div className="space-y-6">
+      <StaggerContainer className="space-y-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center">
             <Users className="w-6 h-6 text-gray-400 mr-2" />
@@ -640,7 +641,7 @@ const ClientsList: React.FC = () => {
           onClose={handlePlatformsModalClose}
           client={selectedClient}
         />
-      </div>
+      </StaggerContainer>
     </Layout>
   );
 };
