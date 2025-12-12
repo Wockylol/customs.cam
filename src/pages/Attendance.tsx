@@ -6,6 +6,7 @@ import Layout from '../components/layout/Layout';
 import { useTeamMembers } from '../hooks/useTeamMembers';
 import { useAttendance } from '../hooks/useAttendance';
 import { useAuth } from '../contexts/AuthContext';
+import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const EDT_TIMEZONE = 'America/New_York';
 
