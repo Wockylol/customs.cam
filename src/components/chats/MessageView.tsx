@@ -293,8 +293,8 @@ export function MessageView({
   }
 
   return (
-    <div className="flex-1 bg-gray-50 flex flex-col">
-      <div className="p-4 bg-white border-b shadow-sm">
+    <div className="flex-1 bg-gray-50 flex flex-col h-full overflow-hidden">
+      <div className="p-4 bg-white border-b shadow-sm flex-shrink-0">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center space-x-3">
@@ -352,7 +352,7 @@ export function MessageView({
 
       {/* Search Bar */}
       {showSearchBar && (
-        <div className="bg-white border-b px-4 py-3">
+        <div className="bg-white border-b px-4 py-3 flex-shrink-0">
           <div className="flex items-center space-x-2">
             <div className="flex-1 flex items-center space-x-2">
               <Search className="h-4 w-4 text-gray-400" />
@@ -548,7 +548,7 @@ export function MessageView({
 
       {/* Message Input */}
       <div 
-        className="p-4 bg-white border-t relative"
+        className="p-4 bg-white border-t relative flex-shrink-0"
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
