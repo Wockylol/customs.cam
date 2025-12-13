@@ -29,9 +29,9 @@ export function ManagementView({ threads, onThreadSelect, contactMap }: Manageme
   const unassignedThreads = threads.filter(thread => !thread.client_id);
 
   return (
-    <div className="flex-1 bg-gray-50 flex flex-col">
+    <div className="flex-1 bg-gray-50 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="p-6 bg-white border-b shadow-sm">
+      <div className="p-6 bg-white border-b shadow-sm flex-shrink-0">
         <div className="flex items-center">
           <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
             <Settings className="w-5 h-5 text-blue-600" />
