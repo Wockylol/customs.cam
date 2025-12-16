@@ -392,58 +392,58 @@ const ChatterPerformance: React.FC = () => {
             <div className="xl:col-span-1 space-y-6">
               {/* Key Metrics - Compact */}
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                <h2 className="text-base font-bold text-gray-900 dark:text-white mb-3">Performance Metrics</h2>
-                <div className="space-y-2.5">
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Performance Metrics</h2>
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
-                      <TrendingUp className="w-3.5 h-3.5" />
-                      <span className="text-xs">Total Sales</span>
+                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                      <TrendingUp className="w-4 h-4" />
+                      <span className="text-sm">Total Sales</span>
                     </div>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-xl font-bold text-gray-900 dark:text-white">{selectedChatter.totalSales}</span>
-                      <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-bold text-gray-900 dark:text-white">{selectedChatter.totalSales}</span>
+                      <span className="text-base font-semibold text-gray-600 dark:text-gray-400">
                         ${(selectedChatter.totalRevenue + selectedChatter.pendingRevenue).toFixed(2)}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      <span className="text-xs">Approved Sales</span>
+                    <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                      <CheckCircle className="w-4 h-4" />
+                      <span className="text-sm">Approved Sales</span>
                     </div>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-xl font-bold text-green-600">{selectedChatter.validSales}</span>
-                      <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-bold text-green-600">{selectedChatter.validSales}</span>
+                      <span className="text-base font-semibold text-green-600 dark:text-green-400">
                         ${selectedChatter.totalRevenue.toFixed(2)}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-yellow-600 dark:text-yellow-400">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span className="text-xs">Pending Sales</span>
+                    <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
+                      <Clock className="w-4 h-4" />
+                      <span className="text-sm">Pending Sales</span>
                     </div>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-xl font-bold text-yellow-600 dark:text-yellow-400">{selectedChatter.pendingSales}</span>
-                      <span className="text-sm font-semibold text-yellow-600 dark:text-yellow-400">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{selectedChatter.pendingSales}</span>
+                      <span className="text-base font-semibold text-yellow-600 dark:text-yellow-400">
                         ${selectedChatter.pendingRevenue.toFixed(2)}
                       </span>
                     </div>
                   </div>
 
-                  <div className="pt-2.5 mt-2.5 border-t border-gray-200 dark:border-gray-700">
+                  <div className="pt-3 mt-3 border-t border-gray-200 dark:border-gray-700">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
-                        <DollarSign className="w-3.5 h-3.5" />
-                        <span className="text-xs font-semibold">Total Net Revenue</span>
+                      <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                        <DollarSign className="w-4 h-4" />
+                        <span className="text-sm font-semibold">Total Net Revenue</span>
                       </div>
-                      <span className="text-xl font-bold text-blue-600">
+                      <span className="text-2xl font-bold text-blue-600">
                         ${(selectedChatter.totalRevenue + selectedChatter.pendingRevenue).toFixed(2)}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 text-right">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right">
                       Approved + Pending
                     </p>
                   </div>
