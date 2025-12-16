@@ -7,7 +7,9 @@ import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const ChatterPerformance: React.FC = () => {
   const [selectedChatterId, setSelectedChatterId] = useState<string | null>(null);
-  const [timeFrame, setTimeFrame] = useState<'all' | 'month' | 'week'>('month');
+  const [timeFrame, setTimeFrame] = useState<'all' | 'month' | 'custom'>('month');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [selectedSale, setSelectedSale] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { sales, loading, error, approveSale, updateSale } = useSales();
@@ -33,7 +35,6 @@ const ChatterPerformance: React.FC = () => {
     const today = new Date();
     const thisMonth = today.getMonth();
     const thisYear = today.getFullYear();
-    const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     const stats = new Map<string, {
       id: string;
@@ -43,6 +44,7 @@ const ChatterPerformance: React.FC = () => {
       pendingSales: number;
       invalidSales: number;
       totalRevenue: number;
+      pendingRevenue: number;
       avgSale: number;
       approvalRate: number;
     }>();
@@ -52,8 +54,11 @@ const ChatterPerformance: React.FC = () => {
       const saleDate = new Date(sale.sale_date);
       if (timeFrame === 'month') {
         return saleDate.getMonth() === thisMonth && saleDate.getFullYear() === thisYear;
-      } else if (timeFrame === 'week') {
-        return saleDate >= oneWeekAgo;
+      } else if (timeFrame === 'custom') {
+        if (!startDate && !endDate) return true;
+        const start = startDate ? new Date(startDate) : new Date(0);
+        const end = endDate ? new Date(endDate) : new Date();
+        return saleDate >= start && saleDate <= end;
       }
       return true;
     });
@@ -70,6 +75,7 @@ const ChatterPerformance: React.FC = () => {
         pendingSales: 0,
         invalidSales: 0,
         totalRevenue: 0,
+        pendingRevenue: 0,
         avgSale: 0,
         approvalRate: 0,
       };
@@ -80,6 +86,7 @@ const ChatterPerformance: React.FC = () => {
         current.totalRevenue += calculateNet(sale.gross_amount);
       } else if (sale.status === 'pending') {
         current.pendingSales++;
+        current.pendingRevenue += calculateNet(sale.gross_amount);
       } else if (sale.status === 'invalid') {
         current.invalidSales++;
       }
@@ -198,38 +205,29 @@ const ChatterPerformance: React.FC = () => {
 
         {/* Filters */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Select Chatter
+                </label>
+                <select
+                  value={selectedChatter?.id || ''}
+                  onChange={(e) => setSelectedChatterId(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  {chatterStats.map((chatter) => (
+                    <option key={chatter.id} value={chatter.id}>
+                      {chatter.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Select Chatter
-              </label>
-              <select
-                value={selectedChatter?.id || ''}
-                onChange={(e) => setSelectedChatterId(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                {chatterStats.map((chatter) => (
-                  <option key={chatter.id} value={chatter.id}>
-                    {chatter.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Time Frame
               </label>
               <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setTimeFrame('week')}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    timeFrame === 'week'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                  }`}
-                >
-                  Week
-                </button>
                 <button
                   onClick={() => setTimeFrame('month')}
                   className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
@@ -250,7 +248,37 @@ const ChatterPerformance: React.FC = () => {
                 >
                   All Time
                 </button>
+                <button
+                  onClick={() => setTimeFrame('custom')}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    timeFrame === 'custom'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  Custom
+                </button>
               </div>
+              {timeFrame === 'custom' && (
+                <div className="flex items-center space-x-2 mt-2">
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Start Date"
+                  />
+                  <span className="text-gray-500 dark:text-gray-400">to</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="End Date"
+                  />
+                </div>
+              )}
+            </div>
             </div>
           </div>
         </div>
@@ -279,8 +307,7 @@ const ChatterPerformance: React.FC = () => {
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date & Time</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Model</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Gross</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Net</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Net Amount</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                       </tr>
@@ -288,7 +315,7 @@ const ChatterPerformance: React.FC = () => {
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {chatterSales.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                          <td colSpan={5} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                             No sales found for this time frame
                           </td>
                         </tr>
@@ -313,9 +340,6 @@ const ChatterPerformance: React.FC = () => {
                               <span className="text-blue-600 dark:text-blue-400 font-medium">
                                 @{sale.clients?.username || 'Unknown'}
                               </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                              ${sale.gross_amount.toFixed(2)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600 dark:text-green-400">
                               ${calculateNet(sale.gross_amount).toFixed(2)}
@@ -361,36 +385,56 @@ const ChatterPerformance: React.FC = () => {
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Performance Metrics</h2>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center text-gray-600 dark:text-gray-400">
+                  <div>
+                    <div className="flex items-center text-gray-600 dark:text-gray-400 mb-1">
                       <TrendingUp className="w-4 h-4 mr-2" />
                       <span className="text-sm">Total Sales</span>
                     </div>
-                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{selectedChatter.totalSales}</div>
+                    <div className="flex items-baseline gap-2">
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">{selectedChatter.totalSales}</div>
+                      <div className="text-lg font-semibold text-gray-600 dark:text-gray-400">
+                        ${(selectedChatter.totalRevenue + selectedChatter.pendingRevenue).toFixed(2)}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center text-gray-600 dark:text-gray-400">
+                  <div>
+                    <div className="flex items-center text-gray-600 dark:text-gray-400 mb-1">
                       <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                      <span className="text-sm">Valid Sales</span>
+                      <span className="text-sm">Approved Sales</span>
                     </div>
-                    <div className="text-2xl font-bold text-green-600">{selectedChatter.validSales}</div>
+                    <div className="flex items-baseline gap-2">
+                      <div className="text-2xl font-bold text-green-600">{selectedChatter.validSales}</div>
+                      <div className="text-lg font-semibold text-green-600 dark:text-green-400">
+                        ${selectedChatter.totalRevenue.toFixed(2)}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center text-gray-600 dark:text-gray-400">
+                  <div>
+                    <div className="flex items-center text-gray-600 dark:text-gray-400 mb-1">
+                      <Clock className="w-4 h-4 mr-2 text-yellow-500" />
+                      <span className="text-sm">Pending Sales</span>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{selectedChatter.pendingSales}</div>
+                      <div className="text-lg font-semibold text-yellow-600 dark:text-yellow-400">
+                        ${selectedChatter.pendingRevenue.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center text-gray-600 dark:text-gray-400 mb-1">
                       <DollarSign className="w-4 h-4 mr-2 text-blue-500" />
-                      <span className="text-sm">Revenue</span>
+                      <span className="text-sm font-semibold">Total Net Revenue</span>
                     </div>
-                    <div className="text-2xl font-bold text-blue-600">${selectedChatter.totalRevenue.toFixed(0)}</div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center text-gray-600 dark:text-gray-400">
-                      <Target className="w-4 h-4 mr-2 text-purple-500" />
-                      <span className="text-sm">Approval Rate</span>
+                    <div className="text-2xl font-bold text-blue-600">
+                      ${(selectedChatter.totalRevenue + selectedChatter.pendingRevenue).toFixed(2)}
                     </div>
-                    <div className="text-2xl font-bold text-purple-600">{selectedChatter.approvalRate.toFixed(0)}%</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Approved + Pending
+                    </div>
                   </div>
                 </div>
               </div>
