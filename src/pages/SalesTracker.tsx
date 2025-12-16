@@ -1,9 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { DollarSign, Plus, Search, Calendar, TrendingUp, ChevronUp, ChevronDown, Image as ImageIcon, User, Edit, Trash2, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { DollarSign, Plus, Search, Calendar, TrendingUp, ChevronUp, ChevronDown, Image as ImageIcon, Trash2, Clock, CheckCircle, XCircle } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import AddSaleModal from '../components/modals/AddSaleModal';
 import { useSales } from '../hooks/useSales';
-import { useAuth } from '../contexts/AuthContext';
 import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const SalesTracker: React.FC = () => {
@@ -13,8 +12,7 @@ const SalesTracker: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'valid' | 'invalid'>('all');
-  const { sales, loading, error, addSale, fetchSales, deleteSale } = useSales();
-  const { teamMember } = useAuth();
+  const { sales, loading, error, addSale, deleteSale } = useSales();
 
   // Helper to format date without timezone issues
   const formatLocalDate = (dateStr: string) => {
@@ -44,12 +42,21 @@ const SalesTracker: React.FC = () => {
 
   // Calculate metrics (net revenue = gross - 20%)
   const calculateNet = (gross: number) => gross * 0.8;
-  const totalSales = filteredSales.length;
-  const totalRevenue = filteredSales.reduce((sum, sale) => sum + calculateNet(sale.gross_amount), 0);
-  const averageSale = totalSales > 0 ? totalRevenue / totalSales : 0;
-  const pendingSales = sales.filter(s => s.status === 'pending').length;
-  const validSales = sales.filter(s => s.status === 'valid').length;
-  const invalidSales = sales.filter(s => s.status === 'invalid').length;
+  
+  // Get all sales by status (not filtered)
+  const allPendingSales = sales.filter(s => s.status === 'pending');
+  const allValidSales = sales.filter(s => s.status === 'valid');
+  
+  // Calculate revenue from ONLY approved (valid) sales
+  const totalRevenue = allValidSales.reduce((sum, sale) => sum + calculateNet(sale.gross_amount), 0);
+  const averageSale = allValidSales.length > 0 ? totalRevenue / allValidSales.length : 0;
+  
+  // Calculate pending revenue
+  const pendingRevenue = allPendingSales.reduce((sum, sale) => sum + calculateNet(sale.gross_amount), 0);
+  
+  // Counts
+  const pendingSales = allPendingSales.length;
+  const validSales = allValidSales.length;
   
   // Get unique months from sales for filter
   const availableMonths = useMemo(() => {
@@ -199,15 +206,40 @@ const SalesTracker: React.FC = () => {
                 <span className="text-blue-100 text-sm">Total Sales</span>
                 <TrendingUp className="w-5 h-5 text-blue-100" />
               </div>
-              <div className="text-3xl font-bold">{totalSales}</div>
+              <div className="text-3xl font-bold">{sales.length}</div>
+              <div className="text-xs text-blue-100 opacity-75">All time</div>
             </div>
             <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-blue-100 text-sm">Net Revenue</span>
+                <span className="text-blue-100 text-sm">Approved Sales</span>
+                <CheckCircle className="w-5 h-5 text-blue-100" />
+              </div>
+              <div className="text-3xl font-bold">{validSales}</div>
+              <div className="text-xs text-blue-100 opacity-75">Valid only</div>
+            </div>
+            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-blue-100 text-sm">Approved Revenue</span>
                 <DollarSign className="w-5 h-5 text-blue-100" />
               </div>
               <div className="text-3xl font-bold">${totalRevenue.toFixed(2)}</div>
-              <div className="text-xs text-blue-100 opacity-75">After 20% commission</div>
+              <div className="text-xs text-blue-100 opacity-75">Net (after 20% fee)</div>
+            </div>
+            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-blue-100 text-sm">Pending Sales</span>
+                <Clock className="w-5 h-5 text-blue-100" />
+              </div>
+              <div className="text-3xl font-bold">{pendingSales}</div>
+              <div className="text-xs text-blue-100 opacity-75">Awaiting approval</div>
+            </div>
+            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-blue-100 text-sm">Pending Revenue</span>
+                <Clock className="w-5 h-5 text-blue-100" />
+              </div>
+              <div className="text-3xl font-bold">${pendingRevenue.toFixed(2)}</div>
+              <div className="text-xs text-blue-100 opacity-75">If approved</div>
             </div>
             <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
@@ -215,27 +247,7 @@ const SalesTracker: React.FC = () => {
                 <DollarSign className="w-5 h-5 text-blue-100" />
               </div>
               <div className="text-3xl font-bold">${averageSale.toFixed(2)}</div>
-            </div>
-            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-blue-100 text-sm">Pending</span>
-                <Clock className="w-5 h-5 text-blue-100" />
-              </div>
-              <div className="text-3xl font-bold">{pendingSales}</div>
-            </div>
-            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-blue-100 text-sm">Valid</span>
-                <TrendingUp className="w-5 h-5 text-blue-100" />
-              </div>
-              <div className="text-3xl font-bold">{validSales}</div>
-            </div>
-            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-blue-100 text-sm">Invalid</span>
-                <TrendingUp className="w-5 h-5 text-blue-100" />
-              </div>
-              <div className="text-3xl font-bold">{invalidSales}</div>
+              <div className="text-xs text-blue-100 opacity-75">Per approved sale</div>
             </div>
           </div>
         </div>
