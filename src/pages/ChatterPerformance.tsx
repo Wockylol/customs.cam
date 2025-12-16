@@ -472,7 +472,7 @@ const ChatterPerformance: React.FC = () => {
                     Total/Pending
                   </div>
                 </div>
-                <div className="space-y-1.5 max-h-80 overflow-y-auto">
+                <div className="space-y-1.5">
                   {dailySales.filter(d => d.sales > 0).length === 0 ? (
                     <p className="text-gray-500 dark:text-gray-400 text-center py-6 text-xs">No sales in this period</p>
                   ) : (
