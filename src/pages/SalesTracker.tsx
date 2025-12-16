@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { DollarSign, Plus, Search, Calendar, TrendingUp, ChevronUp, ChevronDown, Image as ImageIcon, Trash2, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { DollarSign, Plus, Search, Calendar, TrendingUp, ChevronUp, ChevronDown, Image as ImageIcon, Trash2, Clock, CheckCircle, XCircle, Filter } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import AddSaleModal from '../components/modals/AddSaleModal';
 import { useSales } from '../hooks/useSales';
@@ -286,30 +286,40 @@ const SalesTracker: React.FC = () => {
               </div>
 
               {/* Status Filter */}
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="valid">Valid</option>
-                <option value="invalid">Invalid</option>
-              </select>
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-600 z-10 pointer-events-none" />
+                <div className="pl-8">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as any)}
+                    className="px-3 py-2.5 border border-blue-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white bg-white hover:bg-blue-50 transition-colors"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="valid">Valid</option>
+                    <option value="invalid">Invalid</option>
+                  </select>
+                </div>
+              </div>
 
               {/* Month Filter */}
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                <option value="all">All Months</option>
-                {availableMonths.map(month => (
-                  <option key={month} value={month}>
-                    {formatMonthDisplay(month)}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-600 z-10 pointer-events-none" />
+                <div className="pl-8">
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="px-3 py-2.5 border border-blue-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white bg-white hover:bg-blue-50 transition-colors"
+                  >
+                    <option value="all">All Months</option>
+                    {availableMonths.map(month => (
+                      <option key={month} value={month}>
+                        {formatMonthDisplay(month)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
         </div>
