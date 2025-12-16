@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { TrendingUp, DollarSign, CheckCircle, Clock, XCircle, Calendar, Target, Eye } from 'lucide-react';
+import { TrendingUp, DollarSign, CheckCircle, Clock, XCircle, Calendar, Eye } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { useSales } from '../hooks/useSales';
 import SaleApprovalModal from '../components/modals/SaleApprovalModal';
@@ -102,7 +102,7 @@ const ChatterPerformance: React.FC = () => {
     });
 
     return Array.from(stats.values()).sort((a, b) => b.totalRevenue - a.totalRevenue);
-  }, [sales, timeFrame]);
+  }, [sales, timeFrame, startDate, endDate]);
 
   const selectedChatter = useMemo(() => {
     return chatterStats.find(c => c.id === selectedChatterId) || chatterStats[0] || null;
@@ -115,7 +115,6 @@ const ChatterPerformance: React.FC = () => {
     const today = new Date();
     const thisMonth = today.getMonth();
     const thisYear = today.getFullYear();
-    const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     return sales
       .filter(sale => {
@@ -126,13 +125,16 @@ const ChatterPerformance: React.FC = () => {
         const saleDate = new Date(sale.sale_date);
         if (timeFrame === 'month') {
           return saleDate.getMonth() === thisMonth && saleDate.getFullYear() === thisYear;
-        } else if (timeFrame === 'week') {
-          return saleDate >= oneWeekAgo;
+        } else if (timeFrame === 'custom') {
+          if (!startDate && !endDate) return true;
+          const start = startDate ? new Date(startDate) : new Date(0);
+          const end = endDate ? new Date(endDate) : new Date();
+          return saleDate >= start && saleDate <= end;
         }
         return true;
       })
       .sort((a, b) => new Date(b.sale_date).getTime() - new Date(a.sale_date).getTime());
-  }, [sales, selectedChatter, timeFrame]);
+  }, [sales, selectedChatter, timeFrame, startDate, endDate]);
 
   // Get daily sales for selected chatter
   const dailySales = useMemo(() => {
@@ -140,12 +142,20 @@ const ChatterPerformance: React.FC = () => {
 
     const chatterId = selectedChatter.id;
     const today = new Date();
-    const daysToShow = timeFrame === 'week' ? 7 : timeFrame === 'month' ? 30 : 90;
+    const daysToShow = timeFrame === 'custom' 
+      ? (startDate && endDate ? Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1 : 30)
+      : timeFrame === 'month' ? 30 : 90;
 
     const dailyData = [];
+    const baseDate = timeFrame === 'custom' && startDate ? new Date(startDate) : new Date(today);
+    
     for (let i = daysToShow - 1; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
+      const date = new Date(baseDate);
+      if (timeFrame === 'custom' && startDate) {
+        date.setDate(baseDate.getDate() + (daysToShow - 1 - i));
+      } else {
+        date.setDate(today.getDate() - i);
+      }
       const dateStr = date.toISOString().split('T')[0];
 
       const daySales = sales.filter(s =>
@@ -162,7 +172,7 @@ const ChatterPerformance: React.FC = () => {
     }
 
     return dailyData;
-  }, [sales, selectedChatter, timeFrame]);
+  }, [sales, selectedChatter, timeFrame, startDate, endDate]);
 
   if (loading) {
     return (
@@ -435,36 +445,6 @@ const ChatterPerformance: React.FC = () => {
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       Approved + Pending
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Status Breakdown - Compact */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Status Breakdown</h2>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <div className="flex items-center">
-                      <CheckCircle className="w-6 h-6 text-green-500 mr-3" />
-                      <span className="text-sm text-green-600 dark:text-green-400">Valid</span>
-                    </div>
-                    <div className="text-xl font-bold text-green-600 dark:text-green-400">{selectedChatter.validSales}</div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                    <div className="flex items-center">
-                      <Clock className="w-6 h-6 text-yellow-500 mr-3" />
-                      <span className="text-sm text-yellow-600 dark:text-yellow-400">Pending</span>
-                    </div>
-                    <div className="text-xl font-bold text-yellow-600 dark:text-yellow-400">{selectedChatter.pendingSales}</div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                    <div className="flex items-center">
-                      <XCircle className="w-6 h-6 text-red-500 mr-3" />
-                      <span className="text-sm text-red-600 dark:text-red-400">Invalid</span>
-                    </div>
-                    <div className="text-xl font-bold text-red-600 dark:text-red-400">{selectedChatter.invalidSales}</div>
                   </div>
                 </div>
               </div>
