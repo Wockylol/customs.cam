@@ -158,16 +158,30 @@ const ChatterPerformance: React.FC = () => {
       }
       const dateStr = date.toISOString().split('T')[0];
 
-      const daySales = sales.filter(s =>
+      const validSales = sales.filter(s =>
         s.chatter_id === chatterId &&
         s.sale_date === dateStr &&
         s.status === 'valid'
       );
 
+      const pendingSales = sales.filter(s =>
+        s.chatter_id === chatterId &&
+        s.sale_date === dateStr &&
+        s.status === 'pending'
+      );
+
+      const totalSales = validSales.length + pendingSales.length;
+      const validRevenue = validSales.reduce((sum, s) => sum + calculateNet(s.gross_amount), 0);
+      const pendingRevenue = pendingSales.reduce((sum, s) => sum + calculateNet(s.gross_amount), 0);
+
       dailyData.push({
         date: dateStr,
-        sales: daySales.length,
-        revenue: daySales.reduce((sum, s) => sum + calculateNet(s.gross_amount), 0),
+        sales: totalSales,
+        validSales: validSales.length,
+        pendingSales: pendingSales.length,
+        revenue: validRevenue + pendingRevenue,
+        validRevenue: validRevenue,
+        pendingRevenue: pendingRevenue,
       });
     }
 
@@ -452,10 +466,15 @@ const ChatterPerformance: React.FC = () => {
 
               {/* Daily Performance Chart - Compact */}
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                <h2 className="text-base font-bold text-gray-900 dark:text-white mb-3">Daily Performance</h2>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-base font-bold text-gray-900 dark:text-white">Daily Performance</h2>
+                  <div className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                    Total/Pending
+                  </div>
+                </div>
                 <div className="space-y-1.5 max-h-80 overflow-y-auto">
                   {dailySales.filter(d => d.sales > 0).length === 0 ? (
-                    <p className="text-gray-500 dark:text-gray-400 text-center py-6 text-xs">No valid sales in this period</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-center py-6 text-xs">No sales in this period</p>
                   ) : (
                     dailySales.filter(d => d.sales > 0).slice(-14).map((day, index) => {
                       const maxRevenue = Math.max(...dailySales.map(d => d.revenue));
@@ -478,8 +497,10 @@ const ChatterPerformance: React.FC = () => {
                               </div>
                             </div>
                           </div>
-                          <div className="w-14 text-right text-xs font-semibold text-green-600 dark:text-green-400">
-                            ${day.revenue.toFixed(0)}
+                          <div className="w-20 text-right text-xs font-semibold">
+                            <span className="text-green-600 dark:text-green-400">${day.revenue.toFixed(0)}</span>
+                            <span className="text-gray-400 dark:text-gray-500">/</span>
+                            <span className="text-yellow-600 dark:text-yellow-400">${day.pendingRevenue.toFixed(0)}</span>
                           </div>
                         </div>
                       );
