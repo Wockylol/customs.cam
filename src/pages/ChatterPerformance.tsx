@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { TrendingUp, DollarSign, CheckCircle, Clock, XCircle, Calendar, Eye } from 'lucide-react';
+import { TrendingUp, DollarSign, CheckCircle, Clock, XCircle, Calendar, Eye, Users } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { useSales } from '../hooks/useSales';
 import SaleApprovalModal from '../components/modals/SaleApprovalModal';
@@ -235,17 +235,22 @@ const ChatterPerformance: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Select Chatter
               </label>
-              <select
-                value={selectedChatter?.id || ''}
-                onChange={(e) => setSelectedChatterId(e.target.value)}
-                className="w-full max-w-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm"
-              >
-                {chatterStats.map((chatter) => (
-                  <option key={chatter.id} value={chatter.id}>
-                    {chatter.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative w-full max-w-xs">
+                <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-green-600 z-10 pointer-events-none" />
+                <div className="pl-8">
+                  <select
+                    value={selectedChatter?.id || ''}
+                    onChange={(e) => setSelectedChatterId(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm bg-white hover:bg-green-50 transition-colors"
+                  >
+                    {chatterStats.map((chatter) => (
+                      <option key={chatter.id} value={chatter.id}>
+                        {chatter.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
 
             {/* Time Frame Selection */}
