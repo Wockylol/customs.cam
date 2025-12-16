@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Clock, CheckCircle, XCircle, Calendar, DollarSign, User, Image as ImageIcon, Search, Filter } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, Calendar, DollarSign, User, Image as ImageIcon, Search, Filter, Users } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import SaleApprovalModal from '../components/modals/SaleApprovalModal';
 import { useSales } from '../hooks/useSales';
@@ -178,33 +178,39 @@ const PendingSalesApproval: React.FC = () => {
                 />
               </div>
             </div>
-            <div>
-              <select
-                value={shiftFilter}
-                onChange={(e) => setShiftFilter(e.target.value)}
-                className="w-full sm:w-40 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                <option value="all">All Shifts</option>
-                {shifts.map((shift) => (
-                  <option key={shift} value={shift}>
-                    {shift}
-                  </option>
-                ))}
-              </select>
+            <div className="relative w-full sm:w-40">
+              <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-orange-600 z-10 pointer-events-none" />
+              <div className="pl-8">
+                <select
+                  value={shiftFilter}
+                  onChange={(e) => setShiftFilter(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white bg-white hover:bg-orange-50 transition-colors"
+                >
+                  <option value="all">All Shifts</option>
+                  {shifts.map((shift) => (
+                    <option key={shift} value={shift}>
+                      {shift}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div>
-              <select
-                value={chatterFilter}
-                onChange={(e) => setChatterFilter(e.target.value)}
-                className="w-full sm:w-48 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                <option value="all">All Chatters</option>
-                {chatters.map((chatter: any) => (
-                  <option key={chatter.id} value={chatter.id}>
-                    {chatter.full_name}
-                  </option>
-                ))}
-              </select>
+            <div className="relative w-full sm:w-48">
+              <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-orange-600 z-10 pointer-events-none" />
+              <div className="pl-8">
+                <select
+                  value={chatterFilter}
+                  onChange={(e) => setChatterFilter(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white bg-white hover:bg-orange-50 transition-colors"
+                >
+                  <option value="all">All Chatters</option>
+                  {chatters.map((chatter: any) => (
+                    <option key={chatter.id} value={chatter.id}>
+                      {chatter.full_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </div>
