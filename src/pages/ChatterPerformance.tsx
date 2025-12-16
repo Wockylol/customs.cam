@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { TrendingUp, DollarSign, CheckCircle, Clock, XCircle, Calendar, Award, Target, Eye } from 'lucide-react';
+import { TrendingUp, DollarSign, CheckCircle, Clock, XCircle, Calendar, Target, Eye } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { useSales } from '../hooks/useSales';
 import SaleApprovalModal from '../components/modals/SaleApprovalModal';
@@ -88,7 +88,7 @@ const ChatterPerformance: React.FC = () => {
     });
 
     // Calculate derived stats
-    stats.forEach((stat, chatterId) => {
+    stats.forEach((stat) => {
       stat.avgSale = stat.validSales > 0 ? stat.totalRevenue / stat.validSales : 0;
       const approvedOrRejected = stat.validSales + stat.invalidSales;
       stat.approvalRate = approvedOrRejected > 0 ? (stat.validSales / approvedOrRejected) * 100 : 0;
@@ -361,65 +361,6 @@ const ChatterPerformance: React.FC = () => {
             </div>
           </>
         )}
-
-        {/* All Chatters Comparison */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">All Chatters Comparison</h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead>
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Rank</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Chatter</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Valid</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Net Revenue</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Avg Net Sale</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Approval Rate</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {chatterStats.map((chatter, index) => (
-                  <tr key={chatter.id} className={`${selectedChatter?.id === chatter.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
-                        index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-600' : 'bg-gray-300'
-                      }`}>
-                        {index + 1}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                      {chatter.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {chatter.totalSales}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 dark:text-green-400">
-                      {chatter.validSales}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-600 dark:text-blue-400">
-                      ${chatter.totalRevenue.toFixed(0)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-purple-600 dark:text-purple-400">
-                      ${chatter.avgSale.toFixed(0)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mr-2">
-                          <div
-                            className="bg-green-500 rounded-full h-2"
-                            style={{ width: `${chatter.approvalRate}%` }}
-                          />
-                        </div>
-                        <span className="text-sm text-gray-900 dark:text-white">{chatter.approvalRate.toFixed(0)}%</span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
 
         {/* Detailed Sales Table */}
         {selectedChatter && (
