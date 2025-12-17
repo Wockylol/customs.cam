@@ -13,18 +13,18 @@ const SalesManagement: React.FC = () => {
   
   const stats = useMemo(() => {
     const today = new Date();
-    const thisMonth = today.getMonth();
-    const thisYear = today.getFullYear();
+    const thisMonth = today.getUTCMonth();
+    const thisYear = today.getUTCFullYear();
 
     const allSales = sales;
     const validSales = sales.filter(s => s.status === 'valid');
     const pendingSales = sales.filter(s => s.status === 'pending');
     const invalidSales = sales.filter(s => s.status === 'invalid');
 
-    // This month's sales
+    // This month's sales - use UTC to ensure consistent month calculation
     const monthSales = sales.filter(s => {
-      const d = new Date(s.sale_date);
-      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+      const d = new Date(s.sale_date + 'T00:00:00Z');
+      return d.getUTCMonth() === thisMonth && d.getUTCFullYear() === thisYear;
     });
 
     const monthValidSales = monthSales.filter(s => s.status === 'valid');
