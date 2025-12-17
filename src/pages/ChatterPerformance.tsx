@@ -418,12 +418,9 @@ const ChatterPerformance: React.FC = () => {
                       <TrendingUp className="w-4 h-4" />
                       <span className="text-sm">Total Sales</span>
                     </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold text-gray-900 dark:text-white">{selectedChatter.totalSales}</span>
-                      <span className="text-base font-semibold text-gray-600 dark:text-gray-400">
-                        ${(selectedChatter.totalRevenue + selectedChatter.pendingRevenue).toFixed(2)}
-                      </span>
-                    </div>
+                    <span className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {selectedChatter.totalSales} | ${(selectedChatter.totalRevenue + selectedChatter.pendingRevenue).toFixed(2)}
+                    </span>
                   </div>
 
                   <div className="flex items-center justify-between">
@@ -431,12 +428,9 @@ const ChatterPerformance: React.FC = () => {
                       <CheckCircle className="w-4 h-4" />
                       <span className="text-sm">Approved Sales</span>
                     </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold text-green-600">{selectedChatter.validSales}</span>
-                      <span className="text-base font-semibold text-green-600 dark:text-green-400">
-                        ${selectedChatter.totalRevenue.toFixed(2)}
-                      </span>
-                    </div>
+                    <span className="text-2xl font-bold text-green-600">
+                      {selectedChatter.validSales} | ${selectedChatter.totalRevenue.toFixed(2)}
+                    </span>
                   </div>
 
                   <div className="flex items-center justify-between">
@@ -444,12 +438,9 @@ const ChatterPerformance: React.FC = () => {
                       <Clock className="w-4 h-4" />
                       <span className="text-sm">Pending Sales</span>
                     </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{selectedChatter.pendingSales}</span>
-                      <span className="text-base font-semibold text-yellow-600 dark:text-yellow-400">
-                        ${selectedChatter.pendingRevenue.toFixed(2)}
-                      </span>
-                    </div>
+                    <span className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                      {selectedChatter.pendingSales} | ${selectedChatter.pendingRevenue.toFixed(2)}
+                    </span>
                   </div>
 
                   <div className="pt-3 mt-3 border-t border-gray-200 dark:border-gray-700">
