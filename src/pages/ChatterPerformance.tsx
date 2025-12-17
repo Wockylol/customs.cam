@@ -33,8 +33,8 @@ const ChatterPerformance: React.FC = () => {
   // Calculate chatter stats
   const chatterStats = useMemo(() => {
     const today = new Date();
-    const thisMonth = today.getMonth();
-    const thisYear = today.getFullYear();
+    const thisMonth = today.getUTCMonth();
+    const thisYear = today.getUTCFullYear();
 
     const stats = new Map<string, {
       id: string;
@@ -49,15 +49,15 @@ const ChatterPerformance: React.FC = () => {
       approvalRate: number;
     }>();
 
-    // Filter sales by timeframe
+    // Filter sales by timeframe - use UTC to ensure consistent date handling
     const filteredSales = sales.filter(sale => {
-      const saleDate = new Date(sale.sale_date);
+      const saleDate = new Date(sale.sale_date + 'T00:00:00Z');
       if (timeFrame === 'month') {
-        return saleDate.getMonth() === thisMonth && saleDate.getFullYear() === thisYear;
+        return saleDate.getUTCMonth() === thisMonth && saleDate.getUTCFullYear() === thisYear;
       } else if (timeFrame === 'custom') {
         if (!startDate && !endDate) return true;
-        const start = startDate ? new Date(startDate) : new Date(0);
-        const end = endDate ? new Date(endDate) : new Date();
+        const start = startDate ? new Date(startDate + 'T00:00:00Z') : new Date(0);
+        const end = endDate ? new Date(endDate + 'T23:59:59Z') : new Date();
         return saleDate >= start && saleDate <= end;
       }
       return true;
@@ -113,27 +113,27 @@ const ChatterPerformance: React.FC = () => {
     if (!selectedChatter) return [];
 
     const today = new Date();
-    const thisMonth = today.getMonth();
-    const thisYear = today.getFullYear();
+    const thisMonth = today.getUTCMonth();
+    const thisYear = today.getUTCFullYear();
 
     return sales
       .filter(sale => {
         // Filter by chatter
         if (sale.chatter_id !== selectedChatter.id) return false;
 
-        // Filter by timeframe
-        const saleDate = new Date(sale.sale_date);
+        // Filter by timeframe - use UTC to ensure consistent date handling
+        const saleDate = new Date(sale.sale_date + 'T00:00:00Z');
         if (timeFrame === 'month') {
-          return saleDate.getMonth() === thisMonth && saleDate.getFullYear() === thisYear;
+          return saleDate.getUTCMonth() === thisMonth && saleDate.getUTCFullYear() === thisYear;
         } else if (timeFrame === 'custom') {
           if (!startDate && !endDate) return true;
-          const start = startDate ? new Date(startDate) : new Date(0);
-          const end = endDate ? new Date(endDate) : new Date();
+          const start = startDate ? new Date(startDate + 'T00:00:00Z') : new Date(0);
+          const end = endDate ? new Date(endDate + 'T23:59:59Z') : new Date();
           return saleDate >= start && saleDate <= end;
         }
         return true;
       })
-      .sort((a, b) => new Date(b.sale_date).getTime() - new Date(a.sale_date).getTime());
+      .sort((a, b) => new Date(b.sale_date + 'T00:00:00Z').getTime() - new Date(a.sale_date + 'T00:00:00Z').getTime());
   }, [sales, selectedChatter, timeFrame, startDate, endDate]);
 
   // Get daily sales for selected chatter
@@ -147,16 +147,21 @@ const ChatterPerformance: React.FC = () => {
       : timeFrame === 'month' ? 30 : 90;
 
     const dailyData = [];
-    const baseDate = timeFrame === 'custom' && startDate ? new Date(startDate) : new Date(today);
+    const baseDate = timeFrame === 'custom' && startDate ? new Date(startDate + 'T00:00:00Z') : new Date();
     
     for (let i = daysToShow - 1; i >= 0; i--) {
-      const date = new Date(baseDate);
+      let dateStr: string;
       if (timeFrame === 'custom' && startDate) {
-        date.setDate(baseDate.getDate() + (daysToShow - 1 - i));
+        // For custom range, use UTC date arithmetic
+        const date = new Date(baseDate);
+        date.setUTCDate(baseDate.getUTCDate() + (daysToShow - 1 - i));
+        dateStr = date.toISOString().split('T')[0];
       } else {
-        date.setDate(today.getDate() - i);
+        // For other timeframes, count back from today in UTC
+        const date = new Date();
+        date.setUTCDate(date.getUTCDate() - i);
+        dateStr = date.toISOString().split('T')[0];
       }
-      const dateStr = date.toISOString().split('T')[0];
 
       const validSales = sales.filter(s =>
         s.chatter_id === chatterId &&
