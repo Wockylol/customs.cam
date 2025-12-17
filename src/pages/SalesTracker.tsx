@@ -29,8 +29,9 @@ const SalesTracker: React.FC = () => {
       
       let matchesMonth = true;
       if (selectedMonth !== 'all') {
-        const saleDate = new Date(sale.sale_date);
-        const saleMonthYear = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}`;
+        // Use UTC to ensure date matches exactly what was submitted, regardless of user timezone
+        const saleDate = new Date(sale.sale_date + 'T00:00:00Z');
+        const saleMonthYear = `${saleDate.getUTCFullYear()}-${String(saleDate.getUTCMonth() + 1).padStart(2, '0')}`;
         matchesMonth = saleMonthYear === selectedMonth;
       }
       
@@ -65,8 +66,9 @@ const SalesTracker: React.FC = () => {
   const availableMonths = useMemo(() => {
     const months = new Set<string>();
     sales.forEach(sale => {
-      const date = new Date(sale.sale_date);
-      const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      // Use UTC to ensure date matches exactly what was submitted, regardless of user timezone
+      const date = new Date(sale.sale_date + 'T00:00:00Z');
+      const monthYear = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
       months.add(monthYear);
     });
     return Array.from(months).sort().reverse();
@@ -98,8 +100,9 @@ const SalesTracker: React.FC = () => {
 
       switch (sortField) {
         case 'date':
-          aValue = new Date(a.sale_date).getTime();
-          bValue = new Date(b.sale_date).getTime();
+          // Use UTC to ensure consistent sorting regardless of user timezone
+          aValue = new Date(a.sale_date + 'T00:00:00Z').getTime();
+          bValue = new Date(b.sale_date + 'T00:00:00Z').getTime();
           break;
         case 'model':
           aValue = a.clients?.username || '';
