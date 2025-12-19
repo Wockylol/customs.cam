@@ -200,51 +200,29 @@ export function ThreadList({
           {/* Filter Type */}
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-gray-500" />
-            <div className="flex gap-1 flex-1">
-              <button
-                onClick={() => setFilterType('all')}
-                className={`flex-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
-                  filterType === 'all'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setFilterType('unread')}
-                className={`flex-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
-                  filterType === 'unread'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Unread
-              </button>
-            </div>
+            <button
+              onClick={() => setFilterType(filterType === 'all' ? 'unread' : 'all')}
+              className={`flex-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                filterType === 'all'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-blue-600 text-white'
+              }`}
+            >
+              {filterType === 'all' ? 'All' : 'Unread'}
+            </button>
           </div>
 
           {/* Sort Order */}
           <div className="flex gap-1">
             <button
-              onClick={() => setSortOrder('recent')}
+              onClick={() => setSortOrder(sortOrder === 'recent' ? 'oldest' : 'recent')}
               className={`flex-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
                 sortOrder === 'recent'
                   ? 'bg-gray-700 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-gray-700 text-white'
               }`}
             >
-              Recent First
-            </button>
-            <button
-              onClick={() => setSortOrder('oldest')}
-              className={`flex-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
-                sortOrder === 'oldest'
-                  ? 'bg-gray-700 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Oldest First
+              {sortOrder === 'recent' ? 'Recent First' : 'Oldest First'}
             </button>
           </div>
         </div>
