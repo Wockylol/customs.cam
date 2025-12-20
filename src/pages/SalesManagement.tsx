@@ -1,12 +1,14 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { DollarSign, TrendingUp, Clock, CheckCircle, XCircle, Users, Calendar, ArrowRight, Trophy } from 'lucide-react';
+import { DollarSign, TrendingUp, Clock, CheckCircle, XCircle, Users, Calendar, ArrowRight, Trophy, ChevronLeft, ChevronRight } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { useSales } from '../hooks/useSales';
 import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const SalesManagement: React.FC = () => {
   const { sales, loading, error } = useSales();
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Calculate overall stats (net revenue = gross - 20%)
   const calculateNet = (gross: number) => gross * 0.8;
@@ -57,9 +59,8 @@ const SalesManagement: React.FC = () => {
       chatterPerformance.set(chatterId, current);
     });
 
-    const topChatters = Array.from(chatterPerformance.values())
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
+    const allChatters = Array.from(chatterPerformance.values())
+      .sort((a, b) => b.revenue - a.revenue);
 
     // Approval rate
     const approvedOrRejected = validSales.length + invalidSales.length;
@@ -76,9 +77,22 @@ const SalesManagement: React.FC = () => {
       monthSales: monthSales.length,
       monthValidSales: monthValidSales.length,
       approvalRate,
-      topChatters,
+      allChatters,
     };
   }, [sales]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(stats.allChatters.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedChatters = stats.allChatters.slice(startIndex, endIndex);
+
+  // Reset to page 1 if current page is out of bounds
+  React.useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [totalPages, currentPage]);
 
   if (loading) {
     return (
@@ -232,43 +246,113 @@ const SalesManagement: React.FC = () => {
 
         {/* Top Performers */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-          <div className="flex items-center mb-6">
-            <Trophy className="w-6 h-6 text-yellow-500 mr-2" />
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Top Performing Chatters</h2>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center">
+              <Trophy className="w-6 h-6 text-yellow-500 mr-2" />
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Top Performing Chatters</h2>
+            </div>
+            {stats.allChatters.length > 0 && (
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Showing {startIndex + 1}-{Math.min(endIndex, stats.allChatters.length)} of {stats.allChatters.length}
+              </div>
+            )}
           </div>
-          {stats.topChatters.length === 0 ? (
+          {stats.allChatters.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">No sales data available</p>
           ) : (
-            <div className="space-y-4">
-              {stats.topChatters.map((chatter, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${
-                      index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-600' : 'bg-blue-500'
-                    }`}>
-                      {index + 1}
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-900 dark:text-white">{chatter.name}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {chatter.validSales} valid sales
+            <>
+              <div className="space-y-4">
+                {paginatedChatters.map((chatter, index) => {
+                  const globalIndex = startIndex + index;
+                  return (
+                    <div
+                      key={globalIndex}
+                      className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${
+                          globalIndex === 0 ? 'bg-yellow-500' : globalIndex === 1 ? 'bg-gray-400' : globalIndex === 2 ? 'bg-orange-600' : 'bg-blue-500'
+                        }`}>
+                          {globalIndex + 1}
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">{chatter.name}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            {chatter.validSales} valid sales
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                          ${chatter.revenue.toFixed(0)}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          Avg: ${(chatter.revenue / chatter.validSales).toFixed(0)}
+                        </div>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+              
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Previous
+                  </button>
+                  
+                  <div className="flex items-center space-x-2">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                      // Show first page, last page, current page, and pages around current
+                      if (
+                        page === 1 ||
+                        page === totalPages ||
+                        (page >= currentPage - 1 && page <= currentPage + 1)
+                      ) {
+                        return (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`px-3 py-2 text-sm font-medium rounded-lg ${
+                              currentPage === page
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      } else if (
+                        page === currentPage - 2 ||
+                        page === currentPage + 2
+                      ) {
+                        return (
+                          <span key={page} className="px-2 text-gray-500 dark:text-gray-400">
+                            ...
+                          </span>
+                        );
+                      }
+                      return null;
+                    })}
                   </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      ${chatter.revenue.toFixed(0)}
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      Avg: ${(chatter.revenue / chatter.validSales).toFixed(0)}
-                    </div>
-                  </div>
+                  
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
       </StaggerContainer>
