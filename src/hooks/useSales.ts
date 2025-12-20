@@ -33,41 +33,56 @@ export const useSales = () => {
       setLoading(true);
       setError(null);
 
-      let query = supabase
-        .from('chatter_sales')
-        .select(`
-          *,
-          clients (
-            id,
-            username,
-            avatar_url
-          ),
-          chatter:team_members!chatter_sales_chatter_id_fkey (
-            id,
-            full_name,
-            shift
-          ),
-          approver:team_members!chatter_sales_approved_by_fkey (
-            id,
-            full_name
-          )
-        `)
-        .order('sale_date', { ascending: false });
+      const allSales: Sale[] = [];
+      const pageSize = 1000;
+      let from = 0;
+      let hasMore = true;
 
-      // If user is a chatter, only fetch their own sales
-      if (teamMember?.role === 'chatter') {
-        query = query.eq('chatter_id', teamMember.id);
+      while (hasMore) {
+        let query = supabase
+          .from('chatter_sales')
+          .select(`
+            *,
+            clients (
+              id,
+              username,
+              avatar_url
+            ),
+            chatter:team_members!chatter_sales_chatter_id_fkey (
+              id,
+              full_name,
+              shift
+            ),
+            approver:team_members!chatter_sales_approved_by_fkey (
+              id,
+              full_name
+            )
+          `)
+          .order('sale_date', { ascending: false })
+          .range(from, from + pageSize - 1);
+
+        // If user is a chatter, only fetch their own sales
+        if (teamMember?.role === 'chatter') {
+          query = query.eq('chatter_id', teamMember.id);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          throw error;
+        }
+
+        if (data && data.length > 0) {
+          allSales.push(...(data as Sale[]));
+          // If we got fewer records than pageSize, we've reached the end
+          hasMore = data.length === pageSize;
+          from += pageSize;
+        } else {
+          hasMore = false;
+        }
       }
 
-      const { data, error } = await query;
-
-      if (error) {
-        throw error;
-      }
-
-      if (data) {
-        setSales(data as Sale[]);
-      }
+      setSales(allSales);
     } catch (err: any) {
       console.error('Error fetching sales:', err);
       setError(err.message);
