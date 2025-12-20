@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, FileText, X, Clock, Package, TrendingUp, Building2, MessageSquare, Moon, Sun, UserCheck, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, Phone, Database, Smartphone, Film, DollarSign, Calendar, Bell } from 'lucide-react';
 import { UserCog, Layers } from 'lucide-react';
@@ -59,10 +59,47 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
     location.pathname.startsWith('/sales-management') || location.pathname === '/payroll'
   );
   
+  // Ref for the scrollable nav container
+  const navRef = useRef<HTMLElement>(null);
+  
   // Check if user has manager or admin role
   const hasManagerAccess = teamMember?.role === 'manager' || teamMember?.role === 'admin';
   const hasAdminAccess = teamMember?.role === 'admin';
   const isChatter = teamMember?.role === 'chatter';
+  
+  // Save scroll position when scrolling
+  useEffect(() => {
+    const navElement = navRef.current;
+    if (!navElement) return;
+    
+    const handleScroll = () => {
+      sessionStorage.setItem('sidebarScrollPosition', navElement.scrollTop.toString());
+    };
+    
+    navElement.addEventListener('scroll', handleScroll);
+    return () => navElement.removeEventListener('scroll', handleScroll);
+  }, []);
+  
+  // Restore scroll position after navigation
+  useEffect(() => {
+    const navElement = navRef.current;
+    if (!navElement) return;
+    
+    // Use requestAnimationFrame to ensure DOM is ready
+    const restoreScroll = () => {
+      const savedPosition = sessionStorage.getItem('sidebarScrollPosition');
+      if (savedPosition) {
+        navElement.scrollTop = parseInt(savedPosition, 10);
+      }
+    };
+    
+    // Small delay to ensure content is rendered
+    const timeoutId = setTimeout(() => {
+      requestAnimationFrame(restoreScroll);
+    }, 50);
+    
+    return () => clearTimeout(timeoutId);
+  }, [location.pathname]);
   
   // Keep sections expanded when on their respective pages
   React.useEffect(() => {
@@ -218,7 +255,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
           </button>
         </div>
         
-        <nav className={`flex-1 ${isCollapsed ? 'px-2' : 'px-4'} py-6 overflow-y-auto transition-all duration-300`}>
+        <nav ref={navRef} className={`flex-1 ${isCollapsed ? 'px-2' : 'px-4'} py-6 overflow-y-auto transition-all duration-300`}>
           <ul className="space-y-2">
             {/* Dashboard - Always visible */}
             {navigationItems.filter(item => !item.chatterOnly || isChatter).map((item) => {
