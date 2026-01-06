@@ -204,61 +204,59 @@ const AssignSceneModal: React.FC<AssignSceneModalProps> = ({
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col h-[calc(90vh-200px)]">
           {/* Search Bar */}
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder={mode === 'scene-to-clients' ? 'Search clients...' : 'Search scenes...'}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              {/* Select All Button */}
-              {mode === 'scene-to-clients' ? (
-                filteredClients.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleSelectAllClients}
-                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors whitespace-nowrap"
-                  >
-                    {filteredClients.every(c => selectedClientIds.includes(c.id)) ? (
-                      <>
-                        <CheckSquare className="w-4 h-4 text-blue-500" />
-                        Deselect All
-                      </>
-                    ) : (
-                      <>
-                        <Square className="w-4 h-4" />
-                        Select All
-                      </>
-                    )}
-                  </button>
-                )
-              ) : (
-                filteredScenes.filter(s => !clientAssignments[s.id]?.includes(client?.id)).length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleSelectAllScenes}
-                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors whitespace-nowrap"
-                  >
-                    {filteredScenes.filter(s => !clientAssignments[s.id]?.includes(client?.id)).every(s => selectedSceneIds.includes(s.id)) ? (
-                      <>
-                        <CheckSquare className="w-4 h-4 text-blue-500" />
-                        Deselect All
-                      </>
-                    ) : (
-                      <>
-                        <Square className="w-4 h-4" />
-                        Select All
-                      </>
-                    )}
-                  </button>
-                )
-              )}
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700 space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder={mode === 'scene-to-clients' ? 'Search clients...' : 'Search scenes...'}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
+            {/* Select All Button */}
+            {mode === 'scene-to-clients' ? (
+              filteredClients.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleSelectAllClients}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors"
+                >
+                  {filteredClients.length > 0 && filteredClients.every(c => selectedClientIds.includes(c.id)) ? (
+                    <>
+                      <CheckSquare className="w-4 h-4" />
+                      Deselect All ({filteredClients.length})
+                    </>
+                  ) : (
+                    <>
+                      <Square className="w-4 h-4" />
+                      Select All ({filteredClients.length})
+                    </>
+                  )}
+                </button>
+              )
+            ) : (
+              filteredScenes.filter(s => !clientAssignments[s.id]?.includes(client?.id)).length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleSelectAllScenes}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors"
+                >
+                  {filteredScenes.filter(s => !clientAssignments[s.id]?.includes(client?.id)).every(s => selectedSceneIds.includes(s.id)) ? (
+                    <>
+                      <CheckSquare className="w-4 h-4" />
+                      Deselect All ({filteredScenes.filter(s => !clientAssignments[s.id]?.includes(client?.id)).length})
+                    </>
+                  ) : (
+                    <>
+                      <Square className="w-4 h-4" />
+                      Select All ({filteredScenes.filter(s => !clientAssignments[s.id]?.includes(client?.id)).length})
+                    </>
+                  )}
+                </button>
+              )
+            )}
           </div>
 
           {/* Selection List */}
