@@ -1,4 +1,5 @@
 import Twilio from 'npm:twilio@4.22.0';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 // Define CORS headers
 const corsHeaders = {
@@ -37,7 +38,7 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const { phoneNumber, content } = await req.json();
+    const { phoneNumber, content, sentBy } = await req.json();
     if (!phoneNumber || !content) {
       throw new Error('Phone number and content are required');
     }
@@ -46,6 +47,7 @@ Deno.serve(async (req) => {
       to:            phoneNumber,
       contentLength: content.length,
       from:          twilioNumber,
+      sentBy:        sentBy || 'not provided',
     });
 
     // Initialize Twilio client
@@ -78,6 +80,108 @@ Deno.serve(async (req) => {
       price:       message.price,
       priceUnit:   message.priceUnit,
     });
+
+    // Only log to database if the message was successfully sent (has a SID)
+    if (message.sid) {
+      console.log('📝 Logging successful outbound message to database...');
+      
+      try {
+        // Initialize Supabase client with service role
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
+        if (supabaseUrl && supabaseServiceKey) {
+          const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+            auth: {
+              autoRefreshToken: false,
+              persistSession: false,
+            },
+          });
+
+          // Find or create conversation for this phone number
+          let conversationId: string;
+
+          const { data: existingConvo, error: findError } = await supabase
+            .from('sms_conversations')
+            .select('id')
+            .eq('phone_number', phoneNumber)
+            .single();
+
+          if (findError && findError.code !== 'PGRST116') {
+            console.error('❌ Error finding conversation:', findError);
+          }
+
+          if (existingConvo) {
+            conversationId = existingConvo.id;
+            console.log('✅ Found existing conversation:', conversationId);
+          } else {
+            // Create new conversation
+            console.log('📝 Creating new conversation for:', phoneNumber);
+
+            // Try to find a client with this phone number
+            const { data: clientMatch } = await supabase
+              .from('clients')
+              .select('id')
+              .eq('phone', phoneNumber)
+              .single();
+
+            const { data: newConvo, error: createError } = await supabase
+              .from('sms_conversations')
+              .insert({
+                phone_number: phoneNumber,
+                client_id: clientMatch?.id || null,
+              })
+              .select('id')
+              .single();
+
+            if (createError) {
+              // Handle race condition
+              if (createError.code === '23505') {
+                const { data: raceConvo } = await supabase
+                  .from('sms_conversations')
+                  .select('id')
+                  .eq('phone_number', phoneNumber)
+                  .single();
+
+                if (raceConvo) {
+                  conversationId = raceConvo.id;
+                } else {
+                  throw createError;
+                }
+              } else {
+                throw createError;
+              }
+            } else {
+              conversationId = newConvo.id;
+              console.log('✅ Created new conversation:', conversationId);
+            }
+          }
+
+          // Insert the outbound message
+          const { error: insertError } = await supabase
+            .from('sms_messages')
+            .insert({
+              conversation_id: conversationId,
+              direction: 'outbound',
+              body: content,
+              twilio_sid: message.sid,
+              status: message.status || 'sent',
+              sent_by: sentBy || null,
+            });
+
+          if (insertError) {
+            console.error('❌ Error inserting message:', insertError);
+          } else {
+            console.log('✅ Outbound message logged successfully');
+          }
+        } else {
+          console.warn('⚠️ Supabase not configured, skipping message logging');
+        }
+      } catch (logError: any) {
+        // Don't fail the request if logging fails
+        console.error('❌ Error logging message to database:', logError);
+      }
+    }
 
     // Success response
     return new Response(
@@ -163,4 +267,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-
