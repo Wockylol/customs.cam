@@ -581,7 +581,7 @@ const SceneAssignments: React.FC = () => {
           </div>
         ) : (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto will-change-scroll" style={{ transform: 'translateZ(0)' }}>
               <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                   <tr>
@@ -629,7 +629,7 @@ const SceneAssignments: React.FC = () => {
                     return (
                       <tr 
                         key={assignment.id} 
-                        className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
+                        className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
                           isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                         }`}
                       >
@@ -680,7 +680,7 @@ const SceneAssignments: React.FC = () => {
                             <div className="flex-1">
                               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                                 <div
-                                  className={`h-2 rounded-full transition-all ${getProgressColor(
+                                  className={`h-2 rounded-full ${getProgressColor(
                                     assignment.uploads_count!,
                                     assignment.total_steps
                                   )}`}
