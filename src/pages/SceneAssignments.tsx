@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Film, User, Calendar, CheckCircle, Clock, Eye, Trash2, Download, Archive, Filter, Users, Video, X, Loader, CheckSquare, Square } from 'lucide-react';
+import { Search, Film, User, Calendar, CheckCircle, Clock, Eye, Trash2, Download, Archive, Filter, Users, Video, X, Loader, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import JSZip from 'jszip';
 import Layout from '../components/layout/Layout';
 import { useContentScenes } from '../hooks/useContentScenes';
@@ -29,6 +29,9 @@ interface AssignmentWithDetails {
   total_steps?: number;
 }
 
+type SortColumn = 'client' | 'scene' | 'progress' | 'status' | 'assigned_at';
+type SortDirection = 'asc' | 'desc';
+
 const SceneAssignments: React.FC = () => {
   const { scenes } = useContentScenes();
   const { clients } = useClients();
@@ -51,6 +54,10 @@ const SceneAssignments: React.FC = () => {
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [showBulkArchiveConfirm, setShowBulkArchiveConfirm] = useState(false);
+  
+  // Sorting state - default: highest progress first, then oldest assigned
+  const [sortColumn, setSortColumn] = useState<SortColumn>('progress');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   useEffect(() => {
     fetchAssignments();
@@ -296,9 +303,19 @@ const SceneAssignments: React.FC = () => {
     }
   };
 
-  // Filter assignments
+  // Sort handler
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Filter and sort assignments
   const filteredAssignments = useMemo(() => {
-    return assignments.filter(assignment => {
+    let filtered = assignments.filter(assignment => {
       // Status filter
       if (statusFilter === 'all') {
         // When 'all' is selected, exclude archived assignments
@@ -329,7 +346,49 @@ const SceneAssignments: React.FC = () => {
 
       return true;
     });
-  }, [assignments, statusFilter, clientFilter, sceneFilter, searchQuery]);
+
+    // Sort with secondary sort by assigned_at (oldest first) when primary values are equal
+    filtered.sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortColumn) {
+        case 'client':
+          const clientA = a.client?.username?.toLowerCase() || '';
+          const clientB = b.client?.username?.toLowerCase() || '';
+          comparison = clientA.localeCompare(clientB);
+          break;
+        case 'scene':
+          const sceneA = a.scene?.title?.toLowerCase() || '';
+          const sceneB = b.scene?.title?.toLowerCase() || '';
+          comparison = sceneA.localeCompare(sceneB);
+          break;
+        case 'progress':
+          const progressA = a.total_steps ? (a.uploads_count || 0) / a.total_steps : 0;
+          const progressB = b.total_steps ? (b.uploads_count || 0) / b.total_steps : 0;
+          comparison = progressA - progressB;
+          break;
+        case 'status':
+          const statusOrder = { pending: 0, completed: 1, archived: 2 };
+          comparison = (statusOrder[a.status as keyof typeof statusOrder] || 0) - 
+                       (statusOrder[b.status as keyof typeof statusOrder] || 0);
+          break;
+        case 'assigned_at':
+          comparison = new Date(a.assigned_at).getTime() - new Date(b.assigned_at).getTime();
+          break;
+      }
+
+      const primaryResult = sortDirection === 'asc' ? comparison : -comparison;
+      
+      // Secondary sort: if primary values are equal, sort by assigned_at (oldest first)
+      if (primaryResult === 0 && sortColumn !== 'assigned_at') {
+        return new Date(a.assigned_at).getTime() - new Date(b.assigned_at).getTime();
+      }
+      
+      return primaryResult;
+    });
+
+    return filtered;
+  }, [assignments, statusFilter, clientFilter, sceneFilter, searchQuery, sortColumn, sortDirection]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -349,6 +408,30 @@ const SceneAssignments: React.FC = () => {
     if (percentage < 50) return 'bg-red-500';
     if (percentage < 100) return 'bg-yellow-500';
     return 'bg-green-500';
+  };
+
+  // Sortable header component
+  const SortableHeader = ({ column, label }: { column: SortColumn; label: string }) => {
+    const isActive = sortColumn === column;
+    return (
+      <button
+        onClick={() => handleSort(column)}
+        className="flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:text-gray-700 dark:hover:text-gray-200 group"
+      >
+        {label}
+        <span className={`transition-colors ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-500 dark:group-hover:text-gray-400'}`}>
+          {isActive ? (
+            sortDirection === 'asc' ? (
+              <ArrowUp className="w-3.5 h-3.5" />
+            ) : (
+              <ArrowDown className="w-3.5 h-3.5" />
+            )
+          ) : (
+            <ArrowUpDown className="w-3.5 h-3.5" />
+          )}
+        </span>
+      </button>
+    );
   };
 
   if (loading) {
@@ -599,20 +682,20 @@ const SceneAssignments: React.FC = () => {
                         )}
                       </button>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Client
+                    <th className="px-6 py-3 text-left">
+                      <SortableHeader column="client" label="Client" />
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Scene
+                    <th className="px-6 py-3 text-left">
+                      <SortableHeader column="scene" label="Scene" />
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Progress
+                    <th className="px-6 py-3 text-left">
+                      <SortableHeader column="progress" label="Progress" />
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Status
+                    <th className="px-6 py-3 text-left">
+                      <SortableHeader column="status" label="Status" />
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Assigned
+                    <th className="px-6 py-3 text-left">
+                      <SortableHeader column="assigned_at" label="Assigned" />
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Actions
