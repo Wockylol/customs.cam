@@ -177,7 +177,7 @@ const SceneAssignments: React.FC = () => {
         const { data: uploads, error } = await supabase
           .from('scene_content_uploads')
           .select('*')
-          .eq('assignment_id', assignment.id);
+          .eq('assignment_id', assignment.id) as { data: { file_name: string; file_path: string; file_type: string; step_index: number; public_url?: string | null }[] | null; error: any };
         
         if (error || !uploads || uploads.length === 0) continue;
         
@@ -186,14 +186,32 @@ const SceneAssignments: React.FC = () => {
         
         for (const upload of uploads) {
           try {
-            const { data, error: downloadError } = await supabase.storage
-              .from('scene-content')
-              .download(upload.file_path);
+            let fileBlob: Blob;
             
-            if (downloadError || !data) continue;
+            // Use public_url if available (R2), otherwise file_path
+            const downloadUrl = upload.public_url || upload.file_path;
+            
+            // Check if this is an R2/external URL (starts with http)
+            if (downloadUrl.startsWith('http')) {
+              // Download directly from R2/external URL
+              const response = await fetch(downloadUrl);
+              if (!response.ok) {
+                console.error(`Error downloading ${upload.file_name} from R2: ${response.status}`);
+                continue;
+              }
+              fileBlob = await response.blob();
+            } else {
+              // Download from Supabase storage (legacy files)
+              const { data, error: downloadError } = await supabase.storage
+                .from('scene-content')
+                .download(upload.file_path);
+              
+              if (downloadError || !data) continue;
+              fileBlob = data;
+            }
             
             const stepFolder = `Step_${upload.step_index + 1}`;
-            zip.folder(folderName)?.folder(stepFolder)?.file(upload.file_name, data);
+            zip.folder(folderName)?.folder(stepFolder)?.file(upload.file_name, fileBlob);
           } catch (err) {
             console.error(`Failed to add ${upload.file_name} to ZIP:`, err);
           }
