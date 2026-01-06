@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Search, CheckCircle, Film, User } from 'lucide-react';
+import { X, Search, CheckCircle, Film, User, CheckSquare, Square } from 'lucide-react';
 import { useContentScenes } from '../../hooks/useContentScenes';
 import { useClients } from '../../hooks/useClients';
 import { Button } from '../ui/Button';
@@ -69,6 +69,43 @@ const AssignSceneModal: React.FC<AssignSceneModalProps> = ({
         ? prev.filter(id => id !== sceneId)
         : [...prev, sceneId]
     );
+  };
+
+  // Select all handlers
+  const handleSelectAllClients = () => {
+    const allFilteredClientIds = filteredClients.map(c => c.id);
+    const allSelected = allFilteredClientIds.every(id => selectedClientIds.includes(id));
+    
+    if (allSelected) {
+      // Deselect all filtered clients
+      setSelectedClientIds(prev => prev.filter(id => !allFilteredClientIds.includes(id)));
+    } else {
+      // Select all filtered clients
+      setSelectedClientIds(prev => {
+        const newIds = new Set([...prev, ...allFilteredClientIds]);
+        return Array.from(newIds);
+      });
+    }
+  };
+
+  const handleSelectAllScenes = () => {
+    // Get all selectable scenes (excluding already assigned ones)
+    const selectableSceneIds = filteredScenes
+      .filter(scene => !clientAssignments[scene.id]?.includes(client?.id))
+      .map(s => s.id);
+    
+    const allSelected = selectableSceneIds.every(id => selectedSceneIds.includes(id));
+    
+    if (allSelected) {
+      // Deselect all filtered scenes
+      setSelectedSceneIds(prev => prev.filter(id => !selectableSceneIds.includes(id)));
+    } else {
+      // Select all filtered scenes
+      setSelectedSceneIds(prev => {
+        const newIds = new Set([...prev, ...selectableSceneIds]);
+        return Array.from(newIds);
+      });
+    }
   };
 
   const filteredClients = useMemo(() => {
@@ -168,15 +205,59 @@ const AssignSceneModal: React.FC<AssignSceneModalProps> = ({
         <form onSubmit={handleSubmit} className="flex flex-col h-[calc(90vh-200px)]">
           {/* Search Bar */}
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder={mode === 'scene-to-clients' ? 'Search clients...' : 'Search scenes...'}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder={mode === 'scene-to-clients' ? 'Search clients...' : 'Search scenes...'}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              {/* Select All Button */}
+              {mode === 'scene-to-clients' ? (
+                filteredClients.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleSelectAllClients}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors whitespace-nowrap"
+                  >
+                    {filteredClients.every(c => selectedClientIds.includes(c.id)) ? (
+                      <>
+                        <CheckSquare className="w-4 h-4 text-blue-500" />
+                        Deselect All
+                      </>
+                    ) : (
+                      <>
+                        <Square className="w-4 h-4" />
+                        Select All
+                      </>
+                    )}
+                  </button>
+                )
+              ) : (
+                filteredScenes.filter(s => !clientAssignments[s.id]?.includes(client?.id)).length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleSelectAllScenes}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors whitespace-nowrap"
+                  >
+                    {filteredScenes.filter(s => !clientAssignments[s.id]?.includes(client?.id)).every(s => selectedSceneIds.includes(s.id)) ? (
+                      <>
+                        <CheckSquare className="w-4 h-4 text-blue-500" />
+                        Deselect All
+                      </>
+                    ) : (
+                      <>
+                        <Square className="w-4 h-4" />
+                        Select All
+                      </>
+                    )}
+                  </button>
+                )
+              )}
             </div>
           </div>
 
