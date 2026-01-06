@@ -1,13 +1,15 @@
 interface SendSMSOptions {
   phoneNumber: string;
   content: string;
+  sentBy?: string; // Team member ID for logging
 }
 
-export async function sendSMS({ phoneNumber, content }: SendSMSOptions) {
+export async function sendSMS({ phoneNumber, content, sentBy }: SendSMSOptions) {
   try {
     console.log('Sending SMS:', {
       phoneNumber,
-      contentLength: content.length
+      contentLength: content.length,
+      sentBy: sentBy || 'not provided'
     });
 
     const response = await fetch(
@@ -19,7 +21,7 @@ export async function sendSMS({ phoneNumber, content }: SendSMSOptions) {
           'Content-Type': 'application/json',
           'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
         },
-        body: JSON.stringify({ phoneNumber, content }),
+        body: JSON.stringify({ phoneNumber, content, sentBy }),
       }
     );
 
@@ -46,4 +48,3 @@ export async function sendSMS({ phoneNumber, content }: SendSMSOptions) {
     throw error;
   }
 }
-
