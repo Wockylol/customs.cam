@@ -58,6 +58,7 @@ export const useSceneUploads = (assignmentId?: string) => {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
         },
         body: JSON.stringify({
           filePath,
