@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, MoreHorizontal } from 'lucide-react';
 import { PriorityFeedItem } from '../../types/priorityFeed';
 import PriorityFeedCard from './PriorityFeedCard';
 import PriorityFeedZeroState from './PriorityFeedZeroState';
@@ -54,17 +54,26 @@ const PriorityFeed: React.FC<PriorityFeedProps> = ({
       {hasMore && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full bg-white rounded-xl shadow-md hover:shadow-lg py-3 px-4 flex items-center justify-center text-gray-700 font-medium text-sm transition-all duration-300 transform hover:scale-105 active:scale-95"
+          className="
+            w-full py-4 px-5 rounded-[20px]
+            bg-white border border-gray-100
+            shadow-md hover:shadow-lg
+            flex items-center justify-center gap-2
+            text-gray-600 font-semibold text-[14px]
+            transition-all duration-300
+            hover:bg-gray-50 active:scale-[0.98]
+          "
         >
           {isExpanded ? (
             <>
-              <ChevronUp className="w-4 h-4 mr-2" />
-              Show Less
+              <ChevronUp className="w-4 h-4" />
+              <span>Show Less</span>
             </>
           ) : (
             <>
-              <ChevronDown className="w-4 h-4 mr-2" />
-              Show {hiddenCount} More {hiddenCount === 1 ? 'Item' : 'Items'}
+              <MoreHorizontal className="w-4 h-4 text-gray-400" />
+              <span>View {hiddenCount} More {hiddenCount === 1 ? 'Item' : 'Items'}</span>
+              <ChevronDown className="w-4 h-4" />
             </>
           )}
         </button>
@@ -74,4 +83,3 @@ const PriorityFeed: React.FC<PriorityFeedProps> = ({
 };
 
 export default PriorityFeed;
-
