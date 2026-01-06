@@ -597,6 +597,8 @@ export interface Database {
           file_type: string
           uploaded_by: string
           upload_date: string
+          uploaded_at: string
+          public_url: string | null
         }
         Insert: {
           id?: string
@@ -608,6 +610,8 @@ export interface Database {
           file_type: string
           uploaded_by: string
           upload_date?: string
+          uploaded_at?: string
+          public_url?: string | null
         }
         Update: {
           id?: string
@@ -619,6 +623,8 @@ export interface Database {
           file_type?: string
           uploaded_by?: string
           upload_date?: string
+          uploaded_at?: string
+          public_url?: string | null
         }
       }
       scene_example_media: {
