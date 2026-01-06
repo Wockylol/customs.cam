@@ -534,3 +534,211 @@
   opacity: 0;
   transition: opacity 0.3s ease-out;
 }
+
+/* =====================================================
+   CLIENT CHATS PAGE - Enhanced Styles
+   ===================================================== */
+
+/* Chat thread list scrollbar */
+.chat-thread-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-thread-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-thread-list::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.2);
+  border-radius: 3px;
+}
+
+.chat-thread-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.35);
+}
+
+/* Messages area scrollbar */
+#chat-message-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+#chat-message-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#chat-message-container::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.2);
+  border-radius: 3px;
+}
+
+#chat-message-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.35);
+}
+
+/* Message bubble animations */
+@keyframes message-appear {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.message-bubble {
+  animation: message-appear 0.25s ease-out;
+}
+
+/* Enhanced search highlight for chat messages */
+.search-highlight {
+  @apply ring-2 ring-amber-400 ring-opacity-80;
+  animation: chat-search-pulse 1.5s ease-in-out;
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.1) 0%, rgba(251, 191, 36, 0.2) 50%, rgba(251, 191, 36, 0.1) 100%);
+}
+
+@keyframes chat-search-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.6);
+  }
+  50% {
+    transform: scale(1.01);
+    box-shadow: 0 0 0 8px rgba(251, 191, 36, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+  }
+}
+
+/* Thread item hover effects */
+@keyframes thread-select {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.99);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Loading spinner with border */
+.border-3 {
+  border-width: 3px;
+}
+
+/* Chat input focus glow */
+.chat-input:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+/* Smooth transitions for chat UI elements */
+.chat-transition {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Avatar gradient hover effect */
+.avatar-hover:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Unread badge pulse */
+@keyframes unread-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.1);
+  }
+}
+
+.unread-badge {
+  animation: unread-pulse 2s ease-in-out infinite;
+}
+
+/* Send button hover effect */
+.send-button:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+}
+
+.send-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Date divider fade in */
+@keyframes date-divider-appear {
+  from {
+    opacity: 0;
+    transform: scaleX(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+.date-divider {
+  animation: date-divider-appear 0.3s ease-out;
+}
+
+/* Thread list loading skeleton */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+/* Image preview hover zoom */
+.image-preview:hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Lightbox animation */
+@keyframes lightbox-open {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+}
+
+.lightbox-overlay {
+  animation: lightbox-open 0.2s ease-out;
+}
+
+/* Management card subtle animation */
+@keyframes management-card-appear {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.management-card {
+  animation: management-card-appear 0.4s ease-out;
+}
