@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Film, User, Calendar, CheckCircle, Clock, Eye, Trash2, Download, Archive, Filter, Users, Video } from 'lucide-react';
+import { Search, Film, User, Calendar, CheckCircle, Clock, Eye, Trash2, Download, Archive, Filter, Users, Video, X, Loader, CheckSquare, Square } from 'lucide-react';
+import JSZip from 'jszip';
 import Layout from '../components/layout/Layout';
 import { useContentScenes } from '../hooks/useContentScenes';
 import { useClients } from '../hooks/useClients';
@@ -44,6 +45,12 @@ const SceneAssignments: React.FC = () => {
     clientName: string;
     sceneTitle: string;
   } | null>(null);
+  
+  // Multi-select state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [showBulkArchiveConfirm, setShowBulkArchiveConfirm] = useState(false);
 
   useEffect(() => {
     fetchAssignments();
@@ -129,6 +136,146 @@ const SceneAssignments: React.FC = () => {
     }
     
     setAssignmentToArchive(null);
+  };
+
+  // Multi-select handlers
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === filteredAssignments.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredAssignments.map(a => a.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  // Bulk download function
+  const handleBulkDownload = async () => {
+    if (selectedIds.size === 0) return;
+    
+    setBulkActionLoading(true);
+    try {
+      const zip = new JSZip();
+      const selectedAssignments = assignments.filter(a => selectedIds.has(a.id));
+      
+      for (const assignment of selectedAssignments) {
+        // Fetch uploads for this assignment
+        const { data: uploads, error } = await supabase
+          .from('scene_content_uploads')
+          .select('*')
+          .eq('assignment_id', assignment.id);
+        
+        if (error || !uploads || uploads.length === 0) continue;
+        
+        // Create folder for this assignment
+        const folderName = `${assignment.client?.username || 'Unknown'}_${assignment.scene?.title || 'Unknown Scene'}`.replace(/[^a-z0-9_-]/gi, '_');
+        
+        for (const upload of uploads) {
+          try {
+            const { data, error: downloadError } = await supabase.storage
+              .from('scene-content')
+              .download(upload.file_path);
+            
+            if (downloadError || !data) continue;
+            
+            const stepFolder = `Step_${upload.step_index + 1}`;
+            zip.folder(folderName)?.folder(stepFolder)?.file(upload.file_name, data);
+          } catch (err) {
+            console.error(`Failed to add ${upload.file_name} to ZIP:`, err);
+          }
+        }
+      }
+      
+      // Generate and download ZIP
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `scene_assignments_${new Date().toISOString().split('T')[0]}.zip`;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading files:', error);
+      alert('Error downloading files. Please try again.');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  // Bulk archive function
+  const handleBulkArchive = async () => {
+    if (selectedIds.size === 0) return;
+    
+    setBulkActionLoading(true);
+    try {
+      const idsToArchive = Array.from(selectedIds).filter(id => {
+        const assignment = assignments.find(a => a.id === id);
+        return assignment && assignment.status !== 'archived';
+      });
+      
+      if (idsToArchive.length === 0) {
+        alert('All selected assignments are already archived.');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('client_scene_assignments')
+        .update({ 
+          status: 'archived',
+          archived_at: new Date().toISOString()
+        })
+        .in('id', idsToArchive);
+
+      if (error) {
+        alert(`Error archiving assignments: ${error.message}`);
+      } else {
+        fetchAssignments();
+        clearSelection();
+      }
+    } finally {
+      setBulkActionLoading(false);
+      setShowBulkArchiveConfirm(false);
+    }
+  };
+
+  // Bulk delete function
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    
+    setBulkActionLoading(true);
+    try {
+      const { error } = await supabase
+        .from('client_scene_assignments')
+        .delete()
+        .in('id', Array.from(selectedIds));
+
+      if (error) {
+        alert(`Error deleting assignments: ${error.message}`);
+      } else {
+        fetchAssignments();
+        clearSelection();
+      }
+    } finally {
+      setBulkActionLoading(false);
+      setShowBulkDeleteConfirm(false);
+    }
   };
 
   // Filter assignments
@@ -346,6 +493,61 @@ const SceneAssignments: React.FC = () => {
           </div>
         </div>
 
+        {/* Bulk Actions Bar */}
+        {selectedIds.size > 0 && (
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-4 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                    <CheckSquare className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-white font-medium">
+                    {selectedIds.size} {selectedIds.size === 1 ? 'assignment' : 'assignments'} selected
+                  </span>
+                </div>
+                <button
+                  onClick={clearSelection}
+                  className="text-white/80 hover:text-white text-sm flex items-center space-x-1 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Clear</span>
+                </button>
+              </div>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={handleBulkDownload}
+                  disabled={bulkActionLoading}
+                  className="flex items-center space-x-2 px-4 py-2 bg-white/20 hover:bg-white/30 disabled:opacity-50 text-white rounded-lg transition-colors"
+                >
+                  {bulkActionLoading ? (
+                    <Loader className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  <span>Download</span>
+                </button>
+                <button
+                  onClick={() => setShowBulkArchiveConfirm(true)}
+                  disabled={bulkActionLoading}
+                  className="flex items-center space-x-2 px-4 py-2 bg-white/20 hover:bg-white/30 disabled:opacity-50 text-white rounded-lg transition-colors"
+                >
+                  <Archive className="w-4 h-4" />
+                  <span>Archive</span>
+                </button>
+                <button
+                  onClick={() => setShowBulkDeleteConfirm(true)}
+                  disabled={bulkActionLoading}
+                  className="flex items-center space-x-2 px-4 py-2 bg-red-500/80 hover:bg-red-500 disabled:opacity-50 text-white rounded-lg transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Assignments Table */}
         {filteredAssignments.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 p-12 text-center">
@@ -365,6 +567,20 @@ const SceneAssignments: React.FC = () => {
               <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                   <tr>
+                    <th className="px-4 py-3 text-left">
+                      <button
+                        onClick={handleSelectAll}
+                        className="flex items-center justify-center w-5 h-5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                      >
+                        {selectedIds.size === filteredAssignments.length && filteredAssignments.length > 0 ? (
+                          <CheckSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        ) : selectedIds.size > 0 ? (
+                          <div className="w-4 h-4 border-2 border-blue-600 dark:border-blue-400 rounded bg-blue-600/30 dark:bg-blue-400/30" />
+                        ) : (
+                          <Square className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                        )}
+                      </button>
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Client
                     </th>
@@ -390,9 +606,27 @@ const SceneAssignments: React.FC = () => {
                     const progressPercent = assignment.total_steps > 0
                       ? Math.round((assignment.uploads_count! / assignment.total_steps) * 100)
                       : 0;
+                    const isSelected = selectedIds.has(assignment.id);
 
                     return (
-                      <tr key={assignment.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <tr 
+                        key={assignment.id} 
+                        className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
+                          isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                        }`}
+                      >
+                        <td className="px-4 py-4">
+                          <button
+                            onClick={() => handleToggleSelect(assignment.id)}
+                            className="flex items-center justify-center w-5 h-5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            {isSelected ? (
+                              <CheckSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                            ) : (
+                              <Square className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                            )}
+                          </button>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-8 w-8">
@@ -564,6 +798,85 @@ const SceneAssignments: React.FC = () => {
                   className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
                 >
                   Remove
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Archive Confirmation Modal */}
+        {showBulkArchiveConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                  <Archive className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Archive {selectedIds.size} {selectedIds.size === 1 ? 'Assignment' : 'Assignments'}?
+                  </h3>
+                </div>
+              </div>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Are you sure you want to archive the selected assignments? They will be marked as archived and can be filtered separately.
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowBulkArchiveConfirm(false)}
+                  disabled={bulkActionLoading}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkArchive}
+                  disabled={bulkActionLoading}
+                  className="flex items-center space-x-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {bulkActionLoading && <Loader className="w-4 h-4 animate-spin" />}
+                  <span>Archive</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Delete Confirmation Modal */}
+        {showBulkDeleteConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center">
+                  <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Delete {selectedIds.size} {selectedIds.size === 1 ? 'Assignment' : 'Assignments'}?
+                  </h3>
+                </div>
+              </div>
+              <p className="text-gray-600 dark:text-gray-400 mb-2">
+                Are you sure you want to permanently delete the selected assignments?
+              </p>
+              <p className="text-red-600 dark:text-red-400 text-sm mb-6">
+                This action cannot be undone. Clients will no longer have access to these scenes.
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowBulkDeleteConfirm(false)}
+                  disabled={bulkActionLoading}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={bulkActionLoading}
+                  className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {bulkActionLoading && <Loader className="w-4 h-4 animate-spin" />}
+                  <span>Delete</span>
                 </button>
               </div>
             </div>
