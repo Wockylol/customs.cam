@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
+import * as tus from 'tus-js-client';
 
 type SceneContentUpload = Database['public']['Tables']['scene_content_uploads']['Row'];
+
+// Maximum file size: 5GB
+const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024; // 5GB in bytes
 
 export const useSceneUploads = (assignmentId?: string) => {
   const [uploads, setUploads] = useState<SceneContentUpload[]>([]);
@@ -37,40 +41,64 @@ export const useSceneUploads = (assignmentId?: string) => {
     return uploads.filter(upload => upload.step_index === stepIndex);
   };
 
-  // Helper function to upload a single file with XMLHttpRequest for progress tracking
-  const uploadFileWithProgress = (
-    signedUrl: string,
+  // TUS resumable upload for large files
+  const uploadFileWithTus = (
+    bucketName: string,
+    filePath: string,
     file: File,
     onProgress: (loaded: number, total: number) => void
   ): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      
-      xhr.upload.addEventListener('progress', (event) => {
-        if (event.lengthComputable) {
-          onProgress(event.loaded, event.total);
+    return new Promise(async (resolve, reject) => {
+      try {
+        // Get the Supabase project URL and session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        
+        // Use anon key if no session (for public uploads)
+        const authToken = session?.access_token || supabaseKey;
+        
+        const upload = new tus.Upload(file, {
+          endpoint: `${supabaseUrl}/storage/v1/upload/resumable`,
+          retryDelays: [0, 1000, 3000, 5000, 10000], // Retry delays in ms
+          chunkSize: 6 * 1024 * 1024, // 6MB chunks (Supabase recommended)
+          headers: {
+            authorization: `Bearer ${authToken}`,
+            'x-upsert': 'true', // Allow overwriting if file exists
+          },
+          uploadDataDuringCreation: true,
+          removeFingerprintOnSuccess: true,
+          metadata: {
+            bucketName: bucketName,
+            objectName: filePath,
+            contentType: file.type || 'application/octet-stream',
+            cacheControl: '3600',
+          },
+          onError: (error) => {
+            console.error('TUS upload error:', error);
+            reject(new Error(`Upload failed: ${error.message}`));
+          },
+          onProgress: (bytesUploaded, bytesTotal) => {
+            onProgress(bytesUploaded, bytesTotal);
+          },
+          onSuccess: () => {
+            resolve();
+          },
+        });
+
+        // Check if there's a previous upload to resume
+        const previousUploads = await upload.findPreviousUploads();
+        if (previousUploads.length > 0) {
+          console.log('Resuming previous upload...');
+          upload.resumeFromPreviousUpload(previousUploads[0]);
         }
-      });
-      
-      xhr.addEventListener('load', () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolve();
-        } else {
-          reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.statusText}`));
-        }
-      });
-      
-      xhr.addEventListener('error', () => {
-        reject(new Error('Network error during upload'));
-      });
-      
-      xhr.addEventListener('abort', () => {
-        reject(new Error('Upload was aborted'));
-      });
-      
-      xhr.open('PUT', signedUrl);
-      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-      xhr.send(file);
+
+        // Start the upload
+        upload.start();
+      } catch (err: any) {
+        reject(new Error(`Failed to initialize upload: ${err.message}`));
+      }
     });
   };
 
@@ -100,15 +128,22 @@ export const useSceneUploads = (assignmentId?: string) => {
       if (assignmentError) throw assignmentError;
       if (!assignment) throw new Error('Assignment not found');
 
-      const clientId = assignment.client_id;
+      const clientId = (assignment as any).client_id;
       const fileArray = Array.from(files);
+      
+      // Validate file sizes
+      for (const file of fileArray) {
+        if (file.size > MAX_FILE_SIZE) {
+          throw new Error(`File "${file.name}" is too large. Maximum size is 5GB.`);
+        }
+      }
       
       // Calculate total size for overall progress
       const totalSize = fileArray.reduce((sum, file) => sum + file.size, 0);
       const fileProgress: number[] = new Array(fileArray.length).fill(0);
 
       // Upload files sequentially to track progress properly
-      const results = [];
+      const results: any[] = [];
       for (let i = 0; i < fileArray.length; i++) {
         const file = fileArray[i];
         
@@ -117,17 +152,10 @@ export const useSceneUploads = (assignmentId?: string) => {
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `${clientId}/${assignmentId}/step_${stepIndex}/${fileName}`;
 
-        // Create a signed upload URL (valid for 60 seconds)
-        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-          .from('scene-content')
-          .createSignedUploadUrl(filePath);
-
-        if (signedUrlError) throw signedUrlError;
-        if (!signedUrlData?.signedUrl) throw new Error('Failed to create signed upload URL');
-
-        // Upload using XMLHttpRequest for real progress tracking
-        await uploadFileWithProgress(
-          signedUrlData.signedUrl,
+        // Upload using TUS for resumable large file support
+        await uploadFileWithTus(
+          'scene-content',
+          filePath,
           file,
           (loaded, total) => {
             fileProgress[i] = loaded;
@@ -149,8 +177,8 @@ export const useSceneUploads = (assignmentId?: string) => {
         );
 
         // Create database record
-        const { data, error: dbError } = await supabase
-          .from('scene_content_uploads')
+        const { data, error: dbError } = await (supabase
+          .from('scene_content_uploads') as any)
           .insert({
             assignment_id: assignmentId,
             step_index: stepIndex,
@@ -266,7 +294,7 @@ export const useSceneUploads = (assignmentId?: string) => {
     uploadSceneContent,
     deleteSceneUpload,
     getDownloadUrl,
-    downloadFile
+    downloadFile,
+    MAX_FILE_SIZE
   };
 };
-
