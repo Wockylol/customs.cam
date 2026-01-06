@@ -427,73 +427,105 @@ const MobileClientView: React.FC = () => {
         </div>
       </div>
 
-      {/* Bottom Navigation - Type-Based Organization */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white px-5 py-3 safe-area-pb shadow-[0_-2px_16px_rgba(0,0,0,0.08)] z-40">
-        <div className="flex justify-around items-center">
+      {/* Bottom Navigation - Enhanced with Pill Highlights */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg px-4 py-2 safe-area-pb border-t border-gray-100 z-40">
+        <div className="flex justify-around items-center max-w-md mx-auto">
           {/* Home - Priority Feed */}
           <button 
             onClick={() => setActiveFilter('all')}
-            className={`flex flex-col items-center py-2 px-4 rounded-xl transition-all duration-200 relative ${
-              activeFilter === 'all' ? 'text-pink-600' : 'text-gray-500'
+            className={`flex flex-col items-center py-2 px-5 rounded-2xl transition-all duration-300 relative ${
+              activeFilter === 'all' 
+                ? 'bg-gradient-to-br from-pink-50 to-rose-100 text-pink-600' 
+                : 'text-gray-400 hover:text-gray-600 active:scale-95'
             }`}
           >
-            <Home className={`w-5 h-5 mb-1 ${activeFilter === 'all' ? 'stroke-[2.5]' : 'stroke-2'}`} />
-            <span className={`text-xs ${activeFilter === 'all' ? 'font-semibold' : 'font-medium'}`}>Home</span>
-            {activeFilter === 'all' && (
-              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-12 h-1 bg-pink-600 rounded-full"></div>
-            )}
+            <div className={`relative transition-transform duration-200 ${activeFilter === 'all' ? 'scale-110' : ''}`}>
+              <Home 
+                className={`w-6 h-6 mb-0.5 transition-all duration-200 ${
+                  activeFilter === 'all' ? 'stroke-[2.5]' : 'stroke-[1.5]'
+                }`} 
+                fill={activeFilter === 'all' ? 'rgba(236, 72, 153, 0.15)' : 'none'}
+              />
+            </div>
+            <span className={`text-[11px] transition-all duration-200 ${
+              activeFilter === 'all' ? 'font-bold' : 'font-medium'
+            }`}>Home</span>
           </button>
           
           {/* Customs - All Custom Requests */}
           <button 
             onClick={() => setActiveFilter('customs')}
-            className={`flex flex-col items-center py-2 px-4 rounded-xl transition-all duration-200 relative ${
-              activeFilter === 'customs' ? 'text-pink-600' : 'text-gray-500'
+            className={`flex flex-col items-center py-2 px-5 rounded-2xl transition-all duration-300 relative ${
+              activeFilter === 'customs' 
+                ? 'bg-gradient-to-br from-pink-50 to-rose-100 text-pink-600' 
+                : 'text-gray-400 hover:text-gray-600 active:scale-95'
             }`}
           >
-            <Sparkles className={`w-5 h-5 mb-1 ${activeFilter === 'customs' ? 'stroke-[2.5]' : 'stroke-2'}`} />
-            <span className={`text-xs ${activeFilter === 'customs' ? 'font-semibold' : 'font-medium'}`}>Customs</span>
-            {activeFilter === 'customs' && (
-              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-12 h-1 bg-pink-600 rounded-full"></div>
-            )}
-            {(pendingApproval.length + needsUpload.length) > 0 && (
-              <div className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full flex items-center justify-center border-2 border-white">
-                <span className="text-[10px] font-bold text-white">{pendingApproval.length + needsUpload.length}</span>
-              </div>
-            )}
+            <div className={`relative transition-transform duration-200 ${activeFilter === 'customs' ? 'scale-110' : ''}`}>
+              <Sparkles 
+                className={`w-6 h-6 mb-0.5 transition-all duration-200 ${
+                  activeFilter === 'customs' ? 'stroke-[2.5]' : 'stroke-[1.5]'
+                }`}
+                fill={activeFilter === 'customs' ? 'rgba(236, 72, 153, 0.15)' : 'none'}
+              />
+              {(pendingApproval.length + needsUpload.length) > 0 && (
+                <div className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] px-1 bg-gradient-to-br from-red-500 to-rose-500 rounded-full flex items-center justify-center shadow-sm">
+                  <span className="text-[9px] font-bold text-white">{pendingApproval.length + needsUpload.length}</span>
+                </div>
+              )}
+            </div>
+            <span className={`text-[11px] transition-all duration-200 ${
+              activeFilter === 'customs' ? 'font-bold' : 'font-medium'
+            }`}>Customs</span>
           </button>
           
           {/* Scenes - Content Scene Assignments */}
           <button 
             onClick={() => setActiveFilter('scenes')}
-            className={`flex flex-col items-center py-2 px-4 rounded-xl transition-all duration-200 relative ${
-              activeFilter === 'scenes' ? 'text-pink-600' : 'text-gray-500'
+            className={`flex flex-col items-center py-2 px-5 rounded-2xl transition-all duration-300 relative ${
+              activeFilter === 'scenes' 
+                ? 'bg-gradient-to-br from-pink-50 to-rose-100 text-pink-600' 
+                : 'text-gray-400 hover:text-gray-600 active:scale-95'
             }`}
           >
-            <CheckCircle className={`w-5 h-5 mb-1 ${activeFilter === 'scenes' ? 'stroke-[2.5]' : 'stroke-2'}`} />
-            <span className={`text-xs ${activeFilter === 'scenes' ? 'font-semibold' : 'font-medium'}`}>Scenes</span>
-            {activeFilter === 'scenes' && (
-              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-12 h-1 bg-pink-600 rounded-full"></div>
-            )}
-            {pendingScenes.length > 0 && (
-              <div className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full flex items-center justify-center border-2 border-white">
-                <span className="text-[10px] font-bold text-white">{pendingScenes.length}</span>
-              </div>
-            )}
+            <div className={`relative transition-transform duration-200 ${activeFilter === 'scenes' ? 'scale-110' : ''}`}>
+              <CheckCircle 
+                className={`w-6 h-6 mb-0.5 transition-all duration-200 ${
+                  activeFilter === 'scenes' ? 'stroke-[2.5]' : 'stroke-[1.5]'
+                }`}
+                fill={activeFilter === 'scenes' ? 'rgba(236, 72, 153, 0.15)' : 'none'}
+              />
+              {pendingScenes.length > 0 && (
+                <div className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] px-1 bg-gradient-to-br from-red-500 to-rose-500 rounded-full flex items-center justify-center shadow-sm">
+                  <span className="text-[9px] font-bold text-white">{pendingScenes.length}</span>
+                </div>
+              )}
+            </div>
+            <span className={`text-[11px] transition-all duration-200 ${
+              activeFilter === 'scenes' ? 'font-bold' : 'font-medium'
+            }`}>Scenes</span>
           </button>
           
           {/* Settings */}
           <button 
             onClick={() => setActiveFilter('settings')}
-            className={`flex flex-col items-center py-2 px-4 rounded-xl transition-all duration-200 relative ${
-              activeFilter === 'settings' ? 'text-pink-600' : 'text-gray-500'
+            className={`flex flex-col items-center py-2 px-5 rounded-2xl transition-all duration-300 relative ${
+              activeFilter === 'settings' 
+                ? 'bg-gradient-to-br from-pink-50 to-rose-100 text-pink-600' 
+                : 'text-gray-400 hover:text-gray-600 active:scale-95'
             }`}
           >
-            <Settings className={`w-5 h-5 mb-1 ${activeFilter === 'settings' ? 'stroke-[2.5] rotate-90' : 'stroke-2'}`} />
-            <span className={`text-xs ${activeFilter === 'settings' ? 'font-semibold' : 'font-medium'}`}>Settings</span>
-            {activeFilter === 'settings' && (
-              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-12 h-1 bg-pink-600 rounded-full"></div>
-            )}
+            <div className={`relative transition-all duration-300 ${activeFilter === 'settings' ? 'scale-110 rotate-45' : ''}`}>
+              <Settings 
+                className={`w-6 h-6 mb-0.5 transition-all duration-200 ${
+                  activeFilter === 'settings' ? 'stroke-[2.5]' : 'stroke-[1.5]'
+                }`}
+                fill={activeFilter === 'settings' ? 'rgba(236, 72, 153, 0.15)' : 'none'}
+              />
+            </div>
+            <span className={`text-[11px] transition-all duration-200 ${
+              activeFilter === 'settings' ? 'font-bold' : 'font-medium'
+            }`}>Settings</span>
           </button>
         </div>
       </div>
