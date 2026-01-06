@@ -22,6 +22,7 @@ interface FileWithSelection {
   uploaded_at: string;
   selected: boolean;
   previewUrl?: string;
+  public_url?: string | null;
 }
 
 const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
@@ -55,20 +56,26 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
           
           // Get preview URL for images and videos
           if (upload.file_type.startsWith('image/') || upload.file_type.startsWith('video/')) {
-            const { url } = await getDownloadUrl(upload.file_path);
-            if (url) previewUrl = url;
+            // Use public_url if available (R2), otherwise get from file_path
+            if (upload.public_url) {
+              previewUrl = upload.public_url;
+            } else {
+              const { url } = await getDownloadUrl(upload.file_path);
+              if (url) previewUrl = url;
+            }
           }
 
           return {
             id: upload.id,
             file_name: upload.file_name,
-            file_path: upload.file_path,
+            file_path: upload.public_url || upload.file_path, // Use public_url for R2 files
             file_type: upload.file_type,
             file_size: upload.file_size,
             step_index: upload.step_index,
             uploaded_at: upload.uploaded_at,
             selected: false,
-            previewUrl
+            previewUrl,
+            public_url: upload.public_url
           };
         })
       );
@@ -159,18 +166,35 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
       
       for (const file of stepFiles) {
         try {
-          // Download file from Supabase storage
-          const { data, error } = await supabase.storage
-            .from('scene-content')
-            .download(file.file_path);
+          let fileBlob: Blob;
+          
+          // Use public_url (R2) if available, otherwise fall back to file_path
+          const downloadUrl = file.public_url || file.file_path;
+          
+          // Check if this is an R2/external URL (starts with http)
+          if (downloadUrl.startsWith('http')) {
+            // Download directly from R2
+            const response = await fetch(downloadUrl);
+            if (!response.ok) {
+              console.error(`Error downloading ${file.file_name} from R2: ${response.status}`);
+              continue;
+            }
+            fileBlob = await response.blob();
+          } else {
+            // Download from Supabase storage (legacy files)
+            const { data, error } = await supabase.storage
+              .from('scene-content')
+              .download(file.file_path);
 
-          if (error) {
-            console.error(`Error downloading ${file.file_name}:`, error);
-            continue;
+            if (error) {
+              console.error(`Error downloading ${file.file_name}:`, error);
+              continue;
+            }
+            fileBlob = data;
           }
 
           // Add file to ZIP in its step folder
-          zip.folder(folderName)?.file(file.file_name, data);
+          zip.folder(folderName)?.file(file.file_name, fileBlob);
         } catch (err) {
           console.error(`Failed to add ${file.file_name} to ZIP:`, err);
         }
