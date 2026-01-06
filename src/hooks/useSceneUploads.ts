@@ -247,18 +247,20 @@ export const useSceneUploads = (assignmentId?: string) => {
           }
         );
 
-        // Create database record with R2 file path
-        // Store the R2 public URL or the file path for later retrieval
+        // Create database record with R2 file info
+        // file_path stores the R2 path (for potential future operations)
+        // public_url stores the public download URL
         const { data, error: dbError } = await (supabase
           .from('scene_content_uploads') as any)
           .insert({
             assignment_id: assignmentId,
             step_index: stepIndex,
             file_name: file.name,
-            file_path: publicUrl || filePath, // Store R2 public URL or path
+            file_path: filePath, // R2 path for reference
             file_size: file.size,
             file_type: file.type,
-            uploaded_by: clientId
+            uploaded_by: clientId,
+            public_url: publicUrl // R2 public URL for downloads
           })
           .select()
           .single();
@@ -309,56 +311,54 @@ export const useSceneUploads = (assignmentId?: string) => {
     }
   };
 
-  const getDownloadUrl = async (filePath: string) => {
+  /**
+   * Get download URL for a file
+   * @param filePathOrUrl - Either an R2 public URL (starts with http) or legacy Supabase path
+   */
+  const getDownloadUrl = async (filePathOrUrl: string) => {
     try {
-      // For R2 public URLs, the file_path already contains the full URL
-      // Just return it directly
-      if (filePath.startsWith('http')) {
-        return { url: filePath, error: null };
+      // R2 public URLs - return directly
+      if (filePathOrUrl.startsWith('http')) {
+        return { url: filePathOrUrl, error: null };
       }
       
-      // Fallback for old Supabase storage paths
+      // Legacy fallback: old Supabase storage paths
       const { data } = supabase.storage
         .from('scene-content')
-        .getPublicUrl(filePath);
+        .getPublicUrl(filePathOrUrl);
 
       return { url: data.publicUrl, error: null };
     } catch (err: any) {
-      console.error('[R2 Upload] Error getting download URL:', err);
+      console.error('Error getting download URL:', err);
       return { url: null, error: err.message };
     }
   };
 
-  const downloadFile = async (filePath: string, fileName: string) => {
+  /**
+   * Download a file directly
+   * @param filePathOrUrl - Either an R2 public URL (starts with http) or legacy Supabase path
+   * @param fileName - The original filename for the download
+   */
+  const downloadFile = async (filePathOrUrl: string, fileName: string) => {
     try {
-      // For R2 URLs, open in new tab or use fetch to download
-      if (filePath.startsWith('http')) {
-        // Fetch the file and trigger download
-        const response = await fetch(filePath);
+      let blob: Blob;
+      
+      // R2 public URLs - fetch directly
+      if (filePathOrUrl.startsWith('http')) {
+        const response = await fetch(filePathOrUrl);
         if (!response.ok) throw new Error('Failed to fetch file');
-        
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        return { error: null };
+        blob = await response.blob();
+      } else {
+        // Legacy fallback: old Supabase storage paths
+        const { data, error } = await supabase.storage
+          .from('scene-content')
+          .download(filePathOrUrl);
+
+        if (error) throw error;
+        blob = data;
       }
       
-      // Fallback for old Supabase storage paths
-      const { data, error } = await supabase.storage
-        .from('scene-content')
-        .download(filePath);
-
-      if (error) throw error;
-
-      const blob = new Blob([data]);
+      // Trigger browser download
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -371,7 +371,7 @@ export const useSceneUploads = (assignmentId?: string) => {
 
       return { error: null };
     } catch (err: any) {
-      console.error('[R2 Upload] Error downloading file:', err);
+      console.error('Error downloading file:', err);
       return { error: err.message };
     }
   };
