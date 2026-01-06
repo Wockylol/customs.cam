@@ -21,6 +21,10 @@ const SceneUploadModal: React.FC<SceneUploadModalProps> = ({
   const { uploads, uploadSceneContent, deleteSceneUpload, getDownloadUrl } = useSceneUploads(assignment?.id);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
+  const [currentFileName, setCurrentFileName] = useState('');
+  const [bytesLoaded, setBytesLoaded] = useState(0);
+  const [bytesTotal, setBytesTotal] = useState(0);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<{ [key: number]: string }>({});
   const [deleteConfirmId, setDeleteConfirmId] = useState<{ id: string; path: string } | null>(null);
@@ -36,6 +40,10 @@ const SceneUploadModal: React.FC<SceneUploadModalProps> = ({
     if (!isOpen) {
       setSelectedFiles([]);
       setUploadProgress(0);
+      setCurrentFileIndex(0);
+      setCurrentFileName('');
+      setBytesLoaded(0);
+      setBytesTotal(0);
     }
   }, [isOpen]);
 
@@ -76,11 +84,19 @@ const SceneUploadModal: React.FC<SceneUploadModalProps> = ({
 
     setUploading(true);
     setUploadProgress(0);
+    setBytesLoaded(0);
+    setBytesTotal(selectedFiles.reduce((sum, f) => sum + f.size, 0));
 
     const { error } = await uploadSceneContent(
       assignment.id,
       stepIndex,
-      selectedFiles
+      selectedFiles,
+      (progress) => {
+        setUploadProgress(progress.overallPercentage);
+        setCurrentFileIndex(progress.fileIndex);
+        setCurrentFileName(progress.fileName);
+        setBytesLoaded(progress.totalLoaded);
+      }
     );
 
     setUploading(false);
@@ -92,6 +108,9 @@ const SceneUploadModal: React.FC<SceneUploadModalProps> = ({
       setSelectedFiles([]);
       setTimeout(() => {
         setUploadProgress(0);
+        setCurrentFileName('');
+        setBytesLoaded(0);
+        setBytesTotal(0);
       }, 2000);
     }
   };
@@ -256,12 +275,35 @@ const SceneUploadModal: React.FC<SceneUploadModalProps> = ({
 
               {/* Progress Bar */}
               {uploading && (
-                <div className="mt-4">
-                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div className="mt-4 space-y-2">
+                  {/* Progress info */}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400 truncate flex-1 mr-2">
+                      {currentFileName ? `Uploading: ${currentFileName}` : 'Starting upload...'}
+                    </span>
+                    <span className="text-orange-600 dark:text-orange-400 font-semibold whitespace-nowrap">
+                      {uploadProgress}%
+                    </span>
+                  </div>
+                  
+                  {/* Progress bar */}
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-orange-400 to-red-500 transition-all duration-300"
+                      className="h-full bg-gradient-to-r from-orange-400 to-red-500 transition-all duration-150 ease-out"
                       style={{ width: `${uploadProgress}%` }}
                     />
+                  </div>
+                  
+                  {/* Bytes info */}
+                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                    <span>
+                      {formatFileSize(bytesLoaded)} / {formatFileSize(bytesTotal)}
+                    </span>
+                    {selectedFiles.length > 1 && (
+                      <span>
+                        File {currentFileIndex + 1} of {selectedFiles.length}
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
