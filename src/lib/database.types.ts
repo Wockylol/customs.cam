@@ -790,6 +790,70 @@ export interface Database {
           updated_at?: string
         }
       }
+      sms_conversations: {
+        Row: {
+          id: string
+          phone_number: string
+          client_id: string | null
+          last_message_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          phone_number: string
+          client_id?: string | null
+          last_message_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          phone_number?: string
+          client_id?: string | null
+          last_message_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      sms_messages: {
+        Row: {
+          id: string
+          conversation_id: string
+          direction: 'inbound' | 'outbound'
+          body: string
+          twilio_sid: string | null
+          status: 'queued' | 'sent' | 'delivered' | 'failed' | 'undelivered' | 'received'
+          sent_by: string | null
+          error_code: string | null
+          error_message: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          conversation_id: string
+          direction: 'inbound' | 'outbound'
+          body: string
+          twilio_sid?: string | null
+          status?: 'queued' | 'sent' | 'delivered' | 'failed' | 'undelivered' | 'received'
+          sent_by?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          conversation_id?: string
+          direction?: 'inbound' | 'outbound'
+          body?: string
+          twilio_sid?: string | null
+          status?: 'queued' | 'sent' | 'delivered' | 'failed' | 'undelivered' | 'received'
+          sent_by?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -804,6 +868,8 @@ export interface Database {
       activity_action: 'created' | 'updated' | 'deleted'
       attendance_status: 'on_time' | 'late' | 'no_show' | 'day_off' | 'left_early' | 'late_and_left_early'
       scene_status: 'pending' | 'completed'
+      sms_direction: 'inbound' | 'outbound'
+      sms_status: 'queued' | 'sent' | 'delivered' | 'failed' | 'undelivered' | 'received'
     }
   }
   attendance_records: {
