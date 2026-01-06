@@ -119,6 +119,8 @@ export interface SceneContentUpload {
   file_type: string;
   uploaded_by: string;
   upload_date: string;
+  uploaded_at: string;
+  public_url?: string | null;
 }
 
 export interface SceneExampleMedia {
