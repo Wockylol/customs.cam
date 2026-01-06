@@ -263,7 +263,7 @@ const SceneUploadModal: React.FC<SceneUploadModalProps> = ({
                 {uploading ? (
                   <>
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Uploading...
+                    Uploading... {uploadProgress}%
                   </>
                 ) : (
                   <>
