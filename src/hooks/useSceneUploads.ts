@@ -40,7 +40,17 @@ export const useSceneUploads = (assignmentId?: string) => {
   const uploadSceneContent = async (
     assignmentId: string,
     stepIndex: number,
-    files: FileList | File[]
+    files: FileList | File[],
+    onProgress?: (progress: { 
+      fileIndex: number;
+      fileName: string;
+      loaded: number;
+      total: number;
+      percentage: number;
+      totalLoaded: number;
+      totalSize: number;
+      overallPercentage: number;
+    }) => void
   ) => {
     try {
       // First, get the client_id from the assignment
@@ -55,16 +65,43 @@ export const useSceneUploads = (assignmentId?: string) => {
 
       const clientId = assignment.client_id;
       const fileArray = Array.from(files);
-      const uploadPromises = fileArray.map(async (file) => {
+      
+      // Calculate total size for overall progress
+      const totalSize = fileArray.reduce((sum, file) => sum + file.size, 0);
+      const fileProgress: number[] = new Array(fileArray.length).fill(0);
+
+      // Upload files sequentially to track progress properly
+      const results = [];
+      for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i];
+        
         // Generate unique file path
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `${clientId}/${assignmentId}/step_${stepIndex}/${fileName}`;
 
-        // Upload to storage
+        // Upload to storage with progress tracking
         const { error: storageError } = await supabase.storage
           .from('scene-content')
-          .upload(filePath, file);
+          .upload(filePath, file, {
+            onUploadProgress: (progress) => {
+              fileProgress[i] = progress.loaded;
+              const totalLoaded = fileProgress.reduce((sum, loaded) => sum + loaded, 0);
+              
+              if (onProgress) {
+                onProgress({
+                  fileIndex: i,
+                  fileName: file.name,
+                  loaded: progress.loaded,
+                  total: progress.total,
+                  percentage: Math.round((progress.loaded / progress.total) * 100),
+                  totalLoaded,
+                  totalSize,
+                  overallPercentage: Math.round((totalLoaded / totalSize) * 100)
+                });
+              }
+            }
+          });
 
         if (storageError) throw storageError;
 
@@ -85,10 +122,8 @@ export const useSceneUploads = (assignmentId?: string) => {
 
         if (dbError) throw dbError;
 
-        return data;
-      });
-
-      const results = await Promise.all(uploadPromises);
+        results.push(data);
+      }
       
       // Refresh uploads
       await fetchSceneUploads(assignmentId);
