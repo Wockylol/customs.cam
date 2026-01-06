@@ -46,6 +46,9 @@ export const useSceneUploads = (assignmentId?: string) => {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       
+      console.log('[Upload] Requesting signed URL for:', { bucketName, filePath });
+      console.log('[Upload] Edge Function URL:', `${supabaseUrl}/functions/v1/create-upload-url`);
+      
       const response = await fetch(`${supabaseUrl}/functions/v1/create-upload-url`, {
         method: 'POST',
         headers: {
@@ -58,15 +61,24 @@ export const useSceneUploads = (assignmentId?: string) => {
         }),
       });
 
+      console.log('[Upload] Edge Function response status:', response.status);
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to get signed upload URL');
+        const errorText = await response.text();
+        console.error('[Upload] Edge Function error response:', errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.error || `Edge Function returned ${response.status}`);
+        } catch {
+          throw new Error(`Edge Function returned ${response.status}: ${errorText}`);
+        }
       }
 
       const data = await response.json();
+      console.log('[Upload] Received signed URL successfully, path:', data.path);
       return { signedUrl: data.signedUrl, error: null };
     } catch (err: any) {
-      console.error('Error getting signed upload URL:', err);
+      console.error('[Upload] Error getting signed upload URL:', err);
       return { signedUrl: '', error: err.message };
     }
   };
@@ -80,6 +92,13 @@ export const useSceneUploads = (assignmentId?: string) => {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       
+      console.log('[Upload] Starting XHR upload:', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        signedUrlPreview: signedUrl.substring(0, 100) + '...'
+      });
+      
       xhr.upload.addEventListener('progress', (event) => {
         if (event.lengthComputable) {
           onProgress(event.loaded, event.total);
@@ -87,23 +106,36 @@ export const useSceneUploads = (assignmentId?: string) => {
       });
       
       xhr.addEventListener('load', () => {
+        console.log('[Upload] XHR load event:', {
+          status: xhr.status,
+          statusText: xhr.statusText,
+          responseHeaders: xhr.getAllResponseHeaders(),
+          response: xhr.responseText?.substring(0, 500)
+        });
+        
         if (xhr.status >= 200 && xhr.status < 300) {
+          console.log('[Upload] Upload successful!');
           resolve();
         } else {
-          reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.statusText || 'Unknown error'}`));
+          const errorMsg = `Upload failed with status ${xhr.status}: ${xhr.statusText || xhr.responseText || 'Unknown error'}`;
+          console.error('[Upload] Upload failed:', errorMsg);
+          reject(new Error(errorMsg));
         }
       });
       
-      xhr.addEventListener('error', () => {
+      xhr.addEventListener('error', (event) => {
+        console.error('[Upload] XHR network error:', event);
         reject(new Error('Network error during upload'));
       });
       
       xhr.addEventListener('abort', () => {
+        console.warn('[Upload] XHR upload aborted');
         reject(new Error('Upload was aborted'));
       });
       
       xhr.open('PUT', signedUrl);
       xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+      console.log('[Upload] Sending file...');
       xhr.send(file);
     });
   };
@@ -137,8 +169,18 @@ export const useSceneUploads = (assignmentId?: string) => {
       const clientId = (assignment as any).client_id;
       const fileArray = Array.from(files);
       
+      console.log('[Upload] Starting upload for', fileArray.length, 'file(s)');
+      console.log('[Upload] Client ID:', clientId);
+      console.log('[Upload] Assignment ID:', assignmentId);
+      
       // Validate file sizes
       for (const file of fileArray) {
+        console.log('[Upload] File to upload:', {
+          name: file.name,
+          size: file.size,
+          sizeInMB: (file.size / 1024 / 1024).toFixed(2) + ' MB',
+          type: file.type
+        });
         if (file.size > MAX_FILE_SIZE) {
           throw new Error(`File "${file.name}" is too large. Maximum size is 5GB.`);
         }
@@ -211,9 +253,11 @@ export const useSceneUploads = (assignmentId?: string) => {
       // Refresh uploads
       await fetchSceneUploads(assignmentId);
       
+      console.log('[Upload] All uploads completed successfully!');
       return { data: results, error: null };
     } catch (err: any) {
-      console.error('Error uploading scene content:', err);
+      console.error('[Upload] Error uploading scene content:', err);
+      console.error('[Upload] Error stack:', err.stack);
       return { data: null, error: err.message };
     }
   };
