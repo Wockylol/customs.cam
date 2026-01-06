@@ -4,7 +4,7 @@ import { Database } from '../lib/database.types';
 
 type SceneContentUpload = Database['public']['Tables']['scene_content_uploads']['Row'];
 
-// Maximum file size: 5GB
+// Maximum file size: 5GB (R2 supports up to 5GB per upload, larger files need multipart)
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024; // 5GB in bytes
 
 export const useSceneUploads = (assignmentId?: string) => {
@@ -40,32 +40,31 @@ export const useSceneUploads = (assignmentId?: string) => {
     return uploads.filter(upload => upload.step_index === stepIndex);
   };
 
-  // Get a signed upload URL from the Edge Function (bypasses auth restrictions)
-  const getSignedUploadUrl = async (bucketName: string, filePath: string): Promise<{ signedUrl: string; error: string | null }> => {
+  // Get a presigned upload URL from R2 via Edge Function
+  const getR2UploadUrl = async (filePath: string, contentType: string): Promise<{ signedUrl: string; publicUrl: string | null; error: string | null }> => {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       
-      console.log('[Upload] Requesting signed URL for:', { bucketName, filePath });
-      console.log('[Upload] Edge Function URL:', `${supabaseUrl}/functions/v1/create-upload-url`);
+      console.log('[R2 Upload] Requesting presigned URL for:', filePath);
       
-      const response = await fetch(`${supabaseUrl}/functions/v1/create-upload-url`, {
+      const response = await fetch(`${supabaseUrl}/functions/v1/r2-upload-url`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${supabaseKey}`,
         },
         body: JSON.stringify({
-          bucketName,
           filePath,
+          contentType,
         }),
       });
 
-      console.log('[Upload] Edge Function response status:', response.status);
+      console.log('[R2 Upload] Edge Function response status:', response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[Upload] Edge Function error response:', errorText);
+        console.error('[R2 Upload] Edge Function error response:', errorText);
         try {
           const errorData = JSON.parse(errorText);
           throw new Error(errorData.error || `Edge Function returned ${response.status}`);
@@ -75,11 +74,11 @@ export const useSceneUploads = (assignmentId?: string) => {
       }
 
       const data = await response.json();
-      console.log('[Upload] Received signed URL successfully, path:', data.path);
-      return { signedUrl: data.signedUrl, error: null };
+      console.log('[R2 Upload] Received presigned URL successfully');
+      return { signedUrl: data.signedUrl, publicUrl: data.publicUrl, error: null };
     } catch (err: any) {
-      console.error('[Upload] Error getting signed upload URL:', err);
-      return { signedUrl: '', error: err.message };
+      console.error('[R2 Upload] Error getting presigned URL:', err);
+      return { signedUrl: '', publicUrl: null, error: err.message };
     }
   };
 
@@ -92,11 +91,11 @@ export const useSceneUploads = (assignmentId?: string) => {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       
-      console.log('[Upload] Starting XHR upload:', {
+      console.log('[R2 Upload] Starting XHR upload:', {
         fileName: file.name,
         fileSize: file.size,
+        fileSizeMB: (file.size / 1024 / 1024).toFixed(2) + ' MB',
         fileType: file.type,
-        signedUrlPreview: signedUrl.substring(0, 100) + '...'
       });
       
       xhr.upload.addEventListener('progress', (event) => {
@@ -106,36 +105,34 @@ export const useSceneUploads = (assignmentId?: string) => {
       });
       
       xhr.addEventListener('load', () => {
-        console.log('[Upload] XHR load event:', {
+        console.log('[R2 Upload] XHR load event:', {
           status: xhr.status,
           statusText: xhr.statusText,
-          responseHeaders: xhr.getAllResponseHeaders(),
-          response: xhr.responseText?.substring(0, 500)
         });
         
         if (xhr.status >= 200 && xhr.status < 300) {
-          console.log('[Upload] Upload successful!');
+          console.log('[R2 Upload] Upload successful!');
           resolve();
         } else {
           const errorMsg = `Upload failed with status ${xhr.status}: ${xhr.statusText || xhr.responseText || 'Unknown error'}`;
-          console.error('[Upload] Upload failed:', errorMsg);
+          console.error('[R2 Upload] Upload failed:', errorMsg);
           reject(new Error(errorMsg));
         }
       });
       
       xhr.addEventListener('error', (event) => {
-        console.error('[Upload] XHR network error:', event);
+        console.error('[R2 Upload] XHR network error:', event);
         reject(new Error('Network error during upload'));
       });
       
       xhr.addEventListener('abort', () => {
-        console.warn('[Upload] XHR upload aborted');
+        console.warn('[R2 Upload] XHR upload aborted');
         reject(new Error('Upload was aborted'));
       });
       
       xhr.open('PUT', signedUrl);
       xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-      console.log('[Upload] Sending file...');
+      console.log('[R2 Upload] Sending file to R2...');
       xhr.send(file);
     });
   };
@@ -169,16 +166,17 @@ export const useSceneUploads = (assignmentId?: string) => {
       const clientId = (assignment as any).client_id;
       const fileArray = Array.from(files);
       
-      console.log('[Upload] Starting upload for', fileArray.length, 'file(s)');
-      console.log('[Upload] Client ID:', clientId);
-      console.log('[Upload] Assignment ID:', assignmentId);
+      console.log('[R2 Upload] Starting upload for', fileArray.length, 'file(s)');
+      console.log('[R2 Upload] Client ID:', clientId);
+      console.log('[R2 Upload] Assignment ID:', assignmentId);
       
       // Validate file sizes
       for (const file of fileArray) {
-        console.log('[Upload] File to upload:', {
+        console.log('[R2 Upload] File to upload:', {
           name: file.name,
           size: file.size,
           sizeInMB: (file.size / 1024 / 1024).toFixed(2) + ' MB',
+          sizeInGB: (file.size / 1024 / 1024 / 1024).toFixed(2) + ' GB',
           type: file.type
         });
         if (file.size > MAX_FILE_SIZE) {
@@ -195,19 +193,19 @@ export const useSceneUploads = (assignmentId?: string) => {
       for (let i = 0; i < fileArray.length; i++) {
         const file = fileArray[i];
         
-        // Generate unique file path
+        // Generate unique file path for R2
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const filePath = `${clientId}/${assignmentId}/step_${stepIndex}/${fileName}`;
+        const filePath = `scene-content/${clientId}/${assignmentId}/step_${stepIndex}/${fileName}`;
 
-        // Get signed upload URL from Edge Function (uses service role, bypasses 50MB limit)
-        const { signedUrl, error: urlError } = await getSignedUploadUrl('scene-content', filePath);
+        // Get presigned upload URL from R2 Edge Function
+        const { signedUrl, publicUrl, error: urlError } = await getR2UploadUrl(filePath, file.type);
         
         if (urlError || !signedUrl) {
-          throw new Error(urlError || 'Failed to get upload URL');
+          throw new Error(urlError || 'Failed to get R2 upload URL');
         }
 
-        // Upload using XMLHttpRequest for progress tracking
+        // Upload to R2 using XMLHttpRequest for progress tracking
         await uploadFileWithProgress(
           signedUrl,
           file,
@@ -230,14 +228,15 @@ export const useSceneUploads = (assignmentId?: string) => {
           }
         );
 
-        // Create database record
+        // Create database record with R2 file path
+        // Store the R2 public URL or the file path for later retrieval
         const { data, error: dbError } = await (supabase
           .from('scene_content_uploads') as any)
           .insert({
             assignment_id: assignmentId,
             step_index: stepIndex,
             file_name: file.name,
-            file_path: filePath,
+            file_path: publicUrl || filePath, // Store R2 public URL or path
             file_size: file.size,
             file_type: file.type,
             uploaded_by: clientId
@@ -247,33 +246,30 @@ export const useSceneUploads = (assignmentId?: string) => {
 
         if (dbError) throw dbError;
 
+        console.log('[R2 Upload] Database record created for:', file.name);
         results.push(data);
       }
       
       // Refresh uploads
       await fetchSceneUploads(assignmentId);
       
-      console.log('[Upload] All uploads completed successfully!');
+      console.log('[R2 Upload] All uploads completed successfully!');
       return { data: results, error: null };
     } catch (err: any) {
-      console.error('[Upload] Error uploading scene content:', err);
-      console.error('[Upload] Error stack:', err.stack);
+      console.error('[R2 Upload] Error uploading scene content:', err);
+      console.error('[R2 Upload] Error stack:', err.stack);
       return { data: null, error: err.message };
     }
   };
 
-  const deleteSceneUpload = async (uploadId: string, filePath: string) => {
+  const deleteSceneUpload = async (uploadId: string, _filePath: string) => {
     try {
-      // Delete from storage
-      const { error: storageError } = await supabase.storage
-        .from('scene-content')
-        .remove([filePath]);
-
-      if (storageError) {
-        console.error('Error deleting from storage:', storageError);
-        // Continue anyway to remove DB record
-      }
-
+      // Note: For R2 files, we'd need another Edge Function to delete from R2
+      // For now, we just delete the database record
+      // The R2 file will remain (you can set up lifecycle rules in R2 to auto-delete orphans)
+      // TODO: Implement R2 file deletion via Edge Function using _filePath
+      console.log('[R2 Upload] Deleting upload record:', uploadId);
+      
       // Delete from database
       const { error: dbError } = await supabase
         .from('scene_content_uploads')
@@ -289,34 +285,60 @@ export const useSceneUploads = (assignmentId?: string) => {
 
       return { error: null };
     } catch (err: any) {
-      console.error('Error deleting scene upload:', err);
+      console.error('[R2 Upload] Error deleting scene upload:', err);
       return { error: err.message };
     }
   };
 
   const getDownloadUrl = async (filePath: string) => {
     try {
-      // Get public URL since bucket allows public reads
+      // For R2 public URLs, the file_path already contains the full URL
+      // Just return it directly
+      if (filePath.startsWith('http')) {
+        return { url: filePath, error: null };
+      }
+      
+      // Fallback for old Supabase storage paths
       const { data } = supabase.storage
         .from('scene-content')
         .getPublicUrl(filePath);
 
       return { url: data.publicUrl, error: null };
     } catch (err: any) {
-      console.error('Error creating download URL:', err);
+      console.error('[R2 Upload] Error getting download URL:', err);
       return { url: null, error: err.message };
     }
   };
 
   const downloadFile = async (filePath: string, fileName: string) => {
     try {
+      // For R2 URLs, open in new tab or use fetch to download
+      if (filePath.startsWith('http')) {
+        // Fetch the file and trigger download
+        const response = await fetch(filePath);
+        if (!response.ok) throw new Error('Failed to fetch file');
+        
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        return { error: null };
+      }
+      
+      // Fallback for old Supabase storage paths
       const { data, error } = await supabase.storage
         .from('scene-content')
         .download(filePath);
 
       if (error) throw error;
 
-      // Create blob URL and trigger download
       const blob = new Blob([data]);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -330,7 +352,7 @@ export const useSceneUploads = (assignmentId?: string) => {
 
       return { error: null };
     } catch (err: any) {
-      console.error('Error downloading file:', err);
+      console.error('[R2 Upload] Error downloading file:', err);
       return { error: err.message };
     }
   };
