@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { MessageSquare, Send, Phone, User, AlertCircle, CheckCircle, Search, X, Save, FileText, Trash2, ArrowLeft, Plus, Inbox, Clock } from 'lucide-react';
+import { MessageSquare, Send, Phone, User, AlertCircle, CheckCircle, Search, X, Save, FileText, Trash2, ArrowLeft, Plus, Inbox, Users, Loader2 } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { useClients } from '../hooks/useClients';
 import { sendSMS } from '../lib/smsMessaging';
@@ -88,7 +88,7 @@ const SMSMessaging: React.FC = () => {
   
   // Compose form state
   const [recipientMode, setRecipientMode] = useState<'client' | 'custom'>('client');
-  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
   const [customPhoneNumber, setCustomPhoneNumber] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -97,6 +97,16 @@ const SMSMessaging: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Bulk sending state
+  interface SendResult {
+    clientId: string;
+    username: string;
+    success: boolean;
+    error?: string;
+  }
+  const [sendingProgress, setSendingProgress] = useState<{ current: number; total: number } | null>(null);
+  const [sendResults, setSendResults] = useState<SendResult[]>([]);
   
   // Thread state
   const { messages, loading: messagesLoading, sending: threadSending, sendMessage } = useSMSMessages(
@@ -153,16 +163,20 @@ const SMSMessaging: React.FC = () => {
   // Filter clients that have phone numbers
   const clientsWithPhones = clients.filter(client => client.phone && client.phone.trim() !== '');
 
-  // Filtered clients based on search query
+  // Filtered clients based on search query (exclude already selected)
   const filteredClients = useMemo(() => {
-    if (!searchQuery.trim()) return clientsWithPhones;
+    let filtered = clientsWithPhones.filter(client => !selectedClientIds.includes(client.id));
     
-    const query = searchQuery.toLowerCase();
-    return clientsWithPhones.filter(client => 
-      client.username.toLowerCase().includes(query) ||
-      (client.phone && client.phone.includes(query))
-    );
-  }, [clientsWithPhones, searchQuery]);
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(client => 
+        client.username.toLowerCase().includes(query) ||
+        (client.phone && client.phone.includes(query))
+      );
+    }
+    
+    return filtered;
+  }, [clientsWithPhones, searchQuery, selectedClientIds]);
 
   // Filtered conversations based on search
   const filteredConversations = useMemo(() => {
@@ -175,7 +189,10 @@ const SMSMessaging: React.FC = () => {
     );
   }, [conversations, conversationSearchQuery]);
 
-  const selectedClient = clientsWithPhones.find(c => c.id === selectedClientId);
+  // Get selected clients objects
+  const selectedClients = useMemo(() => {
+    return clientsWithPhones.filter(c => selectedClientIds.includes(c.id));
+  }, [clientsWithPhones, selectedClientIds]);
 
   // Format phone number to E.164 format
   const formatPhoneNumber = (phone: string): string => {
@@ -210,58 +227,114 @@ const SMSMessaging: React.FC = () => {
 
   const handleSendSMS = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    let phoneNumber = '';
-    let recipientName = '';
 
     if (recipientMode === 'client') {
-      if (!selectedClient || !messageContent.trim()) {
-        setError('Please select a client and enter a message');
+      // Multi-recipient sending
+      if (selectedClients.length === 0 || !messageContent.trim()) {
+        setError('Please select at least one client and enter a message');
         return;
       }
 
-      if (!selectedClient.phone) {
-        setError('Selected client does not have a phone number');
+      // Validate all clients have phone numbers
+      const clientsWithoutPhones = selectedClients.filter(c => !c.phone);
+      if (clientsWithoutPhones.length > 0) {
+        setError(`Some clients don't have phone numbers: ${clientsWithoutPhones.map(c => `@${c.username}`).join(', ')}`);
         return;
       }
 
-      phoneNumber = formatPhoneNumber(selectedClient.phone);
-      recipientName = `@${selectedClient.username}`;
+      setSending(true);
+      setError(null);
+      setSuccess(null);
+      setSendResults([]);
+      setSendingProgress({ current: 0, total: selectedClients.length });
+
+      const results: SendResult[] = [];
+
+      for (let i = 0; i < selectedClients.length; i++) {
+        const client = selectedClients[i];
+        setSendingProgress({ current: i + 1, total: selectedClients.length });
+
+        try {
+          const phoneNumber = formatPhoneNumber(client.phone!);
+          const finalContent = replaceVariables(messageContent.trim(), client);
+
+          await sendSMS({
+            phoneNumber,
+            content: finalContent,
+            sentBy: teamMember?.id,
+          });
+
+          results.push({
+            clientId: client.id,
+            username: client.username,
+            success: true,
+          });
+        } catch (err: any) {
+          console.error(`Failed to send SMS to @${client.username}:`, err);
+          results.push({
+            clientId: client.id,
+            username: client.username,
+            success: false,
+            error: err.message || 'Failed to send',
+          });
+        }
+
+        // Small delay between sends to avoid rate limiting
+        if (i < selectedClients.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+
+      setSendResults(results);
+      setSendingProgress(null);
+      setSending(false);
+
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.filter(r => !r.success).length;
+
+      if (failCount === 0) {
+        setSuccess(`Messages sent successfully to ${successCount} recipient${successCount !== 1 ? 's' : ''}`);
+        setMessageContent('');
+        setSelectedClientIds([]);
+      } else if (successCount === 0) {
+        setError(`Failed to send messages to all ${failCount} recipient${failCount !== 1 ? 's' : ''}`);
+      } else {
+        setSuccess(`Sent to ${successCount}, failed for ${failCount} recipient${failCount !== 1 ? 's' : ''}`);
+      }
+
+      refetchConversations();
+      setTimeout(() => setSuccess(null), 8000);
     } else {
+      // Single custom number sending
       if (!customPhoneNumber.trim() || !messageContent.trim()) {
         setError('Please enter a phone number and message');
         return;
       }
 
-      phoneNumber = formatPhoneNumber(customPhoneNumber);
-      recipientName = phoneNumber;
-    }
+      const phoneNumber = formatPhoneNumber(customPhoneNumber);
 
-    setSending(true);
-    setError(null);
-    setSuccess(null);
+      setSending(true);
+      setError(null);
+      setSuccess(null);
 
-    try {
-      const finalContent = recipientMode === 'client' && selectedClient
-        ? replaceVariables(messageContent.trim(), selectedClient)
-        : messageContent.trim();
+      try {
+        await sendSMS({
+          phoneNumber,
+          content: messageContent.trim(),
+          sentBy: teamMember?.id,
+        });
 
-      await sendSMS({
-        phoneNumber,
-        content: finalContent,
-        sentBy: teamMember?.id,
-      });
-
-      setSuccess(`Message sent successfully to ${recipientName}`);
-      setMessageContent('');
-      refetchConversations();
-      
-      setTimeout(() => setSuccess(null), 5000);
-    } catch (err: any) {
-      console.error('Failed to send SMS:', err);
-      setError(err.message || 'Failed to send SMS message');
-    } finally {
-      setSending(false);
+        setSuccess(`Message sent successfully to ${phoneNumber}`);
+        setMessageContent('');
+        refetchConversations();
+        
+        setTimeout(() => setSuccess(null), 5000);
+      } catch (err: any) {
+        console.error('Failed to send SMS:', err);
+        setError(err.message || 'Failed to send SMS message');
+      } finally {
+        setSending(false);
+      }
     }
   };
 
@@ -285,18 +358,22 @@ const SMSMessaging: React.FC = () => {
   };
 
   const handleSelectClient = (clientId: string) => {
-    setSelectedClientId(clientId);
-    const client = clientsWithPhones.find(c => c.id === clientId);
-    if (client) {
-      setSearchQuery(`@${client.username}`);
+    if (!selectedClientIds.includes(clientId)) {
+      setSelectedClientIds(prev => [...prev, clientId]);
     }
+    setSearchQuery('');
     setShowDropdown(false);
   };
 
-  const handleClearSelection = () => {
-    setSelectedClientId('');
+  const handleRemoveClient = (clientId: string) => {
+    setSelectedClientIds(prev => prev.filter(id => id !== clientId));
+  };
+
+  const handleClearAllClients = () => {
+    setSelectedClientIds([]);
     setSearchQuery('');
     setShowDropdown(false);
+    setSendResults([]);
   };
 
   const handleSelectConversation = (convo: SMSConversation) => {
@@ -314,11 +391,13 @@ const SMSMessaging: React.FC = () => {
     setView('compose');
     setSelectedConversation(null);
     setMessageContent('');
-    setSelectedClientId('');
+    setSelectedClientIds([]);
     setSearchQuery('');
     setCustomPhoneNumber('');
     setError(null);
     setSuccess(null);
+    setSendResults([]);
+    setSendingProgress(null);
   };
 
   // Template handlers
@@ -344,13 +423,10 @@ const SMSMessaging: React.FC = () => {
   };
 
   const handleLoadTemplate = (templateContent: string) => {
-    const processedContent = recipientMode === 'client' && selectedClient
-      ? replaceVariables(templateContent, selectedClient)
-      : templateContent;
-      
-    setMessageContent(processedContent);
+    // Don't replace variables when loading - they'll be replaced per-recipient on send
+    setMessageContent(templateContent);
     setShowTemplatesDropdown(false);
-    setSuccess('Template loaded' + (selectedClient ? ' with client info' : ''));
+    setSuccess('Template loaded (variables will be personalized for each recipient)');
     setTimeout(() => setSuccess(null), 2000);
   };
 
@@ -733,6 +809,7 @@ const SMSMessaging: React.FC = () => {
                   onClick={() => {
                     setRecipientMode('client');
                     setCustomPhoneNumber('');
+                    setSendResults([]);
                   }}
                   className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
                     recipientMode === 'client'
@@ -741,15 +818,16 @@ const SMSMessaging: React.FC = () => {
                   }`}
                   disabled={sending}
                 >
-                  <User className="w-4 h-4 inline mr-2" />
-                  Select Client
+                  <Users className="w-4 h-4 inline mr-2" />
+                  Select Clients
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     setRecipientMode('custom');
-                    setSelectedClientId('');
+                    setSelectedClientIds([]);
                     setSearchQuery('');
+                    setSendResults([]);
                   }}
                   className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
                     recipientMode === 'custom'
@@ -763,75 +841,149 @@ const SMSMessaging: React.FC = () => {
                 </button>
               </div>
 
-              {/* Client Search */}
+              {/* Client Search - Multi-select */}
               {recipientMode === 'client' && (
-                <div className="relative" ref={dropdownRef}>
-                  <label htmlFor="client-search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Search Client *
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Search className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      id="client-search"
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                        setShowDropdown(true);
-                        if (!e.target.value) {
-                          setSelectedClientId('');
-                        }
-                      }}
-                      onFocus={() => setShowDropdown(true)}
-                      className="w-full pl-10 pr-10 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      placeholder="Search by username or phone number..."
-                      disabled={sending}
-                      autoComplete="off"
-                    />
-                    {selectedClientId && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="client-search" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Select Recipients *
+                    </label>
+                    {selectedClientIds.length > 0 && (
                       <button
                         type="button"
-                        onClick={handleClearSelection}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        onClick={handleClearAllClients}
+                        className="text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                        disabled={sending}
                       >
-                        <X className="h-5 w-5" />
+                        Clear all ({selectedClientIds.length})
                       </button>
                     )}
                   </div>
 
-                  {/* Dropdown Results */}
-                  {showDropdown && searchQuery && !selectedClientId && (
-                    <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-auto">
-                      {filteredClients.length > 0 ? (
-                        filteredClients.map((client) => (
-                          <button
+                  {/* Selected Clients Chips */}
+                  {selectedClients.length > 0 && (
+                    <div className="flex flex-wrap gap-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                      {selectedClients.map((client) => {
+                        const result = sendResults.find(r => r.clientId === client.id);
+                        return (
+                          <div
                             key={client.id}
-                            type="button"
-                            onClick={() => handleSelectClient(client.id)}
-                            className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-left"
+                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors ${
+                              result
+                                ? result.success
+                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700'
+                                  : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-700'
+                                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
+                            }`}
                           >
                             <ClientAvatar
                               client={{ username: client.username, avatar_url: client.avatar_url }}
-                              size="md"
+                              size="xs"
                             />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                @{client.username}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {client.phone}
-                              </p>
-                            </div>
-                          </button>
-                        ))
-                      ) : (
-                        <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                          No clients found matching "{searchQuery}"
-                        </div>
-                      )}
+                            <span className="font-medium">@{client.username}</span>
+                            {result && (
+                              result.success ? (
+                                <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                              ) : (
+                                <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" title={result.error} />
+                              )
+                            )}
+                            {!sending && !result && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveClient(client.id)}
+                                className="hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5 transition-colors"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
+                  )}
+
+                  {/* Search Input */}
+                  <div className="relative" ref={dropdownRef}>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        id="client-search"
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          setShowDropdown(true);
+                        }}
+                        onFocus={() => setShowDropdown(true)}
+                        className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        placeholder={selectedClientIds.length > 0 ? "Add more recipients..." : "Search by username or phone number..."}
+                        disabled={sending}
+                        autoComplete="off"
+                      />
+                    </div>
+
+                    {/* Dropdown Results */}
+                    {showDropdown && (
+                      <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-auto">
+                        {filteredClients.length > 0 ? (
+                          filteredClients.slice(0, 10).map((client) => (
+                            <button
+                              key={client.id}
+                              type="button"
+                              onClick={() => handleSelectClient(client.id)}
+                              className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-left"
+                            >
+                              <ClientAvatar
+                                client={{ username: client.username, avatar_url: client.avatar_url }}
+                                size="md"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                  @{client.username}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {client.phone}
+                                </p>
+                              </div>
+                              <Plus className="w-4 h-4 text-gray-400" />
+                            </button>
+                          ))
+                        ) : searchQuery ? (
+                          <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                            No clients found matching "{searchQuery}"
+                          </div>
+                        ) : selectedClientIds.length === clientsWithPhones.length ? (
+                          <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                            All clients have been selected
+                          </div>
+                        ) : (
+                          <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                            Type to search for clients...
+                          </div>
+                        )}
+                        {filteredClients.length > 10 && (
+                          <div className="px-4 py-2 text-xs text-gray-400 dark:text-gray-500 border-t border-gray-200 dark:border-gray-600">
+                            Showing first 10 results. Type to narrow down.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Recipient count info */}
+                  {selectedClientIds.length > 0 && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      <Users className="w-4 h-4 inline mr-1" />
+                      {selectedClientIds.length} recipient{selectedClientIds.length !== 1 ? 's' : ''} selected
+                      {messageContent.includes('{{') && (
+                        <span className="text-blue-600 dark:text-blue-400 ml-2">
+                          • Variables will be personalized for each
+                        </span>
+                      )}
+                    </p>
                   )}
                 </div>
               )}
@@ -871,26 +1023,23 @@ const SMSMessaging: React.FC = () => {
                 </div>
               )}
 
-              {/* Selected Client Preview */}
-              {recipientMode === 'client' && selectedClient && (
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                  <div className="flex items-center space-x-3">
-                    <ClientAvatar
-                      client={{ username: selectedClient.username, avatar_url: selectedClient.avatar_url }}
-                      size="lg"
+              {/* Sending Progress */}
+              {sendingProgress && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-blue-800 dark:text-blue-300 flex items-center">
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Sending messages...
+                    </span>
+                    <span className="text-sm text-blue-600 dark:text-blue-400">
+                      {sendingProgress.current} / {sendingProgress.total}
+                    </span>
+                  </div>
+                  <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${(sendingProgress.current / sendingProgress.total) * 100}%` }}
                     />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                        @{selectedClient.username}
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
-                        <Phone className="w-4 h-4 mr-1" />
-                        {selectedClient.phone}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Will format as: {formatPhoneNumber(selectedClient.phone)}
-                      </p>
-                    </div>
                   </div>
                 </div>
               )}
@@ -958,14 +1107,19 @@ const SMSMessaging: React.FC = () => {
                           </button>
                         ))}
                         
-                        {recipientMode === 'client' && selectedClient && (
+                        {recipientMode === 'client' && selectedClients.length > 0 && (
                           <div className="px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border-t border-blue-200 dark:border-blue-700">
                             <p className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-1">
-                              Preview for @{selectedClient.username}:
+                              Preview for first recipient (@{selectedClients[0].username}):
                             </p>
                             <p className="text-xs text-blue-600 dark:text-blue-400">
-                              {'{{'} username {'}}'}  → @{selectedClient.username}
+                              {'{{'} username {'}}'}  → @{selectedClients[0].username}
                             </p>
+                            {selectedClients.length > 1 && (
+                              <p className="text-xs text-blue-500 dark:text-blue-500 mt-1 italic">
+                                Will be personalized for each of {selectedClients.length} recipients
+                              </p>
+                            )}
                           </div>
                         )}
                       </div>
@@ -973,10 +1127,10 @@ const SMSMessaging: React.FC = () => {
                   </div>
                   
                   {/* Variable Preview */}
-                  {recipientMode === 'client' && selectedClient && messageContent.includes('{{') && (
+                  {recipientMode === 'client' && selectedClients.length > 0 && messageContent.includes('{{') && (
                     <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
                       <AlertCircle className="w-3.5 h-3.5 mr-1" />
-                      Variables will be replaced when sent
+                      Variables will be personalized for each recipient
                     </div>
                   )}
                 </div>
@@ -1066,20 +1220,22 @@ const SMSMessaging: React.FC = () => {
                   disabled={
                     sending || 
                     !messageContent.trim() || 
-                    (recipientMode === 'client' && !selectedClientId) ||
+                    (recipientMode === 'client' && selectedClientIds.length === 0) ||
                     (recipientMode === 'custom' && !customPhoneNumber.trim())
                   }
                   className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {sending ? (
                     <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                       Sending...
                     </>
                   ) : (
                     <>
                       <Send className="w-5 h-5 mr-2" />
-                      Send SMS
+                      {recipientMode === 'client' && selectedClientIds.length > 1
+                        ? `Send to ${selectedClientIds.length} Recipients`
+                        : 'Send SMS'}
                     </>
                   )}
                 </button>
