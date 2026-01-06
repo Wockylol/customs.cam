@@ -187,7 +187,35 @@ export const useContentScenes = () => {
         throw new Error('User not authenticated');
       }
 
-      const assignments = clientIds.map(clientId => ({
+      // First, check which clients already have this scene assigned
+      const { data: existingAssignments, error: checkError } = await supabase
+        .from('client_scene_assignments')
+        .select('client_id')
+        .eq('scene_id', sceneId)
+        .in('client_id', clientIds);
+
+      if (checkError) throw checkError;
+
+      // Get the client IDs that already have this scene
+      const alreadyAssignedClientIds = new Set(
+        existingAssignments?.map(a => a.client_id) || []
+      );
+
+      // Filter out clients who already have the scene assigned
+      const clientsToAssign = clientIds.filter(id => !alreadyAssignedClientIds.has(id));
+
+      // If no new clients to assign, return early with info
+      if (clientsToAssign.length === 0) {
+        await fetchScenes();
+        return { 
+          data: [], 
+          error: null,
+          skipped: clientIds.length,
+          assigned: 0
+        };
+      }
+
+      const assignments = clientsToAssign.map(clientId => ({
         client_id: clientId,
         scene_id: sceneId,
         assigned_by: user.id,
@@ -200,16 +228,15 @@ export const useContentScenes = () => {
         .insert(assignments)
         .select();
 
-      if (insertError) {
-        // Check if error is due to unique constraint violation
-        if (insertError.code === '23505') {
-          throw new Error('One or more clients already have this scene assigned');
-        }
-        throw insertError;
-      }
+      if (insertError) throw insertError;
 
       await fetchScenes();
-      return { data, error: null };
+      return { 
+        data, 
+        error: null,
+        skipped: alreadyAssignedClientIds.size,
+        assigned: clientsToAssign.length
+      };
     } catch (err: any) {
       console.error('Error assigning scene:', err);
       return { data: null, error: err.message };
