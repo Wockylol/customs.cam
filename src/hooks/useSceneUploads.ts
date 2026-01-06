@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
-import * as tus from 'tus-js-client';
 
 type SceneContentUpload = Database['public']['Tables']['scene_content_uploads']['Row'];
 
@@ -41,64 +40,71 @@ export const useSceneUploads = (assignmentId?: string) => {
     return uploads.filter(upload => upload.step_index === stepIndex);
   };
 
-  // TUS resumable upload for large files
-  const uploadFileWithTus = (
-    bucketName: string,
-    filePath: string,
+  // Get a signed upload URL from the Edge Function (bypasses auth restrictions)
+  const getSignedUploadUrl = async (bucketName: string, filePath: string): Promise<{ signedUrl: string; error: string | null }> => {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/create-upload-url`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
+          bucketName,
+          filePath,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to get signed upload URL');
+      }
+
+      const data = await response.json();
+      return { signedUrl: data.signedUrl, error: null };
+    } catch (err: any) {
+      console.error('Error getting signed upload URL:', err);
+      return { signedUrl: '', error: err.message };
+    }
+  };
+
+  // Upload a file using XMLHttpRequest with progress tracking
+  const uploadFileWithProgress = (
+    signedUrl: string,
     file: File,
     onProgress: (loaded: number, total: number) => void
   ): Promise<void> => {
-    return new Promise(async (resolve, reject) => {
-      try {
-        // Get the Supabase project URL and session
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-        
-        // Use anon key if no session (for public uploads)
-        const authToken = session?.access_token || supabaseKey;
-        
-        const upload = new tus.Upload(file, {
-          endpoint: `${supabaseUrl}/storage/v1/upload/resumable`,
-          retryDelays: [0, 1000, 3000, 5000, 10000], // Retry delays in ms
-          chunkSize: 6 * 1024 * 1024, // 6MB chunks (Supabase recommended)
-          headers: {
-            authorization: `Bearer ${authToken}`,
-            'x-upsert': 'true', // Allow overwriting if file exists
-          },
-          uploadDataDuringCreation: true,
-          removeFingerprintOnSuccess: true,
-          metadata: {
-            bucketName: bucketName,
-            objectName: filePath,
-            contentType: file.type || 'application/octet-stream',
-            cacheControl: '3600',
-          },
-          onError: (error) => {
-            console.error('TUS upload error:', error);
-            reject(new Error(`Upload failed: ${error.message}`));
-          },
-          onProgress: (bytesUploaded, bytesTotal) => {
-            onProgress(bytesUploaded, bytesTotal);
-          },
-          onSuccess: () => {
-            resolve();
-          },
-        });
-
-        // Check if there's a previous upload to resume
-        const previousUploads = await upload.findPreviousUploads();
-        if (previousUploads.length > 0) {
-          console.log('Resuming previous upload...');
-          upload.resumeFromPreviousUpload(previousUploads[0]);
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          onProgress(event.loaded, event.total);
         }
-
-        // Start the upload
-        upload.start();
-      } catch (err: any) {
-        reject(new Error(`Failed to initialize upload: ${err.message}`));
-      }
+      });
+      
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.statusText || 'Unknown error'}`));
+        }
+      });
+      
+      xhr.addEventListener('error', () => {
+        reject(new Error('Network error during upload'));
+      });
+      
+      xhr.addEventListener('abort', () => {
+        reject(new Error('Upload was aborted'));
+      });
+      
+      xhr.open('PUT', signedUrl);
+      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+      xhr.send(file);
     });
   };
 
@@ -152,10 +158,16 @@ export const useSceneUploads = (assignmentId?: string) => {
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `${clientId}/${assignmentId}/step_${stepIndex}/${fileName}`;
 
-        // Upload using TUS for resumable large file support
-        await uploadFileWithTus(
-          'scene-content',
-          filePath,
+        // Get signed upload URL from Edge Function (uses service role, bypasses 50MB limit)
+        const { signedUrl, error: urlError } = await getSignedUploadUrl('scene-content', filePath);
+        
+        if (urlError || !signedUrl) {
+          throw new Error(urlError || 'Failed to get upload URL');
+        }
+
+        // Upload using XMLHttpRequest for progress tracking
+        await uploadFileWithProgress(
+          signedUrl,
           file,
           (loaded, total) => {
             fileProgress[i] = loaded;
