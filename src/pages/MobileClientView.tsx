@@ -8,7 +8,9 @@ import {
   Home,
   Settings,
   Sparkles,
-  CheckCircle
+  CheckCircle,
+  TrendingUp,
+  Wallet
 } from 'lucide-react';
 import { useCustomRequests } from '../hooks/useCustomRequests';
 import { useClients } from '../hooks/useClients';
@@ -207,12 +209,16 @@ const MobileClientView: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-violet-100 via-fuchsia-50 to-rose-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg mb-4 mx-auto">
-            <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+          <div className="relative">
+            <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-2xl shadow-violet-500/20 mx-auto mb-5">
+              <Loader2 className="w-9 h-9 animate-spin text-violet-600" />
+            </div>
+            <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg animate-bounce" />
           </div>
-          <p className="text-gray-600 font-medium">Loading your dashboard...</p>
+          <p className="text-gray-600 font-semibold text-[15px]">Loading your dashboard...</p>
+          <p className="text-gray-400 text-sm mt-1">Just a moment</p>
         </div>
       </div>
     );
@@ -220,13 +226,16 @@ const MobileClientView: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl p-6 shadow-xl max-w-md w-full">
-          <div className="flex items-center mb-4">
-            <AlertCircle className="h-6 w-6 text-red-500 mr-3" />
-            <h2 className="text-lg font-semibold text-gray-900">Oops! Something went wrong</h2>
+      <div className="min-h-screen bg-gradient-to-br from-violet-100 via-fuchsia-50 to-rose-100 flex items-center justify-center p-5">
+        <div className="relative overflow-hidden bg-white rounded-[28px] shadow-2xl max-w-md w-full">
+          <div className="h-1.5 bg-gradient-to-r from-red-400 via-rose-400 to-pink-400" />
+          <div className="p-7">
+            <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-rose-500 rounded-2xl flex items-center justify-center shadow-lg shadow-red-500/30 mb-5">
+              <AlertCircle className="h-7 w-7 text-white" />
+            </div>
+            <h2 className="text-xl font-extrabold text-gray-900 mb-2">Something Went Wrong</h2>
+            <p className="text-gray-500 text-[15px] leading-relaxed">{error}</p>
           </div>
-          <p className="text-gray-600">{error}</p>
         </div>
       </div>
     );
@@ -234,13 +243,16 @@ const MobileClientView: React.FC = () => {
 
   if (!client) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl p-6 shadow-xl max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <User className="w-8 h-8 text-gray-400" />
+      <div className="min-h-screen bg-gradient-to-br from-violet-100 via-fuchsia-50 to-rose-100 flex items-center justify-center p-5">
+        <div className="relative overflow-hidden bg-white rounded-[28px] shadow-2xl max-w-md w-full">
+          <div className="h-1.5 bg-gradient-to-r from-gray-300 via-gray-400 to-gray-300" />
+          <div className="p-8 text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-gray-200 to-gray-300 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-lg">
+              <User className="w-9 h-9 text-gray-500" />
+            </div>
+            <h2 className="text-2xl font-extrabold text-gray-900 mb-2 tracking-tight">Creator Not Found</h2>
+            <p className="text-gray-500 text-[15px]">We couldn't find this creator's dashboard.</p>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Creator not found</h2>
-          <p className="text-gray-600">We couldn't find this creator's dashboard.</p>
         </div>
       </div>
     );
@@ -248,87 +260,129 @@ const MobileClientView: React.FC = () => {
 
   return (
     <MobilePinLock clientId={client.id} clientUsername={clientUsername || ''}>
-    <div className="min-h-screen bg-gray-50">
-      {/* Confetti Effect */}
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+      {/* Confetti/Success Effect */}
       {showConfetti && (
         <div className="fixed inset-0 pointer-events-none z-50">
-          <div className="absolute inset-0 bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-400 opacity-20 animate-pulse"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 opacity-15 animate-pulse"></div>
+          <div className="absolute top-1/4 left-1/4 w-4 h-4 bg-amber-400 rounded-full animate-bounce shadow-lg" />
+          <div className="absolute top-1/3 right-1/4 w-3 h-3 bg-violet-500 rounded-full animate-bounce shadow-lg" style={{ animationDelay: '0.1s' }} />
+          <div className="absolute bottom-1/3 left-1/3 w-5 h-5 bg-rose-500 rounded-full animate-bounce shadow-lg" style={{ animationDelay: '0.2s' }} />
         </div>
       )}
 
-      {/* Header Section */}
+      {/* Header Section - Premium Design */}
       <div className="relative overflow-hidden safe-area-pt">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500"></div>
-        <div className="absolute inset-0 bg-black opacity-5"></div>
+        {/* Multi-layer gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-violet-600 via-fuchsia-500 to-rose-500"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/20 via-transparent to-transparent"></div>
+        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/10 to-transparent"></div>
+        
+        {/* Decorative elements */}
+        <div className="absolute top-10 right-5 w-32 h-32 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-5 left-5 w-24 h-24 bg-fuchsia-300/20 rounded-full blur-2xl"></div>
+        
         <div className={`relative px-5 transition-all duration-300 ease-in-out ${
-          activeFilter !== 'all' ? 'pt-5 pb-4' : 'pt-8 pb-6'
+          activeFilter !== 'all' ? 'pt-6 pb-5' : 'pt-8 pb-8'
         }`}>
-          <div className="flex items-center mb-5">
-            <div className={`bg-white bg-opacity-25 backdrop-blur-sm rounded-full flex items-center justify-center mr-4 transition-all duration-300 ease-in-out overflow-hidden shadow-lg ${
-              activeFilter !== 'all' ? 'w-14 h-14' : 'w-20 h-20'
-            }`}>
-              {client.avatar_url ? (
-                <img
-                  src={client.avatar_url}
-                  alt={`@${client.username}`}
-                  className="w-full h-full object-cover"
-                  onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                    // Fallback to star icon if image fails to load
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const parent = target.parentElement;
-                    if (parent) {
-                      const star = document.createElement('div');
-                      star.innerHTML = `<svg class="w-${activeFilter === 'pending_approval' || activeFilter === 'needs_upload' || activeFilter === 'settings' ? '6' : '8'} h-${activeFilter === 'pending_approval' || activeFilter === 'needs_upload' || activeFilter === 'settings' ? '6' : '8'} text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
-                      parent.appendChild(star);
-                    }
-                  }}
-                />
-              ) : (
-                <Star className={`text-white transition-all duration-500 ease-in-out ${
-                  activeFilter === 'pending_approval' || activeFilter === 'needs_upload' || activeFilter === 'settings' || activeFilter === 'content_scenes'
-                    ? 'w-6 h-6'
-                    : 'w-8 h-8'
-                }`} />
-              )}
+          {/* Profile Row */}
+          <div className="flex items-center mb-6">
+            {/* Avatar with glow effect */}
+            <div className="relative mr-4">
+              <div className={`
+                rounded-2xl flex items-center justify-center overflow-hidden
+                bg-gradient-to-br from-white/30 to-white/10 backdrop-blur-sm
+                border border-white/30 shadow-xl shadow-purple-900/20
+                transition-all duration-300 ease-in-out
+                ${activeFilter !== 'all' ? 'w-14 h-14' : 'w-[72px] h-[72px]'}
+              `}>
+                {client.avatar_url ? (
+                  <img
+                    src={client.avatar_url}
+                    alt={`@${client.username}`}
+                    className="w-full h-full object-cover"
+                    onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <Star className={`text-white drop-shadow-lg ${
+                    activeFilter !== 'all' ? 'w-6 h-6' : 'w-8 h-8'
+                  }`} fill="currentColor" />
+                )}
+              </div>
+              {/* Online indicator */}
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-400 rounded-full border-[3px] border-fuchsia-500 shadow-lg"></div>
             </div>
+            
+            {/* Greeting */}
             <div className="flex-1">
-              <h1 className={`font-bold text-white mb-1.5 tracking-tight transition-all duration-300 ease-in-out ${
-                activeFilter !== 'all' ? 'text-xl' : 'text-2xl'
+              <h1 className={`font-extrabold text-white tracking-tight leading-tight transition-all duration-300 ${
+                activeFilter !== 'all' ? 'text-xl' : 'text-[26px]'
               }`}>
                 {activeFilter === 'customs' ? 'Custom Requests' :
                  activeFilter === 'scenes' ? 'Content Scenes' :
                  activeFilter === 'settings' ? 'Settings' :
-                 `Hey @${client.username}! 👋`}
+                 <>Hey, <span className="text-amber-200">@{client.username}</span>!</>}
               </h1>
               {activeFilter === 'all' ? (
-                <StatusLine itemCount={totalActionableItems} />
+                <div className="mt-2">
+                  <StatusLine itemCount={totalActionableItems} />
+                </div>
               ) : (
-                <p className={`text-pink-100 text-sm transition-all duration-500 ease-in-out opacity-100`}>
+                <p className="text-white/70 text-sm mt-1 font-medium">
                   {activeFilter === 'customs' ? `${allClientCustoms.length} custom${allClientCustoms.length !== 1 ? 's' : ''} total` :
                    activeFilter === 'scenes' ? `${clientSceneAssignments.length} scene${clientSceneAssignments.length !== 1 ? 's' : ''} assigned` :
-                   activeFilter === 'settings' ? 'Manage your preferences and pricing' :
+                   activeFilter === 'settings' ? 'Manage your preferences' :
                    ''}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Segmented control removed per request */}
-
-          {/* Earnings Pills */}
+          {/* Earnings Cards - Premium Glass Design */}
           {activeFilter === 'all' && (
-            <div className="flex space-x-3">
-              <div className="stagger-item bg-white bg-opacity-25 backdrop-blur-sm rounded-2xl px-4 py-3 flex-1 shadow-lg" style={{ animationDelay: '0.1s' }}>
-                <div className="text-center">
-                  <div className="text-white font-bold text-xl tracking-tight">${totalEarned.toFixed(0)}</div>
-                  <div className="text-white text-xs opacity-90 font-medium mt-0.5">Total Earned</div>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Total Earned Card */}
+              <div className="stagger-item group" style={{ animationDelay: '0.1s' }}>
+                <div className="relative overflow-hidden bg-white/15 backdrop-blur-md rounded-2xl p-4 border border-white/20 shadow-lg hover:bg-white/20 transition-all duration-300">
+                  {/* Icon */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="w-9 h-9 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                      <Wallet className="w-4 h-4 text-white" />
+                    </div>
+                    <TrendingUp className="w-4 h-4 text-emerald-300" />
+                  </div>
+                  {/* Amount */}
+                  <div className="text-white font-extrabold text-2xl tracking-tight">
+                    ${totalEarned.toFixed(0)}
+                  </div>
+                  <div className="text-white/60 text-xs font-semibold uppercase tracking-wider mt-0.5">
+                    Total Earned
+                  </div>
                 </div>
               </div>
-              <div className="stagger-item bg-white bg-opacity-25 backdrop-blur-sm rounded-2xl px-4 py-3 flex-1 shadow-lg" style={{ animationDelay: '0.15s' }}>
-                <div className="text-center">
-                  <div className="text-white font-bold text-xl tracking-tight">${pendingEarnings.toFixed(0)}</div>
-                  <div className="text-white text-xs opacity-90 font-medium mt-0.5">Pending</div>
+              
+              {/* Pending Card */}
+              <div className="stagger-item group" style={{ animationDelay: '0.15s' }}>
+                <div className="relative overflow-hidden bg-white/15 backdrop-blur-md rounded-2xl p-4 border border-white/20 shadow-lg hover:bg-white/20 transition-all duration-300">
+                  {/* Icon */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="w-9 h-9 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg shadow-amber-500/30">
+                      <Sparkles className="w-4 h-4 text-white" />
+                    </div>
+                    {pendingEarnings > 0 && (
+                      <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
+                    )}
+                  </div>
+                  {/* Amount */}
+                  <div className="text-white font-extrabold text-2xl tracking-tight">
+                    ${pendingEarnings.toFixed(0)}
+                  </div>
+                  <div className="text-white/60 text-xs font-semibold uppercase tracking-wider mt-0.5">
+                    Pending
+                  </div>
                 </div>
               </div>
             </div>
@@ -363,16 +417,21 @@ const MobileClientView: React.FC = () => {
         ) : activeFilter === 'customs' ? (
           // Customs Tab - Show all custom requests as priority cards
           filteredCustoms.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 shadow-sm text-center animate-bounce-in">
-              <div className="w-16 h-16 bg-purple-50 border-2 border-purple-200 rounded-full flex items-center justify-center mx-auto mb-4 animate-float">
-                <Sparkles className="w-7 h-7 text-purple-600" />
+            <div className="relative overflow-hidden bg-white rounded-[28px] shadow-lg shadow-gray-200/60 border border-gray-100 animate-bounce-in">
+              <div className="h-1.5 bg-gradient-to-r from-violet-400 via-purple-400 to-fuchsia-400" />
+              <div className="p-8 text-center">
+                <div className="relative inline-block mb-6">
+                  <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-purple-500 rounded-3xl flex items-center justify-center shadow-xl shadow-violet-500/30 rotate-3">
+                    <Sparkles className="w-9 h-9 text-white" />
+                  </div>
+                </div>
+                <h3 className="text-2xl font-extrabold text-gray-900 mb-2 tracking-tight">
+                  No Customs Yet
+                </h3>
+                <p className="text-gray-500 text-[15px] leading-relaxed max-w-xs mx-auto">
+                  Custom requests will appear here when fans place orders
+                </p>
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
-                No customs yet
-              </h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                Custom requests will appear here when fans place orders
-              </p>
             </div>
           ) : (
             <PriorityFeed 
@@ -398,16 +457,21 @@ const MobileClientView: React.FC = () => {
         ) : activeFilter === 'scenes' ? (
           // Scenes Tab - Show all scene assignments
           filteredScenes.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 shadow-sm text-center animate-bounce-in">
-              <div className="w-16 h-16 bg-orange-50 border-2 border-orange-200 rounded-full flex items-center justify-center mx-auto mb-4 animate-float">
-                <CheckCircle className="w-7 h-7 text-orange-600" />
+            <div className="relative overflow-hidden bg-white rounded-[28px] shadow-lg shadow-gray-200/60 border border-gray-100 animate-bounce-in">
+              <div className="h-1.5 bg-gradient-to-r from-amber-400 via-orange-400 to-red-400" />
+              <div className="p-8 text-center">
+                <div className="relative inline-block mb-6">
+                  <div className="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-500 rounded-3xl flex items-center justify-center shadow-xl shadow-orange-500/30 -rotate-3">
+                    <CheckCircle className="w-9 h-9 text-white" />
+                  </div>
+                </div>
+                <h3 className="text-2xl font-extrabold text-gray-900 mb-2 tracking-tight">
+                  No Scenes Yet
+                </h3>
+                <p className="text-gray-500 text-[15px] leading-relaxed max-w-xs mx-auto">
+                  Your team will assign content scenes for you to work on
+                </p>
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
-                No content scenes yet
-              </h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                Your team will assign content scenes for you to work on
-              </p>
             </div>
           ) : (
             <div className="space-y-4">
