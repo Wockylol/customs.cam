@@ -578,3 +578,63 @@ export async function createGenericNotification(
   }
 }
 
+/**
+ * Create a notification when a client marks a scene content as complete
+ * Sends to: assigned chatters + all admins/managers
+ */
+export async function createSceneCompletedNotification(
+  clientId: string,
+  clientUsername: string,
+  sceneTitle: string,
+  assignmentId: string
+) {
+  try {
+    // Get assigned chatters
+    const assignedChatters = await getChattersAssignedToClient(clientId);
+    
+    // Get all admins and managers
+    const adminsAndManagers = await getAllAdminsAndManagers();
+    
+    // Combine and remove duplicates
+    const recipients = Array.from(new Set([...assignedChatters, ...adminsAndManagers]));
+
+    if (recipients.length === 0) {
+      console.log('No recipients for scene completed notification');
+      return;
+    }
+
+    // Create the notification
+    const { data: notification, error: notificationError } = await supabase
+      .from('notifications')
+      .insert({
+        type: 'scene_completed',
+        title: 'Scene Content Completed',
+        message: `${clientUsername} has marked the scene "${sceneTitle}" as complete`,
+        link: '/scene-assignments',
+        related_entity_type: 'scene_assignment',
+        related_entity_id: assignmentId,
+        created_by: null // Client-initiated action
+      })
+      .select()
+      .single();
+
+    if (notificationError) throw notificationError;
+
+    // Create recipient records
+    const recipientRecords = recipients.map((recipientId: string) => ({
+      notification_id: notification.id,
+      team_member_id: recipientId
+    }));
+
+    const { error: recipientsError } = await supabase
+      .from('notification_recipients')
+      .insert(recipientRecords);
+
+    if (recipientsError) throw recipientsError;
+
+    console.log(`Created scene completed notification for ${recipients.length} recipients`);
+  } catch (error) {
+    console.error('Error creating scene completed notification:', error);
+  }
+}
+
