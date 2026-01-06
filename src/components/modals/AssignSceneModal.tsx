@@ -137,12 +137,20 @@ const AssignSceneModal: React.FC<AssignSceneModalProps> = ({
       }
 
       setAssigning(true);
-      const { error } = await assignScene(scene.id, selectedClientIds, notes);
+      const result = await assignScene(scene.id, selectedClientIds, notes);
       setAssigning(false);
 
-      if (error) {
-        alert(`Error assigning scene: ${error}`);
+      if (result.error) {
+        alert(`Error assigning scene: ${result.error}`);
       } else {
+        // Show info about skipped clients if any were skipped
+        if (result.skipped && result.skipped > 0) {
+          if (result.assigned === 0) {
+            alert(`All ${result.skipped} selected client(s) already had this scene assigned.`);
+          } else {
+            alert(`Scene assigned to ${result.assigned} client(s). ${result.skipped} client(s) were skipped (already assigned).`);
+          }
+        }
         onClose();
       }
     } else {
@@ -166,6 +174,17 @@ const AssignSceneModal: React.FC<AssignSceneModalProps> = ({
       if (errors.length > 0) {
         alert(`Error assigning scenes: ${errors.join(', ')}`);
       } else {
+        // Count skipped scenes
+        const totalSkipped = results.reduce((sum, r) => sum + ((r as any).skipped || 0), 0);
+        const totalAssigned = results.reduce((sum, r) => sum + ((r as any).assigned || 0), 0);
+        
+        if (totalSkipped > 0) {
+          if (totalAssigned === 0) {
+            alert(`All ${totalSkipped} selected scene(s) were already assigned to this client.`);
+          } else {
+            alert(`${totalAssigned} scene(s) assigned. ${totalSkipped} scene(s) were skipped (already assigned).`);
+          }
+        }
         onClose();
       }
     }
