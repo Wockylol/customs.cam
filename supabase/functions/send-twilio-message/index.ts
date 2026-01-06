@@ -61,11 +61,18 @@ Deno.serve(async (req) => {
         : content,
     });
 
+    // Get Supabase URL for status callback
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const statusCallbackUrl = supabaseUrl 
+      ? `${supabaseUrl}/functions/v1/twilio-delivery-status`
+      : undefined;
+
     // Send the SMS
     const message = await client.messages.create({
       from: twilioNumber,
       to:   phoneNumber,
       body: content,
+      ...(statusCallbackUrl && { statusCallback: statusCallbackUrl }),
     });
 
     console.log('📥 Twilio API response:', {
