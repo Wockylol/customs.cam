@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
 import { ContentScene, SceneInstruction } from '../types';
+import { createSceneCompletedNotification } from '../lib/notificationHelpers';
 
 type ContentSceneRow = Database['public']['Tables']['content_scenes']['Row'];
 type ContentSceneInsert = Database['public']['Tables']['content_scenes']['Insert'];
@@ -262,6 +263,20 @@ export const useContentScenes = () => {
 
   const markSceneComplete = async (assignmentId: string) => {
     try {
+      // First, get the assignment with client and scene details for notification
+      const { data: assignmentDetails, error: fetchError } = await supabase
+        .from('client_scene_assignments')
+        .select(`
+          *,
+          clients (id, username),
+          content_scenes (id, title)
+        `)
+        .eq('id', assignmentId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Update the assignment status
       const { data, error: updateError } = await supabase
         .from('client_scene_assignments')
         .update({
@@ -273,6 +288,19 @@ export const useContentScenes = () => {
         .single();
 
       if (updateError) throw updateError;
+
+      // Send notification to team members and admins
+      const client = (assignmentDetails as any).clients;
+      const scene = (assignmentDetails as any).content_scenes;
+      
+      if (client && scene) {
+        await createSceneCompletedNotification(
+          client.id,
+          client.username,
+          scene.title,
+          assignmentId
+        );
+      }
 
       return { data, error: null };
     } catch (err: any) {
