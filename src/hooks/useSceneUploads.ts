@@ -37,6 +37,43 @@ export const useSceneUploads = (assignmentId?: string) => {
     return uploads.filter(upload => upload.step_index === stepIndex);
   };
 
+  // Helper function to upload a single file with XMLHttpRequest for progress tracking
+  const uploadFileWithProgress = (
+    signedUrl: string,
+    file: File,
+    onProgress: (loaded: number, total: number) => void
+  ): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          onProgress(event.loaded, event.total);
+        }
+      });
+      
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.statusText}`));
+        }
+      });
+      
+      xhr.addEventListener('error', () => {
+        reject(new Error('Network error during upload'));
+      });
+      
+      xhr.addEventListener('abort', () => {
+        reject(new Error('Upload was aborted'));
+      });
+      
+      xhr.open('PUT', signedUrl);
+      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+      xhr.send(file);
+    });
+  };
+
   const uploadSceneContent = async (
     assignmentId: string,
     stepIndex: number,
@@ -80,30 +117,36 @@ export const useSceneUploads = (assignmentId?: string) => {
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `${clientId}/${assignmentId}/step_${stepIndex}/${fileName}`;
 
-        // Upload to storage with progress tracking
-        const { error: storageError } = await supabase.storage
+        // Create a signed upload URL (valid for 60 seconds)
+        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
           .from('scene-content')
-          .upload(filePath, file, {
-            onUploadProgress: (progress) => {
-              fileProgress[i] = progress.loaded;
-              const totalLoaded = fileProgress.reduce((sum, loaded) => sum + loaded, 0);
-              
-              if (onProgress) {
-                onProgress({
-                  fileIndex: i,
-                  fileName: file.name,
-                  loaded: progress.loaded,
-                  total: progress.total,
-                  percentage: Math.round((progress.loaded / progress.total) * 100),
-                  totalLoaded,
-                  totalSize,
-                  overallPercentage: Math.round((totalLoaded / totalSize) * 100)
-                });
-              }
-            }
-          });
+          .createSignedUploadUrl(filePath);
 
-        if (storageError) throw storageError;
+        if (signedUrlError) throw signedUrlError;
+        if (!signedUrlData?.signedUrl) throw new Error('Failed to create signed upload URL');
+
+        // Upload using XMLHttpRequest for real progress tracking
+        await uploadFileWithProgress(
+          signedUrlData.signedUrl,
+          file,
+          (loaded, total) => {
+            fileProgress[i] = loaded;
+            const totalLoaded = fileProgress.reduce((sum, l) => sum + l, 0);
+            
+            if (onProgress) {
+              onProgress({
+                fileIndex: i,
+                fileName: file.name,
+                loaded,
+                total,
+                percentage: Math.round((loaded / total) * 100),
+                totalLoaded,
+                totalSize,
+                overallPercentage: Math.round((totalLoaded / totalSize) * 100)
+              });
+            }
+          }
+        );
 
         // Create database record
         const { data, error: dbError } = await supabase
