@@ -46,9 +46,14 @@ export const useSceneUploads = (assignmentId?: string) => {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       
-      console.log('[R2 Upload] Requesting presigned URL for:', filePath);
+      const edgeFunctionUrl = `${supabaseUrl}/functions/v1/r2-upload-url`;
       
-      const response = await fetch(`${supabaseUrl}/functions/v1/r2-upload-url`, {
+      console.log('[R2 Upload] Requesting presigned URL for:', filePath);
+      console.log('[R2 Upload] Edge Function URL:', edgeFunctionUrl);
+      console.log('[R2 Upload] Supabase URL configured:', supabaseUrl ? 'YES' : 'NO');
+      console.log('[R2 Upload] Supabase Key configured:', supabaseKey ? 'YES' : 'NO');
+      
+      const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -75,9 +80,22 @@ export const useSceneUploads = (assignmentId?: string) => {
 
       const data = await response.json();
       console.log('[R2 Upload] Received presigned URL successfully');
+      console.log('[R2 Upload] Public URL:', data.publicUrl);
       return { signedUrl: data.signedUrl, publicUrl: data.publicUrl, error: null };
     } catch (err: any) {
       console.error('[R2 Upload] Error getting presigned URL:', err);
+      console.error('[R2 Upload] Error name:', err.name);
+      console.error('[R2 Upload] Error message:', err.message);
+      
+      // Check for specific error types
+      if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
+        console.error('[R2 Upload] This usually means:');
+        console.error('  1. The Edge Function is not deployed');
+        console.error('  2. CORS issue - check Edge Function CORS headers');
+        console.error('  3. Network connectivity issue');
+        console.error('  4. Edge Function URL is incorrect');
+      }
+      
       return { signedUrl: '', publicUrl: null, error: err.message };
     }
   };
