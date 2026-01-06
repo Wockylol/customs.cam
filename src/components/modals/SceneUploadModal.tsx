@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { X, Upload, Trash2, Video, Image as ImageIcon, Loader2, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Upload, Trash2, Video, Image as ImageIcon, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useSceneUploads } from '../../hooks/useSceneUploads';
 import { SceneInstruction } from '../../types';
+
+// 5GB max file size
+const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024;
 
 interface SceneUploadModalProps {
   isOpen: boolean;
@@ -26,8 +29,11 @@ const SceneUploadModal: React.FC<SceneUploadModalProps> = ({
   const [bytesLoaded, setBytesLoaded] = useState(0);
   const [bytesTotal, setBytesTotal] = useState(0);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [fileErrors, setFileErrors] = useState<string[]>([]);
   const [previewUrls, setPreviewUrls] = useState<{ [key: number]: string }>({});
   const [deleteConfirmId, setDeleteConfirmId] = useState<{ id: string; path: string } | null>(null);
+  const [uploadSpeed, setUploadSpeed] = useState(0);
+  const lastProgressRef = useRef({ loaded: 0, time: Date.now() });
 
   const instructions: SceneInstruction[] = Array.isArray(scene?.instructions) 
     ? scene.instructions 
@@ -71,7 +77,21 @@ const SceneUploadModal: React.FC<SceneUploadModalProps> = ({
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
-      setSelectedFiles(prev => [...prev, ...newFiles]);
+      const errors: string[] = [];
+      const validFiles: File[] = [];
+      
+      for (const file of newFiles) {
+        if (file.size > MAX_FILE_SIZE) {
+          errors.push(`"${file.name}" is too large (${formatFileSize(file.size)}). Maximum size is 5GB.`);
+        } else {
+          validFiles.push(file);
+        }
+      }
+      
+      setFileErrors(errors);
+      if (validFiles.length > 0) {
+        setSelectedFiles(prev => [...prev, ...validFiles]);
+      }
     }
   };
 
@@ -85,7 +105,11 @@ const SceneUploadModal: React.FC<SceneUploadModalProps> = ({
     setUploading(true);
     setUploadProgress(0);
     setBytesLoaded(0);
-    setBytesTotal(selectedFiles.reduce((sum, f) => sum + f.size, 0));
+    setUploadSpeed(0);
+    setFileErrors([]);
+    const total = selectedFiles.reduce((sum, f) => sum + f.size, 0);
+    setBytesTotal(total);
+    lastProgressRef.current = { loaded: 0, time: Date.now() };
 
     const { error } = await uploadSceneContent(
       assignment.id,
@@ -96,10 +120,20 @@ const SceneUploadModal: React.FC<SceneUploadModalProps> = ({
         setCurrentFileIndex(progress.fileIndex);
         setCurrentFileName(progress.fileName);
         setBytesLoaded(progress.totalLoaded);
+        
+        // Calculate upload speed (bytes per second)
+        const now = Date.now();
+        const timeDiff = (now - lastProgressRef.current.time) / 1000;
+        if (timeDiff > 0.5) { // Update speed every 0.5 seconds
+          const bytesDiff = progress.totalLoaded - lastProgressRef.current.loaded;
+          setUploadSpeed(bytesDiff / timeDiff);
+          lastProgressRef.current = { loaded: progress.totalLoaded, time: now };
+        }
       }
     );
 
     setUploading(false);
+    setUploadSpeed(0);
     
     if (error) {
       alert(`Error uploading files: ${error}`);
@@ -141,6 +175,14 @@ const SceneUploadModal: React.FC<SceneUploadModalProps> = ({
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const formatTimeRemaining = (seconds: number) => {
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.round((seconds % 3600) / 60);
+    return `${hours}h ${mins}m`;
   };
 
   if (!isOpen || !currentInstruction) return null;
@@ -212,9 +254,23 @@ const SceneUploadModal: React.FC<SceneUploadModalProps> = ({
                 />
               </label>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                {currentInstruction.type === 'video' ? 'Video files only' : 'Image files only'}
+                {currentInstruction.type === 'video' ? 'Video files up to 5GB' : 'Image files up to 5GB'}
               </p>
             </div>
+            
+            {/* File Size Errors */}
+            {fileErrors.length > 0 && (
+              <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    {fileErrors.map((err, i) => (
+                      <p key={i} className="text-sm text-red-700 dark:text-red-300">{err}</p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Selected Files for Upload */}
@@ -294,10 +350,22 @@ const SceneUploadModal: React.FC<SceneUploadModalProps> = ({
                     />
                   </div>
                   
-                  {/* Bytes info */}
+                  {/* Bytes info and speed */}
                   <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                     <span>
                       {formatFileSize(bytesLoaded)} / {formatFileSize(bytesTotal)}
+                    </span>
+                    <span>
+                      {uploadSpeed > 0 ? `${formatFileSize(uploadSpeed)}/s` : 'Calculating...'}
+                    </span>
+                  </div>
+                  
+                  {/* ETA and file count */}
+                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                    <span>
+                      {uploadSpeed > 0 && bytesTotal > bytesLoaded
+                        ? `~${formatTimeRemaining((bytesTotal - bytesLoaded) / uploadSpeed)} remaining`
+                        : 'Estimating time...'}
                     </span>
                     {selectedFiles.length > 1 && (
                       <span>
