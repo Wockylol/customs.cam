@@ -26,37 +26,125 @@ DO NOT:
 - Use formal language
 - Be too long-winded`
 
-// System prompt for analyzing the complete conversation
-const VIBE_CHECK_ANALYSIS_SYSTEM = `You are an expert communication analyst specializing in understanding personal communication styles and personality traits through text analysis. You will analyze a conversation between an OnlyFans creator and a simulated fan to extract their idiolect (personal communication style) and personality traits.
+// Enhanced system prompt for behavior-level idiolect analysis
+const VIBE_CHECK_ANALYSIS_SYSTEM = `You are a voice-cloning analyst. Your job is to analyze a creator's messages and produce a simple, actionable guide that chatters can follow to copy this creator's exact texting style.
 
-Analyze the creator's messages and return a JSON object with this exact structure:
+Focus on OBSERVABLE BEHAVIORS, not personality. Chatters need clear rules they can follow, not descriptions of who someone is.
+
+Analyze the creator's messages and return a JSON object with this EXACT structure:
+
 {
-  "personalityTraits": {
-    "dominantSubmissive": <number from -100 (very submissive) to 100 (very dominant)>,
-    "playfulSerious": <number from -100 (very serious) to 100 (very playful)>,
-    "confidentShy": <number from -100 (very shy) to 100 (very confident)>,
-    "warmthLevel": <number from 0 (cold/distant) to 100 (very warm/friendly)>
-  },
-  "communicationStyle": {
-    "avgResponseLength": "<'brief'|'moderate'|'detailed'>",
-    "emojiUsage": "<'none'|'minimal'|'moderate'|'heavy'>",
-    "capitalizationStyle": "<'lowercase'|'normal'|'expressive'>",
-    "punctuationStyle": "<description of how they use punctuation>",
-    "sentenceStructure": "<description of their sentence patterns>"
+  "writingMechanics": {
+    "capitalization": {
+      "sentenceStart": "always|often|sometimes|rarely|never",
+      "examples": ["example from their text", "another example"]
+    },
+    "punctuation": {
+      "periods": "always|often|sometimes|rarely|never",
+      "commas": "often|sometimes|rarely",
+      "ellipsis": "heavy|moderate|light|never",
+      "exclamationMarks": "heavy|moderate|light|never",
+      "questionMarks": "normal|light|never",
+      "overall": "high|medium|low"
+    },
+    "emoji": {
+      "frequency": "none|minimal|moderate|heavy",
+      "position": "end|mid|start|standalone|mixed",
+      "style": "single|clusters|none",
+      "favorites": ["emoji1", "emoji2"],
+      "mirrors_fan": true|false
+    },
+    "abbreviations": {
+      "uses": ["lol", "tbh", "omg"],
+      "avoids": ["idk", "rn"],
+      "textSpeak": "heavy|moderate|light|none",
+      "examples": ["u vs you", "ur vs your"]
+    },
+    "formality": {
+      "pronouns": "u|you|mixed",
+      "contractions": "always|sometimes|never",
+      "profanity": "none|light|moderate|heavy",
+      "softeners": "heavy|moderate|light|none",
+      "examples": ["maybe", "kinda", "I think"]
+    },
+    "messageStructure": {
+      "typicalLength": "very-short|short|medium|long",
+      "multipleMessages": true|false,
+      "lineBreaks": true|false,
+      "letterStretching": "heavy|moderate|light|none",
+      "examples": ["hiii", "sooo", "ohhh"]
+    }
   },
   "signaturePatterns": {
-    "greetings": [<array of greeting phrases they use>],
-    "petNames": [<array of pet names/terms of endearment they use>],
-    "closings": [<array of closing/goodbye phrases>],
-    "fillerWords": [<array of filler words like 'like', 'um', etc>],
-    "uniquePhrases": [<array of unique expressions or catchphrases>]
+    "greetings": ["hey", "hii"],
+    "petNames": ["babe", "hun"],
+    "closings": ["ttyl", "bye"],
+    "fillerWords": ["like", "honestly"],
+    "uniquePhrases": ["that's so sweet"]
   },
-  "flirtationApproach": "<description of how they flirt - teasing, sweet, bold, subtle, etc>",
-  "loveLanguageIndicators": [<array of apparent love languages: words of affirmation, quality time, gifts, acts of service, physical touch>],
-  "chatterGuidelines": "<Markdown formatted guide for chatters on how to authentically replicate this creator's voice. Include specific examples, dos and don'ts, and key phrases to use.>"
+  "neverDoes": {
+    "behaviors": [
+      "Never uses emojis",
+      "Never says 'babe' or pet names",
+      "Never uses exclamation marks"
+    ],
+    "critical": true
+  },
+  "voiceModes": {
+    "casualChat": {
+      "tone": "relaxed and brief",
+      "example": "haha yeah that's cool"
+    },
+    "flirting": {
+      "tone": "playful but not over the top",
+      "example": "you're sweet"
+    },
+    "customRequests": {
+      "tone": "direct and confident",
+      "example": "I can do that for $50"
+    },
+    "complimentResponse": {
+      "tone": "humble but accepting",
+      "example": "aw thanks"
+    }
+  },
+  "chatterPlaybook": {
+    "quickRules": [
+      "Start sentences lowercase",
+      "No periods at end of messages",
+      "One emoji max per message, always at end",
+      "Say 'you' not 'u'",
+      "Keep replies under 15 words"
+    ],
+    "doNot": [
+      "Don't use exclamation marks",
+      "Don't say pet names like babe or hun",
+      "Don't use multiple emojis together",
+      "Don't write long paragraphs"
+    ],
+    "copyTheseExactly": [
+      "haha",
+      "that's sweet",
+      "thanks babe"
+    ],
+    "replyTemplates": {
+      "smallTalk": "keep it short, one sentence max",
+      "compliment": "say thanks + small deflection",
+      "customRequest": "state price directly, no hesitation",
+      "boundary": "polite but firm, no apologies"
+    },
+    "confidence": "high|medium|low"
+  }
 }
 
-Be specific and insightful. The chatterGuidelines should be detailed enough that a chatter could read it and immediately start messaging fans in a way indistinguishable from the creator.`
+IMPORTANT RULES FOR YOUR ANALYSIS:
+1. Look at ACTUAL behavior, not grammar rules. If they never use periods, that's the rule.
+2. "Never" is just as important as "always" - identify what they DON'T do.
+3. Use their ACTUAL examples from the conversation.
+4. Keep quickRules and doNot lists SHORT and CLEAR - max 6 items each.
+5. If something is unclear or you're guessing, say confidence is "low".
+6. Write for someone who speaks English as a second language - be simple and direct.
+7. No fluffy descriptions - just tell chatters exactly what to do.`
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -222,7 +310,7 @@ Generate ONLY the fan's next message. No quotes, no "Fan:" prefix, just the mess
 
 /**
  * Handle vibe check conversation analysis
- * Analyzes the complete conversation to extract personality and idiolect
+ * Analyzes the complete conversation to extract behavior-level idiolect
  */
 async function handleVibeCheckAnalyze(body: any, apiKey: string) {
   const { conversation } = body
@@ -234,17 +322,25 @@ async function handleVibeCheckAnalyze(body: any, apiKey: string) {
     )
   }
 
+  // Extract only creator messages for focused analysis
+  const creatorMessages = conversation
+    .filter((msg: any) => msg.role === 'creator')
+    .map((msg: any) => msg.content)
+  
   // Build analysis request for Grok
   const messages = [
     { role: 'system', content: VIBE_CHECK_ANALYSIS_SYSTEM },
     { 
       role: 'user', 
-      content: `Analyze this conversation between a simulated fan and an OnlyFans creator. Focus ONLY on the creator's messages to extract their communication style and personality.
+      content: `Analyze these messages from an OnlyFans creator. Extract their exact texting style so chatters can copy it.
 
-Conversation:
+CREATOR'S MESSAGES (analyze these):
+${creatorMessages.map((msg: string, i: number) => `${i + 1}. "${msg}"`).join('\n')}
+
+FULL CONVERSATION CONTEXT:
 ${conversation.map((msg: any) => `${msg.role === 'fan' ? 'Fan' : 'Creator'}: ${msg.content}`).join('\n')}
 
-Return ONLY the JSON analysis object, no other text.`
+Return ONLY the JSON object. No explanation, no markdown, just valid JSON.`
     }
   ]
 
@@ -257,8 +353,8 @@ Return ONLY the JSON analysis object, no other text.`
     body: JSON.stringify({
       model: 'grok-3-mini',
       messages,
-      temperature: 0.3,
-      max_tokens: 2000
+      temperature: 0.2,
+      max_tokens: 3000
     })
   })
 
