@@ -442,7 +442,7 @@ ${questionnaire.additional_info ? `- Additional Info: ${questionnaire.additional
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/811a88ed-ce7c-4965-bb66-ff046273fa15',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ClientProfilePage.tsx:444',message:'Frontend calling edge function',data:{url:`${supabaseUrl}/functions/v1/grok-chat`,hasAnonKey:!!supabaseAnonKey,messageLength:userMessage.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D,E'})}).catch(()=>{});
+      console.log('DEBUG [D,E] Frontend calling edge function:', {url:`${supabaseUrl}/functions/v1/grok-chat`,hasAnonKey:!!supabaseAnonKey,messageLength:userMessage.length});
       // #endregion
       
       // Call Grok API via Supabase edge function
@@ -453,7 +453,7 @@ ${questionnaire.additional_info ? `- Additional Info: ${questionnaire.additional
           'Authorization': `Bearer ${supabaseAnonKey}`
         },
         body: JSON.stringify({
-          model: 'grok-2-latest',
+          model: 'grok-3-mini',
           messages: [
             {
               role: 'system',
