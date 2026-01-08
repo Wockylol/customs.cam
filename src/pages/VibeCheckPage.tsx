@@ -6,12 +6,12 @@ import {
   Sparkles, 
   CheckCircle,
   Heart,
-  Zap,
   MessageCircle,
-  Star
+  Check,
+  X
 } from 'lucide-react';
 import { useClients } from '../hooks/useClients';
-import { useVibeCheck, IdiolectAnalysis } from '../hooks/useVibeCheck';
+import { useVibeCheck, VoiceAnalysis } from '../hooks/useVibeCheck';
 import MobilePinLock from '../components/auth/MobilePinLock';
 
 const VibeCheckPage: React.FC = () => {
@@ -123,7 +123,7 @@ const VibeCheckPage: React.FC = () => {
             </div>
             <h2 className="text-2xl font-bold text-white mb-3">Analyzing your vibe...</h2>
             <p className="text-gray-400 text-sm leading-relaxed">
-              Our AI is learning your unique communication style to help your team represent you perfectly
+              Creating your voice profile so your team can represent you perfectly
             </p>
             <div className="mt-6 flex justify-center gap-1">
               {[0, 1, 2].map(i => (
@@ -308,9 +308,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLatest }) => {
   );
 };
 
-// Analysis Reveal Component
+// Analysis Reveal Component - Updated for new VoiceAnalysis structure
 interface AnalysisRevealProps {
-  analysis: IdiolectAnalysis;
+  analysis: VoiceAnalysis;
   onDone: () => void;
 }
 
@@ -336,35 +336,9 @@ const AnalysisReveal: React.FC<AnalysisRevealProps> = ({ analysis, onDone }) => 
     return () => clearInterval(interval);
   }, [onDone]);
 
-  // Convert trait values to descriptive labels
-  const getTraitLabel = (value: number, lowLabel: string, highLabel: string) => {
-    if (value < -30) return lowLabel;
-    if (value > 30) return highLabel;
-    return 'Balanced';
-  };
-
-  const traits = [
-    {
-      icon: <Zap className="w-5 h-5" />,
-      label: getTraitLabel(analysis.personalityTraits.dominantSubmissive, 'Submissive', 'Dominant'),
-      color: 'from-purple-500 to-pink-500'
-    },
-    {
-      icon: <Sparkles className="w-5 h-5" />,
-      label: getTraitLabel(analysis.personalityTraits.playfulSerious, 'Serious', 'Playful'),
-      color: 'from-amber-500 to-orange-500'
-    },
-    {
-      icon: <Star className="w-5 h-5" />,
-      label: getTraitLabel(analysis.personalityTraits.confidentShy, 'Reserved', 'Confident'),
-      color: 'from-blue-500 to-cyan-500'
-    },
-    {
-      icon: <Heart className="w-5 h-5" />,
-      label: analysis.personalityTraits.warmthLevel > 60 ? 'Warm & Friendly' : 'Cool & Mysterious',
-      color: 'from-rose-500 to-red-500'
-    }
-  ];
+  // Get quick highlights from the analysis
+  const quickRules = analysis.chatterPlaybook?.quickRules?.slice(0, 3) || [];
+  const doNots = analysis.chatterPlaybook?.doNot?.slice(0, 2) || [];
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
@@ -396,53 +370,68 @@ const AnalysisReveal: React.FC<AnalysisRevealProps> = ({ analysis, onDone }) => 
         <h1 className={`text-2xl font-bold text-white text-center mb-2 transition-all duration-500 delay-100 ${showCards ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
           Vibe Check Complete! ✨
         </h1>
-        <p className={`text-gray-400 text-center mb-8 transition-all duration-500 delay-150 ${showCards ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-          Your team now has your vibe locked in
+        <p className={`text-gray-400 text-center mb-6 transition-all duration-500 delay-150 ${showCards ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+          Your team now has your voice profile
         </p>
 
-        {/* Trait cards */}
-        <div className="grid grid-cols-2 gap-3 w-full max-w-sm mb-8">
-          {traits.map((trait, index) => (
-            <div
-              key={index}
-              className={`bg-[#1a1a1a] rounded-2xl p-4 border border-white/5 transition-all duration-500 ${
-                showCards ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
-              }`}
-              style={{ transitionDelay: `${200 + index * 100}ms` }}
-            >
-              <div className={`w-10 h-10 bg-gradient-to-br ${trait.color} rounded-xl flex items-center justify-center mb-3`}>
-                {trait.icon}
-              </div>
-              <p className="text-white font-semibold text-sm">{trait.label}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Communication style summary */}
-        <div className={`w-full max-w-sm bg-[#1a1a1a] rounded-2xl p-4 border border-white/5 mb-8 transition-all duration-500 delay-500 ${showCards ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
-          <p className="text-gray-400 text-xs uppercase tracking-wider mb-2">Your Style</p>
-          <div className="flex flex-wrap gap-2">
-            <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-medium">
-              {analysis.communicationStyle.avgResponseLength} responses
-            </span>
-            <span className="px-3 py-1 bg-pink-500/20 text-pink-400 rounded-full text-xs font-medium">
-              {analysis.communicationStyle.emojiUsage} emojis
-            </span>
-            <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-medium">
-              {analysis.flirtationApproach || 'Natural flirt'}
-            </span>
+        {/* Quick Rules Preview */}
+        {quickRules.length > 0 && (
+          <div className={`w-full max-w-sm bg-green-500/10 border border-green-500/20 rounded-2xl p-4 mb-3 transition-all duration-500 delay-200 ${showCards ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+            <p className="text-green-400 text-xs font-semibold uppercase tracking-wider mb-2">Your Style</p>
+            <ul className="space-y-1.5">
+              {quickRules.map((rule, i) => (
+                <li key={i} className="flex items-center gap-2 text-sm text-white">
+                  <Check className="w-4 h-4 text-green-400 flex-shrink-0" />
+                  <span>{rule}</span>
+                </li>
+              ))}
+            </ul>
           </div>
+        )}
+
+        {/* Do Not Preview */}
+        {doNots.length > 0 && (
+          <div className={`w-full max-w-sm bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mb-6 transition-all duration-500 delay-300 ${showCards ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+            <p className="text-red-400 text-xs font-semibold uppercase tracking-wider mb-2">Avoid</p>
+            <ul className="space-y-1.5">
+              {doNots.map((rule, i) => (
+                <li key={i} className="flex items-center gap-2 text-sm text-white">
+                  <X className="w-4 h-4 text-red-400 flex-shrink-0" />
+                  <span>{rule}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Writing Style Tags */}
+        <div className={`w-full max-w-sm flex flex-wrap justify-center gap-2 mb-8 transition-all duration-500 delay-400 ${showCards ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+          {analysis.writingMechanics?.emoji?.frequency && (
+            <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-medium">
+              {analysis.writingMechanics.emoji.frequency} emojis
+            </span>
+          )}
+          {analysis.writingMechanics?.messageStructure?.typicalLength && (
+            <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-medium">
+              {analysis.writingMechanics.messageStructure.typicalLength} messages
+            </span>
+          )}
+          {analysis.writingMechanics?.formality?.pronouns && (
+            <span className="px-3 py-1 bg-pink-500/20 text-pink-400 rounded-full text-xs font-medium">
+              says "{analysis.writingMechanics.formality.pronouns}"
+            </span>
+          )}
         </div>
 
         {/* Done button */}
         <button
           onClick={onDone}
-          className={`w-full max-w-sm bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 active:scale-[0.98] transition-all duration-500 delay-600 ${showCards ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}
+          className={`w-full max-w-sm bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 active:scale-[0.98] transition-all duration-500 delay-500 ${showCards ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}
         >
           Done
         </button>
         
-        <p className={`text-gray-600 text-xs mt-3 transition-all duration-500 delay-700 ${showCards ? 'opacity-100' : 'opacity-0'}`}>
+        <p className={`text-gray-600 text-xs mt-3 transition-all duration-500 delay-600 ${showCards ? 'opacity-100' : 'opacity-0'}`}>
           Redirecting in {autoRedirectTimer}s...
         </p>
       </div>
@@ -474,4 +463,3 @@ if (!document.getElementById('vibe-check-styles')) {
 }
 
 export default VibeCheckPage;
-
