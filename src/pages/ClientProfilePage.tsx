@@ -11,8 +11,10 @@ import { useCustomRequests } from '../hooks/useCustomRequests';
 import { useFanNotes } from '../hooks/useFanNotes';
 import AddCustomModal from '../components/modals/AddCustomModal';
 import AddFanNoteModal from '../components/modals/AddFanNoteModal';
+import IdiolectAnalysisView from '../components/ui/IdiolectAnalysisView';
+import { useIdiolectAnalysis } from '../hooks/useIdiolectAnalysis';
 
-type TabType = 'overview' | 'questionnaire' | 'pricing' | 'askAi' | 'notes' | 'fanNotes';
+type TabType = 'overview' | 'questionnaire' | 'pricing' | 'askAi' | 'notes' | 'fanNotes' | 'voice';
 
 const ClientProfilePage: React.FC = () => {
   const { clientId } = useParams<{ clientId: string }>();
@@ -39,6 +41,9 @@ const ClientProfilePage: React.FC = () => {
     deleteReply: deleteFanReply,
     getNotesGroupedByFan 
   } = useFanNotes(clientId);
+  
+  // Idiolect analysis hook
+  const { analysis: idiolectAnalysis, loading: idiolectLoading } = useIdiolectAnalysis(clientId);
   
   // Modal state
   const [isAddCustomModalOpen, setIsAddCustomModalOpen] = useState(false);
@@ -94,6 +99,7 @@ const ClientProfilePage: React.FC = () => {
     { id: 'overview' as TabType, name: 'Overview', icon: User },
     { id: 'questionnaire' as TabType, name: 'Questionnaire', icon: FileText },
     { id: 'pricing' as TabType, name: 'Pricing Preferences', icon: DollarSign },
+    { id: 'voice' as TabType, name: 'Voice Profile', icon: MessageSquare },
     { id: 'askAi' as TabType, name: 'Ask AI', icon: Sparkles },
     { id: 'notes' as TabType, name: 'Notes', icon: MessageSquare },
     { id: 'fanNotes' as TabType, name: 'Fan Notes', icon: User },
@@ -1748,6 +1754,14 @@ ${contextSummary}`
                   onSubmit={handleCreateFanNote}
                 />
               </div>
+            )}
+
+            {activeTab === 'voice' && (
+              <IdiolectAnalysisView
+                analysis={idiolectAnalysis}
+                loading={idiolectLoading}
+                clientUsername={client?.username || ''}
+              />
             )}
 
             {activeTab === 'notes' && (
