@@ -1,541 +1,447 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, User, FileText, DollarSign, MessageSquare, Settings, CheckCircle, Globe, Heart, MapPin, Briefcase, AlertCircle, Calendar, Search, X, Sparkles, Send, Pin, Trash2, Reply, Image as ImageIcon, Plus } from 'lucide-react';
 import Layout from '../components/layout/Layout';
-import { supabase } from '../lib/supabase';
-import { toast } from 'react-hot-toast';
+import { useClients } from '../hooks/useClients';
 import { useAuth } from '../contexts/AuthContext';
-import { ThreadList } from '../components/chats/ThreadList';
-import { MessageView } from '../components/chats/MessageView';
-import { ThreadNotes } from '../components/chats/ThreadNotes';
-import { ThreadSettings } from '../components/chats/ThreadSettings';
-import { ManagementView } from '../components/chats/ManagementView';
-import SoundNotifier from '../components/chats/SoundNotifier';
+import { useClientQuestionnaire } from '../hooks/useClientQuestionnaire';
+import { useClientPreferences } from '../hooks/useClientPreferences';
+import { useClientNotes } from '../hooks/useClientNotes';
+import { useCustomRequests } from '../hooks/useCustomRequests';
+import { useFanNotes } from '../hooks/useFanNotes';
+import AddCustomModal from '../components/modals/AddCustomModal';
+import AddFanNoteModal from '../components/modals/AddFanNoteModal';
 
-interface Thread {
-  id: number;
-  group_id: string;
-  name: string | null;
-  client_id: string | null;
-  participants: string[];
-  created_at: string;
-  updated_at: string;
-  latest_message?: {
-    text: string;
-    created_at: string;
-    sender_name: string;
-    sender_phone_number: string;
-  };
-  last_read_at?: string;
-}
+type TabType = 'overview' | 'questionnaire' | 'pricing' | 'askAi' | 'notes' | 'fanNotes';
 
-interface ThreadNote {
-  id: string;
-  thread_id: number;
-  content: string;
-  source_message: string;
-  message_id?: string;
-  created_at: string;
-}
-
-interface Message {
-  id: number;
-  message_id: string;
-  thread_id: number;
-  message_type: string;
-  direction: string;
-  text: string | null;
-  sender_phone_number: string;
-  sender_name: string;
-  reaction?: string;
-  reaction_event?: string;
-  speech_text?: string;
-  speech_metadata?: any;
-  created_at: string;
-  sent_by_team_member_id?: string;
-  sent_by_team_member?: {
-    full_name: string;
-  };
-  attachments?: {
-    id: number;
-    url: string;
-  }[];
-}
-
-interface Contact {
-  id: number;
-  phone_number: string;
-  name: string | null;
-}
-
-interface Model {
-  id: string;
-  username: string;
-}
-
-const MESSAGES_PAGE_SIZE = 50;
-const THREADS_PAGE_SIZE = 100;
-
-// Phone normalization helpers
-const normalizeToDigits = (phone: string) => phone.replace(/\D/g, '');
-const last10 = (phone: string) => normalizeToDigits(phone).slice(-10);
-const variantsFor = (phone: string) => {
-  const d10 = last10(phone);
-  return [
-    phone,
-    d10,
-    `+1${d10}`,
-    `1${d10}`
-  ];
-};
-
-export function ClientChatsPage() {
+const ClientProfilePage: React.FC = () => {
+  const { clientId } = useParams<{ clientId: string }>();
+  const navigate = useNavigate();
+  const { clients } = useClients();
   const { teamMember } = useAuth();
-  const [searchParams] = useSearchParams();
-  const [threads, setThreads] = useState<Thread[]>([]);
-  const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
-  const [showManagement, setShowManagement] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [showNotesModal, setShowNotesModal] = useState(false);
-  const [showEvaluateModal, setShowEvaluateModal] = useState(false);
-  const [threadNotes, setThreadNotes] = useState<ThreadNote[]>([]);
-  const [evaluatingNotes, setEvaluatingNotes] = useState(false);
-  const [scrollToBottom, setScrollToBottom] = useState(true);
-  const [contactMap, setContactMap] = useState<Record<string, string>>({});
-  const [editingContact, setEditingContact] = useState<{ phone: string; name: string } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [messagesLoading, setMessagesLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [searchQuery, setSearchQuery] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
-  const [messageInput, setMessageInput] = useState('');
-  const [sendingMessage, setSendingMessage] = useState(false);
-  const [messageSubscription, setMessageSubscription] = useState<ReturnType<typeof supabase.channel> | null>(null);
-  const messagesEndRef = React.useRef<HTMLDivElement>(null);
-  const [threadSubscription, setThreadSubscription] = useState<ReturnType<typeof supabase.channel> | null>(null);
-  const [models, setModels] = useState<Model[]>([]);
-  const [modelSearchQuery, setModelSearchQuery] = useState('');
-  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
-  const [lightboxLoading, setLightboxLoading] = useState(false);
-  const [messagesPage, setMessagesPage] = useState(0);
-  const [hasMoreMessages, setHasMoreMessages] = useState(true);
-  const [threadsPage, setThreadsPage] = useState(0);
-  const [hasMoreThreads, setHasMoreThreads] = useState(true);
-  const [loadingMoreThreads, setLoadingMoreThreads] = useState(false);
-  const [evaluationProgress, setEvaluationProgress] = useState<{
-    current: number;
-    total: number;
-    processed: number;
-    notesCreated: number;
-  } | null>(null);
-  const [hasProcessedUrlParam, setHasProcessedUrlParam] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(() => {
-    // Get sound preference from localStorage, default to true
-    const saved = localStorage.getItem('chatSoundEnabled');
-    return saved !== null ? JSON.parse(saved) : true;
-  });
-  const [triggerSound, setTriggerSound] = useState(false);
+  const [aiQuestion, setAiQuestion] = useState('');
+  const [aiConversation, setAiConversation] = useState<{role: 'user' | 'assistant', content: string}[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const { questionnaire, personas, contentDetails, loading: questionnaireLoading } = useClientQuestionnaire(clientId);
+  const { preferences, loading: preferencesLoading } = useClientPreferences(clientId);
+  const { notes, replies, loading: notesLoading, createNote, createReply, togglePin, deleteNote, deleteReply } = useClientNotes(clientId);
+  const { addCustomRequest } = useCustomRequests();
+  const { 
+    notes: fanNotes, 
+    replies: fanReplies, 
+    fanNames, 
+    loading: fanNotesLoading, 
+    createFanNote, 
+    createReply: createFanReply, 
+    deleteFanNote, 
+    deleteReply: deleteFanReply,
+    getNotesGroupedByFan 
+  } = useFanNotes(clientId);
   
-  // Message search state
-  const [messageSearchQuery, setMessageSearchQuery] = useState('');
-  const [messageSearchResults, setMessageSearchResults] = useState<Message[]>([]);
-  const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchResultsLoaded, setSearchResultsLoaded] = useState(false);
+  // Modal state
+  const [isAddCustomModalOpen, setIsAddCustomModalOpen] = useState(false);
+  const [isAddFanNoteModalOpen, setIsAddFanNoteModalOpen] = useState(false);
   
-  // Image upload state
-  const [selectedImages, setSelectedImages] = useState<File[]>([]);
-  const [uploadingImages, setUploadingImages] = useState(false);
-  
-  // AbortController refs for query cancellation
-  const threadsAbortController = useRef<AbortController | null>(null);
-  const messagesAbortController = useRef<AbortController | null>(null);
+  // Notes tab state
+  const [newNoteContent, setNewNoteContent] = useState('');
+  const [newNoteImage, setNewNoteImage] = useState<File | null>(null);
+  const [newNoteImagePreview, setNewNoteImagePreview] = useState<string | null>(null);
+  const [replyContent, setReplyContent] = useState<Record<string, string>>({});
+  const [replyImages, setReplyImages] = useState<Record<string, File | null>>({});
+  const [replyImagePreviews, setReplyImagePreviews] = useState<Record<string, string | null>>({});
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+  const [showReplyInput, setShowReplyInput] = useState<string | null>(null);
+
+  // Fan Notes tab state
+  const [selectedFanFilter, setSelectedFanFilter] = useState<string | null>(null);
+  const [fanListSearchQuery, setFanListSearchQuery] = useState('');
+  const [fanReplyContent, setFanReplyContent] = useState<Record<string, string>>({});
+  const [fanReplyImages, setFanReplyImages] = useState<Record<string, File | null>>({});
+  const [fanReplyImagePreviews, setFanReplyImagePreviews] = useState<Record<string, string | null>>({});
+  const [expandedFanNotes, setExpandedFanNotes] = useState<Set<string>>(new Set());
+  const [showFanReplyInput, setShowFanReplyInput] = useState<string | null>(null);
+
+  // Auto-select first fan when fan notes are loaded
+  useEffect(() => {
+    if (!fanNotesLoading && fanNames.length > 0 && !selectedFanFilter) {
+      setSelectedFanFilter(fanNames[0]);
+    }
+  }, [fanNotesLoading, fanNames, selectedFanFilter]);
+
+  // Find the client
+  const client = clients.find(c => c.id === clientId);
 
   useEffect(() => {
-    fetchThreads();
-    fetchContacts();
-  }, []);
+    // If client not found, redirect back
+    if (!client && clients.length > 0) {
+      navigate('/clients');
+    }
+  }, [client, clients, navigate]);
 
-  // Handle thread URL parameter
-  useEffect(() => {
-    const threadParam = searchParams.get('thread');
-    if (threadParam && threads.length > 0 && !hasProcessedUrlParam) {
-      const threadId = parseInt(threadParam);
-      const targetThread = threads.find((t: Thread) => t.id === threadId);
-      if (targetThread) {
-        console.log('Auto-selecting thread from URL parameter:', threadId);
-        setSelectedThread(targetThread);
-        markThreadAsRead(threadId);
-        setShowManagement(false);
-        setHasProcessedUrlParam(true);
+  if (!client) {
+    return (
+      <Layout title="Loading...">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  const tabs = [
+    { id: 'overview' as TabType, name: 'Overview', icon: User },
+    { id: 'questionnaire' as TabType, name: 'Questionnaire', icon: FileText },
+    { id: 'pricing' as TabType, name: 'Pricing Preferences', icon: DollarSign },
+    { id: 'askAi' as TabType, name: 'Ask AI', icon: Sparkles },
+    { id: 'notes' as TabType, name: 'Notes', icon: MessageSquare },
+    { id: 'fanNotes' as TabType, name: 'Fan Notes', icon: User },
+  ];
+
+  // Handler for adding custom request
+  const handleAddCustom = async (customData: {
+    clientUsername: string;
+    fanName: string;
+    description: string;
+    fanLifetimeSpend?: number;
+    proposedAmount: number;
+    amountPaid?: number;
+    length: string;
+    chatLink?: string;
+    notes?: string;
+    images?: File[];
+  }) => {
+    const { error } = await addCustomRequest(customData);
+    if (!error) {
+      setIsAddCustomModalOpen(false);
+    }
+    return { error };
+  };
+
+  // Helper functions for notes
+  const handleNoteImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setNewNoteImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewNoteImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveNoteImage = () => {
+    setNewNoteImage(null);
+    setNewNoteImagePreview(null);
+  };
+
+  const handleReplyImageChange = (noteId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setReplyImages(prev => ({ ...prev, [noteId]: file }));
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setReplyImagePreviews(prev => ({ ...prev, [noteId]: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveReplyImage = (noteId: string) => {
+    setReplyImages(prev => ({ ...prev, [noteId]: null }));
+    setReplyImagePreviews(prev => ({ ...prev, [noteId]: null }));
+  };
+
+  const handleCreateNote = async () => {
+    if (!newNoteContent.trim() && !newNoteImage) return;
+    
+    const result = await createNote(newNoteContent, newNoteImage || undefined);
+    if (!result.error) {
+      setNewNoteContent('');
+      setNewNoteImage(null);
+      setNewNoteImagePreview(null);
+    }
+  };
+
+  const handleCreateReply = async (noteId: string) => {
+    const content = replyContent[noteId];
+    const image = replyImages[noteId];
+    
+    if (!content?.trim() && !image) return;
+    
+    const result = await createReply(noteId, content || '', image || undefined);
+    if (!result.error) {
+      setReplyContent(prev => ({ ...prev, [noteId]: '' }));
+      setReplyImages(prev => ({ ...prev, [noteId]: null }));
+      setReplyImagePreviews(prev => ({ ...prev, [noteId]: null }));
+      setShowReplyInput(null);
+    }
+  };
+
+  const handleTogglePin = async (noteId: string) => {
+    await togglePin(noteId);
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (confirm('Are you sure you want to delete this note? This action cannot be undone.')) {
+      await deleteNote(noteId);
+    }
+  };
+
+  const handleDeleteReply = async (replyId: string) => {
+    if (confirm('Are you sure you want to delete this reply? This action cannot be undone.')) {
+      await deleteReply(replyId);
+    }
+  };
+
+  const toggleNoteExpanded = (noteId: string) => {
+    setExpandedNotes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(noteId)) {
+        newSet.delete(noteId);
+      } else {
+        newSet.add(noteId);
       }
-    }
-  }, [searchParams, threads, hasProcessedUrlParam]);
-
-  // Reset URL param processing when search params change
-  useEffect(() => {
-    setHasProcessedUrlParam(false);
-  }, [searchParams]);
-  // Use optimizedThread for prefetching messages and contacts
-  useEffect(() => {
-    if (selectedThread) {
-      fetchMessages(selectedThread.id);
-      fetchThreadNotes(selectedThread.id);
-    }
-  }, [selectedThread]);
-
-  // Auto-scroll to bottom when messages change or a new message is added
-  useEffect(() => {
-    if (scrollToBottom && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages, scrollToBottom]);
-
-  // Mark thread as read in database
-  const markThreadAsRead = (threadId: number) => {
-    console.log('Marking thread as read:', threadId);
-    
-    // Call the database function to mark as read
-    supabase.rpc('mark_thread_as_read', { thread_id_param: threadId })
-      .then(({ error }: { error: any }) => {
-        if (error) {
-          console.error('Error marking thread as read:', error);
-        } else {
-          console.log('Thread marked as read successfully');
-          // Update local state immediately for instant UI feedback
-          const now = new Date().toISOString();
-          setThreads((prev: Thread[]) => 
-            prev.map((thread: Thread) => 
-              thread.id === threadId 
-                ? { ...thread, last_read_at: now }
-                : thread
-            )
-          );
-        }
-      });
+      return newSet;
+    });
   };
 
-  // Set up thread subscription when component mounts
-  useEffect(() => {
-    const threadsSubscription = supabase
-      .channel('threads-channel')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'threads'
-        },
-        (payload: any) => {
-          console.log('Thread change detected:', payload);
-          fetchThreads();
-        }
-      )
-      .subscribe();
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
 
-    console.log('Thread subscription set up');
-    setThreadSubscription(threadsSubscription);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+  };
 
-    // Cleanup subscription on unmount
-    return () => {
-      if (threadsSubscription) {
-        console.log('Cleaning up thread subscription');
-        supabase.removeChannel(threadsSubscription);
+  // Fan Notes helper functions
+  const handleFanReplyImageChange = (noteId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFanReplyImages(prev => ({ ...prev, [noteId]: file }));
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFanReplyImagePreviews(prev => ({ ...prev, [noteId]: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveFanReplyImage = (noteId: string) => {
+    setFanReplyImages(prev => ({ ...prev, [noteId]: null }));
+    setFanReplyImagePreviews(prev => ({ ...prev, [noteId]: null }));
+  };
+
+  const handleCreateFanNote = async (fanName: string, content: string, image?: File) => {
+    const result = await createFanNote(fanName, content, image);
+    if (!result.error) {
+      // Auto-select the fan after creating note
+      setSelectedFanFilter(fanName);
+    }
+    return result;
+  };
+
+  const handleCreateFanReply = async (noteId: string) => {
+    const content = fanReplyContent[noteId];
+    const image = fanReplyImages[noteId];
+    
+    if (!content?.trim() && !image) return;
+    
+    const result = await createFanReply(noteId, content || '', image || undefined);
+    if (!result.error) {
+      setFanReplyContent(prev => ({ ...prev, [noteId]: '' }));
+      setFanReplyImages(prev => ({ ...prev, [noteId]: null }));
+      setFanReplyImagePreviews(prev => ({ ...prev, [noteId]: null }));
+      setShowFanReplyInput(null);
+    }
+  };
+
+  const handleDeleteFanNote = async (noteId: string) => {
+    if (confirm('Are you sure you want to delete this fan note? This action cannot be undone.')) {
+      await deleteFanNote(noteId);
+    }
+  };
+
+  const handleDeleteFanReply = async (replyId: string) => {
+    if (confirm('Are you sure you want to delete this reply? This action cannot be undone.')) {
+      await deleteFanReply(replyId);
+    }
+  };
+
+  const toggleFanNoteExpanded = (noteId: string) => {
+    setExpandedFanNotes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(noteId)) {
+        newSet.delete(noteId);
+      } else {
+        newSet.add(noteId);
       }
-    };
-  }, []);
-
-  // Set up message subscription when thread is selected
-  useEffect(() => {
-    if (!selectedThread) {
-      if (messageSubscription) {
-        supabase.removeChannel(messageSubscription);
-      }
-      return;
-    }
-
-    const messagesSubscription = supabase
-      .channel('messages-channel')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `thread_id=eq.${selectedThread.id}`
-        },
-        (payload: any) => {
-          console.log('Message change detected:', payload);
-          setScrollToBottom(true);
-          if ((payload as any).new) {
-            const newMessage = (payload as any).new as Message;
-            // Dedupe and attach empty attachments array for consistency
-            setMessages((prev: Message[]) => {
-              // Skip if message already exists
-              if (prev.some((m: Message) => m.message_id === newMessage.message_id)) return prev;
-              
-              // If this is an outbound message, check for and replace optimistic message
-              if (newMessage.direction === 'outbound') {
-                const optimisticIndex = prev.findIndex((m: Message) => 
-                  m.message_id.startsWith('temp-') && 
-                  m.text === newMessage.text &&
-                  m.thread_id === newMessage.thread_id
-                );
-                
-                if (optimisticIndex !== -1) {
-                  // Replace optimistic message with real one
-                  const updated = [...prev];
-                  updated[optimisticIndex] = { ...newMessage, attachments: [] };
-                  return updated;
-                }
-              }
-              
-              return [...prev, { ...newMessage, attachments: [] }];
-            });
-            // Update thread preview and updated_at so the list re-sorts
-            setThreads((prev: Thread[]) =>
-              prev.map((t: Thread) =>
-                t.id === newMessage.thread_id
-                  ? {
-                      ...t,
-                      latest_message: {
-                        text: newMessage.text || newMessage.speech_text || '',
-                        created_at: newMessage.created_at,
-                        sender_name: newMessage.sender_name,
-                        sender_phone_number: newMessage.sender_phone_number
-                      },
-                      updated_at: newMessage.created_at
-                    }
-                  : t
-              )
-            );
-          }
-        }
-      )
-      .subscribe();
-
-    console.log('Message subscription set up for thread:', selectedThread.id);
-    setMessageSubscription(messagesSubscription);
-
-    // Cleanup subscription when thread changes or component unmounts
-    return () => {
-      if (messagesSubscription) {
-        console.log('Cleaning up message subscription');
-        supabase.removeChannel(messagesSubscription);
-      }
-    };
-  }, [selectedThread]);
-
-  // Global subscription to live-update thread list and open thread on any new message
-  useEffect(() => {
-    const channel = supabase
-      .channel('messages-global-insert')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload: any) => {
-          const newMessage = (payload as any).new as Message;
-
-          // Trigger sound notification for new inbound messages (from clients)
-          if (newMessage.direction === 'inbound' && soundEnabled) {
-            console.log('🔔 New inbound message detected, triggering sound...');
-            setTriggerSound(true);
-          }
-
-          // Update thread previews and reorder list chronologically
-          setThreads((prev: Thread[]) =>
-            prev.map((t: Thread) =>
-              t.id === newMessage.thread_id
-                ? {
-                    ...t,
-                    latest_message: {
-                      text: newMessage.text || newMessage.speech_text || '',
-                      created_at: newMessage.created_at,
-                      sender_name: newMessage.sender_name,
-                      sender_phone_number: newMessage.sender_phone_number
-                    },
-                    updated_at: newMessage.created_at
-                  }
-                : t
-            ).sort((a, b) => {
-              // Sort by most recent activity (latest message or updated_at)
-              const aDate = a.latest_message?.created_at || a.updated_at;
-              const bDate = b.latest_message?.created_at || b.updated_at;
-              return new Date(bDate).getTime() - new Date(aDate).getTime();
-            })
-          );
-
-          // If the message belongs to the currently open thread, append it (deduped)
-          if (selectedThread && newMessage.thread_id === selectedThread.id) {
-            setScrollToBottom(true);
-            setMessages((prev: Message[]) => {
-              // Skip if message already exists
-              if (prev.some((m: Message) => m.message_id === newMessage.message_id)) return prev;
-              
-              // If this is an outbound message, check for and replace optimistic message
-              if (newMessage.direction === 'outbound') {
-                const optimisticIndex = prev.findIndex((m: Message) => 
-                  m.message_id.startsWith('temp-') && 
-                  m.text === newMessage.text &&
-                  m.thread_id === newMessage.thread_id
-                );
-                
-                if (optimisticIndex !== -1) {
-                  // Replace optimistic message with real one
-                  const updated = [...prev];
-                  updated[optimisticIndex] = { ...newMessage, attachments: [] };
-                  return updated;
-                }
-              }
-              
-              return [...prev, { ...newMessage, attachments: [] }];
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    console.log('Global messages INSERT subscription set up');
-
-    return () => {
-      if (channel) {
-        console.log('Cleaning up global messages subscription');
-        supabase.removeChannel(channel);
-      }
-    };
-  }, [selectedThread, soundEnabled]);
-
-  // Save sound preference to localStorage
-  useEffect(() => {
-    localStorage.setItem('chatSoundEnabled', JSON.stringify(soundEnabled));
-  }, [soundEnabled]);
-
-  const handleSoundToggle = () => {
-    setSoundEnabled(!soundEnabled);
+      return newSet;
+    });
   };
 
-  const handleSoundPlayed = () => {
-    setTriggerSound(false);
-  };
-
-  // Fetch models when details modal opens
-  useEffect(() => {
-    if (showDetailModal) {
-      fetchModels();
-      fetchContacts();
-    }
-  }, [showDetailModal]);
-
-  const fetchThreadNotes = async (threadId: number) => {
-    try {
-      const { data, error } = await supabase
-        .from('thread_notes')
-        .select('id, thread_id, content, source_message, message_id, created_at')
-        .eq('thread_id', threadId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setThreadNotes(data || []);
-    } catch (err) {
-      console.error('Error fetching thread notes:', err);
-      toast.error('Failed to load thread notes');
-    }
-  };
-
-  // Helper function to group messages by conversation topics
-  const groupMessagesByTopic = (msgs: Message[]) => {
-    const segments: Message[][] = [];
-    let currentSegment: Message[] = [];
+  const handleAskAI = async () => {
+    if (!aiQuestion.trim() || !questionnaire) return;
     
-    for (let i = 0; i < msgs.length; i++) {
-      const message = msgs[i];
-      const nextMessage = msgs[i + 1];
-      
-      currentSegment.push(message);
-      
-      // Check if next message starts a new topic
-      if (nextMessage && isNewTopic(message, nextMessage)) {
-        segments.push([...currentSegment]);
-        currentSegment = [];
-      }
-    }
+    setAiLoading(true);
+    const userMessage = aiQuestion.trim();
+    setAiQuestion('');
     
-    if (currentSegment.length > 0) {
-      segments.push(currentSegment);
-    }
-    
-    return segments;
-  };
-
-  // Helper function to detect if next message starts a new topic
-  const isNewTopic = (current: Message, next: Message) => {
-    const currentText = (current.text || current.speech_text || '').toLowerCase();
-    const nextText = (next.text || next.speech_text || '').toLowerCase();
-    
-    // New topic indicators
-    const topicStarters = [
-      'hey', 'hi', 'hello', 'good morning', 'good afternoon', 'good evening',
-      'quick question', 'i have a question', 'can i ask', 'by the way',
-      'speaking of', 'on another note', 'also', 'another thing', 'btw',
-      'one more thing', 'oh and', 'also', 'additionally', 'fyi'
-    ];
-    
-    // Check if next message starts with a topic starter
-    if (topicStarters.some(starter => nextText.startsWith(starter))) {
-      return true;
-    }
-    
-    // Check if there's a significant time gap (more than 1 hour)
-    const timeDiff = new Date(next.created_at).getTime() - new Date(current.created_at).getTime();
-    if (timeDiff > 60 * 60 * 1000) { // 1 hour
-      return true;
-    }
-    
-    // Check if next message is a question after a response
-    if (current.direction === 'inbound' && next.direction === 'outbound' && 
-        (nextText.includes('?') || isQuestion(nextText))) {
-      return true;
-    }
-    
-    return false;
-  };
-
-  // Helper function to detect questions
-  const isQuestion = (text: string) => {
-    const questionWords = ['what', 'how', 'when', 'where', 'why', 'can you', 'could you', 'would you', 'do you'];
-    return questionWords.some(word => text.toLowerCase().includes(word));
-  };
-
-  // Compare phone numbers by their last 10 digits (normalizes +1, spaces, etc.)
-  const phonesMatch = (a: string, b: string) => last10(a) === last10(b);
-
-  // Process a conversation segment
-  const processConversationSegment = async (segment: Message[], modelPhoneNumber: string, modelUsername: string) => {
-    console.log('Debug - Segment phone numbers:', segment.map(m => m.sender_phone_number));
-    console.log('Debug - Looking for model phone:', modelPhoneNumber);
-    
-    // Only process segments that contain model messages
-    const hasModelMessage = segment.some(m => phonesMatch(m.sender_phone_number, modelPhoneNumber));
-    if (!hasModelMessage) {
-      console.log('Debug - Segment skipped: no model message');
-      return [] as any[];
-    }
-    
-    console.log('Debug - Processing segment with model message:', segment.length, 'messages');
-    
-    // Format conversation for AI analysis
-    const conversationText = segment.map(m => 
-      `${m.sender_phone_number}: ${m.text || m.speech_text || ''}`
-    ).join('\n');
-    
-    console.log('Debug - Conversation text:', conversationText.substring(0, 200) + '...');
+    // Add user message to conversation
+    setAiConversation(prev => [...prev, { role: 'user', content: userMessage }]);
     
     try {
+      // Prepare context with client data
+      const contextData = {
+        client: {
+          username: client?.username,
+        },
+        questionnaire: {
+          publicName: questionnaire.public_name,
+          publicNicknames: questionnaire.public_nicknames,
+          birthday: questionnaire.public_birthday,
+          gender: questionnaire.gender,
+          nativeLanguage: questionnaire.native_language,
+          otherLanguages: questionnaire.other_languages,
+          sexualOrientation: questionnaire.sexual_orientation,
+          ethnicity: questionnaire.ethnicity,
+          height: questionnaire.height,
+          weight: questionnaire.weight,
+          shoeSize: questionnaire.shoe_size,
+          braSize: questionnaire.bra_size,
+          zodiacSign: questionnaire.zodiac_sign,
+          favoriteColors: questionnaire.favorite_colors,
+          birthPlace: questionnaire.birth_place,
+          currentLocation: questionnaire.current_location,
+          hobbies: questionnaire.hobbies,
+          college: questionnaire.college,
+          currentCar: questionnaire.current_car,
+          dreamCar: questionnaire.dream_car,
+          pets: questionnaire.pets,
+          favoritePlaceTraveled: questionnaire.favorite_place_traveled,
+          dreamDestination: questionnaire.dream_destination,
+          relationshipStatus: questionnaire.relationship_status,
+          dreamDate: questionnaire.dream_date,
+          hasChildren: questionnaire.has_children,
+          otherCareer: questionnaire.other_career,
+          knownFrom: questionnaire.known_from,
+          additionalInfo: questionnaire.additional_info,
+          hardNos: questionnaire.hard_nos,
+          weekdayRoutine: questionnaire.weekday_routine,
+          weekendRoutine: questionnaire.weekend_routine,
+          personas: personas,
+        },
+        preferences: preferences ? {
+          minimumPricing: preferences.minimum_pricing,
+          videoCall: preferences.video_call,
+          audioCall: preferences.audio_call,
+          dickRates: preferences.dick_rates,
+          fanSigns: preferences.fan_signs,
+          usingFansName: preferences.using_fans_name,
+          sayingSpecificThings: preferences.saying_specific_things,
+          roleplaying: preferences.roleplaying,
+          usingToysProps: preferences.using_toys_props,
+          specificOutfits: preferences.specific_outfits,
+          fullNudityCensored: preferences.full_nudity_censored,
+          fullNudityUncensored: preferences.full_nudity_uncensored,
+          masturbation: preferences.masturbation,
+          analContent: preferences.anal_content,
+          feetContent: preferences.feet_content,
+        } : null,
+      };
+      
+      // Build context summary for AI
+      const contextSummary = `
+CLIENT PROFILE: @${contextData.client.username}
+
+PERSONAL INFORMATION:
+${questionnaire.public_name ? `- Name: ${questionnaire.public_name}` : ''}
+${questionnaire.public_nicknames ? `- Nicknames: ${questionnaire.public_nicknames}` : ''}
+${questionnaire.public_birthday ? `- Birthday: ${questionnaire.public_birthday}` : ''}
+${questionnaire.gender ? `- Gender: ${questionnaire.gender}` : ''}
+${questionnaire.sexual_orientation ? `- Sexual Orientation: ${questionnaire.sexual_orientation}` : ''}
+${questionnaire.ethnicity ? `- Ethnicity: ${questionnaire.ethnicity}` : ''}
+${questionnaire.zodiac_sign ? `- Zodiac Sign: ${questionnaire.zodiac_sign}` : ''}
+${questionnaire.relationship_status ? `- Relationship Status: ${questionnaire.relationship_status}` : ''}
+${questionnaire.has_children ? `- Has Children: ${questionnaire.has_children}` : ''}
+
+PHYSICAL ATTRIBUTES:
+${questionnaire.height ? `- Height: ${questionnaire.height}` : ''}
+${questionnaire.weight ? `- Weight: ${questionnaire.weight}` : ''}
+${questionnaire.shoe_size ? `- Shoe Size: ${questionnaire.shoe_size}` : ''}
+${questionnaire.bra_size ? `- Bra Size: ${questionnaire.bra_size}` : ''}
+
+LANGUAGES & LOCATION:
+${questionnaire.native_language ? `- Native Language: ${questionnaire.native_language}` : ''}
+${questionnaire.other_languages ? `- Other Languages: ${questionnaire.other_languages}` : ''}
+${questionnaire.birth_place ? `- Birth Place: ${questionnaire.birth_place}` : ''}
+${questionnaire.current_location ? `- Current Location: ${questionnaire.current_location}` : ''}
+
+INTERESTS & LIFESTYLE:
+${questionnaire.hobbies ? `- Hobbies: ${questionnaire.hobbies}` : ''}
+${questionnaire.favorite_colors ? `- Favorite Colors: ${questionnaire.favorite_colors}` : ''}
+${questionnaire.pets ? `- Pets: ${questionnaire.pets}` : ''}
+${questionnaire.current_car ? `- Current Car: ${questionnaire.current_car}` : ''}
+${questionnaire.dream_car ? `- Dream Car: ${questionnaire.dream_car}` : ''}
+${questionnaire.dream_date ? `- Dream Date: ${questionnaire.dream_date}` : ''}
+
+DAILY ROUTINES:
+${questionnaire.weekday_routine ? `- Weekday Routine: ${questionnaire.weekday_routine}` : ''}
+${questionnaire.weekend_routine ? `- Weekend Routine: ${questionnaire.weekend_routine}` : ''}
+
+TRAVEL:
+${questionnaire.favorite_place_traveled ? `- Favorite Place Traveled: ${questionnaire.favorite_place_traveled}` : ''}
+${questionnaire.dream_destination ? `- Dream Destination: ${questionnaire.dream_destination}` : ''}
+
+EDUCATION & CAREER:
+${questionnaire.college ? `- College: ${questionnaire.college}` : ''}
+${questionnaire.other_career ? `- Other Career: ${questionnaire.other_career}` : ''}
+
+PERSONAS:
+${personas.length > 0 ? personas.map(p => `- ${p}`).join('\n') : '- None specified'}
+
+⚠️ HARD NOS / BOUNDARIES:
+${questionnaire.hard_nos || 'Not specified'}
+
+CONTENT PREFERENCES:
+${preferences ? `
+- Minimum Pricing: $${preferences.minimum_pricing}
+- Video Call: ${preferences.video_call ? 'Yes' : 'No'}
+- Audio Call: ${preferences.audio_call ? 'Yes' : 'No'}
+- Dick Rates: ${preferences.dick_rates ? 'Yes' : 'No'}
+- Fan Signs: ${preferences.fan_signs ? 'Yes' : 'No'}
+- Using Fan's Name: ${preferences.using_fans_name ? 'Yes' : 'No'}
+- Saying Specific Things: ${preferences.saying_specific_things ? 'Yes' : 'No'}
+- Roleplaying: ${preferences.roleplaying ? 'Yes' : 'No'}
+- Using Toys/Props: ${preferences.using_toys_props ? 'Yes' : 'No'}
+- Specific Outfits: ${preferences.specific_outfits ? 'Yes' : 'No'}
+- Full Nudity (Censored): ${preferences.full_nudity_censored ? 'Yes' : 'No'}
+- Full Nudity (Uncensored): ${preferences.full_nudity_uncensored ? 'Yes' : 'No'}
+- Masturbation: ${preferences.masturbation ? 'Yes' : 'No'}
+- Anal Content: ${preferences.anal_content ? 'Yes' : 'No'}
+- Feet Content: ${preferences.feet_content ? 'Yes' : 'No'}
+` : 'No preferences set'}
+
+ADDITIONAL INFO:
+${questionnaire.known_from ? `- Known From: ${questionnaire.known_from}` : ''}
+${questionnaire.additional_info ? `- Additional Info: ${questionnaire.additional_info}` : ''}
+      `.trim();
+
       // Get the Supabase URL for edge function
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       
-      // Call AI to analyze the conversation segment
+      // Call Grok API via Supabase edge function
       const response = await fetch(`${supabaseUrl}/functions/v1/grok-chat`, {
         method: 'POST',
         headers: {
@@ -547,1175 +453,1852 @@ export function ClientChatsPage() {
           messages: [
             {
               role: 'system',
-              content: `You are analyzing a conversation between an OnlyFans model and chat members to extract actionable insights for account management.
+              content: `You are an AI assistant helping chatters understand and work with OnlyFans clients. You have access to comprehensive client profile data including their questionnaire responses and content preferences.
 
-Look for:
-1. Model's responses to questions about preferences/boundaries
-2. Model's reactions to suggestions or requests
-3. Model's communication style and tone preferences
-4. Any instructions or feedback the model gives
-5. Content type preferences and limitations
+Your role is to:
+1. Answer questions about the client's preferences, boundaries, and interests
+2. Help chatters understand what content the client is comfortable creating
+3. Provide insights to help personalize communication with the client
+4. Highlight important boundaries (especially Hard Nos)
+5. Suggest content ideas that align with their preferences
 
-Extract ONLY actionable insights in this format:
-- "Model prefers [preference] when [context]"
-- "Model dislikes [thing] because [reason]"
-- "Model's tone is [description] in [situation]"
-- "Model's boundary: [specific boundary]"
-- "Model's content preference: [preference]"
+Always be respectful, professional, and prioritize the client's boundaries and comfort.
 
-Focus on insights that help the team understand how to better manage the model's account.
-Keep each insight under 100 characters if possible.
-If no actionable insights found, respond with "NO_ACTIONABLE_INSIGHTS".
+Here is the client's profile data:
 
-The model's username is @${modelUsername}.`
+${contextSummary}`
             },
             {
               role: 'user',
-              content: `Conversation:\n${conversationText}`
+              content: userMessage
             }
           ],
           temperature: 0.7,
-          max_tokens: 200
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('AI service temporarily unavailable');
-      }
-
-      const data = await response.json();
-      const aiContent = data.choices?.[0]?.message?.content?.trim();
-      
-      console.log('Debug - AI response:', aiContent);
-      
-      if (!aiContent || aiContent === 'NO_ACTIONABLE_INSIGHTS') {
-        console.log('Debug - No actionable insights found');
-        return [] as any[];
-      }
-
-      // Split multiple insights if AI provided them
-      const insights = (aiContent as string).split('\n').filter((insight: string) => insight.trim().length > 0);
-      console.log('Debug - Insights to create:', insights.length);
-      
-      const newNotes: any[] = [];
-
-      for (const insight of insights) {
-        console.log('Debug - Creating note for insight:', insight);
-        // Insert the AI-generated note
-        const { data: noteData, error: insertError } = await supabase
-          .from('thread_notes')
-          .insert({
-            thread_id: selectedThread!.id,
-            content: (insight as string).trim(),
-            source_message: conversationText.substring(0, 500) + (conversationText.length > 500 ? '...' : ''),
-            message_id: segment[segment.length - 1].message_id // Use last message ID as reference
-          })
-          .select()
-          .single();
-          
-        if (insertError) {
-          console.error('Error creating note:', insertError);
-          continue;
-        }
-        
-        console.log('Debug - Note created successfully:', noteData);
-        newNotes.push(noteData);
-      }
-      
-      console.log('Debug - Total notes created for segment:', newNotes.length);
-      return newNotes;
-    } catch (aiError) {
-      console.error('Error processing conversation segment with AI:', aiError);
-      
-      // Fallback: create a simple note with conversation summary
-      const conversationSummary = segment
-        .filter(m => phonesMatch(m.sender_phone_number, modelPhoneNumber))
-        .map(m => m.text || m.speech_text || '')
-        .filter(text => text.length > 0)
-        .join(' ');
-      
-      if (conversationSummary.length > 0) {
-        const { data: noteData, error: insertError } = await supabase
-          .from('thread_notes')
-          .insert({
-            thread_id: selectedThread!.id,
-            content: `Model mentioned: ${conversationSummary.substring(0, 100)}${conversationSummary.length > 100 ? '...' : ''}`,
-            source_message: conversationText.substring(0, 500) + (conversationText.length > 500 ? '...' : ''),
-            message_id: segment[segment.length - 1].message_id
-          })
-          .select()
-          .single();
-          
-        if (!insertError) {
-          return [noteData] as any[];
-        }
-      }
-      
-      return [] as any[];
-    }
-  };
-
-  // Process a batch of messages (updated to use conversation segments)
-  const processMessageBatch = async (msgs: Message[], modelPhoneNumber: string, modelUsername: string) => {
-    // Group messages into conversation segments
-    const conversationSegments = groupMessagesByTopic(msgs);
-    const newNotes: any[] = [];
-    
-    for (const segment of conversationSegments) {
-      const segmentNotes = await processConversationSegment(segment, modelPhoneNumber, modelUsername);
-      newNotes.push(...segmentNotes);
-    }
-    
-    return newNotes;
-  };
-
-  const handleEvaluateMessages = async () => {
-    if (!selectedThread) return;
-    
-    try {
-      setEvaluatingNotes(true);
-      setEvaluationProgress({ current: 0, total: 0, processed: 0, notesCreated: 0 });
-      
-      // Check if a model is assigned to this thread
-      if (!selectedThread.client_id) {
-        toast.error('Please assign a model to this thread before evaluating messages');
-        setEvaluatingNotes(false);
-        setShowEvaluateModal(false);
-        setEvaluationProgress(null);
-        return;
-      }
-      
-      // Get the model's details for this thread (from clients table)
-      const { data: modelData, error: modelError } = await supabase
-        .from('clients')
-        .select('id, username, phone')
-        .eq('id', selectedThread.client_id)
-        .single();
-        
-      if (modelError) throw modelError;
-      if (!(modelData as any)?.phone) {
-        toast.error('The assigned model does not have a phone number configured. Please update the client\'s phone.');
-        setEvaluatingNotes(false);
-        setShowEvaluateModal(false);
-        setEvaluationProgress(null);
-        return;
-      }
-      
-      const modelPhoneNumber = (modelData as any).phone as string;
-      const modelUsername = (modelData as any).username as string;
-      
-      console.log('Debug - Assigned model phone number:', modelPhoneNumber, 'Model number (client_id):', selectedThread.client_id);
-      console.log('Debug - Assigned model username:', modelUsername);
-      
-      // Get all messages for the thread (no direction filter)
-      const { data: allMessages, error: messagesError } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('thread_id', selectedThread.id)
-        .order('created_at', { ascending: true });
-        
-      if (messagesError) throw messagesError;
-      
-      // Get all existing notes for this thread to filter out processed messages
-      const { data: existingNotes, error: notesError } = await supabase
-        .from('thread_notes')
-        .select('message_id')
-        .eq('thread_id', selectedThread.id)
-        .not('message_id', 'is', null);
-        
-      if (notesError) throw notesError;
-      
-      console.log('Debug - All messages found:', allMessages?.length || 0);
-      console.log('Debug - Existing notes found:', existingNotes?.length || 0);
-      
-      // Create a set of message IDs that already have notes
-      const processedMessageIds = new Set(((existingNotes as any[]) || []).map((note: any) => note.message_id as string));
-      
-      // Group all messages into conversation segments
-      const allSegments = groupMessagesByTopic((allMessages as Message[]) || []);
-      
-      // Only process segments whose last message hasn't been used for a note yet
-      const segmentsToProcess = allSegments.filter(seg => {
-        const last = seg[seg.length - 1];
-        return last && last.message_id && !processedMessageIds.has(last.message_id);
-      });
-      
-      console.log('Debug - Segments to process:', segmentsToProcess.length);
-      console.log('Debug - Sample segment:', segmentsToProcess[0]);
-      
-      if (segmentsToProcess.length === 0) {
-        toast.info('No new conversation segments to evaluate');
-        setEvaluatingNotes(false);
-        setShowEvaluateModal(false);
-        setEvaluationProgress(null);
-        return;
-      }
-      
-      // Process conversation segments with progress
-      let totalNotesCreated = 0;
-      let processedCount = 0;
-      
-      setEvaluationProgress({ current: 0, total: segmentsToProcess.length, processed: 0, notesCreated: 0 });
-      
-      for (let i = 0; i < segmentsToProcess.length; i++) {
-        const segment = segmentsToProcess[i];
-        const newNotes = await processConversationSegment(segment, modelPhoneNumber, modelUsername);
-        totalNotesCreated += newNotes.length;
-        processedCount += segment.length;
-        
-        // Update progress
-        setEvaluationProgress({
-          current: i + 1,
-          total: segmentsToProcess.length,
-          processed: processedCount,
-          notesCreated: totalNotesCreated
-        });
-        
-        // Small delay to prevent overwhelming the UI
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      
-      // Update the thread notes state
-      setThreadNotes((prev: ThreadNote[]) => {
-        // Fetch all notes to update the state properly
-        fetchThreadNotes(selectedThread.id);
-        return prev;
-      });
-      
-      toast.success(`Created ${totalNotesCreated} new notes from ${segmentsToProcess.length} conversation segments`);
-    } catch (err) {
-      console.error('Error evaluating messages:', err);
-      toast.error('Failed to evaluate messages');
-    } finally {
-      setEvaluatingNotes(false);
-      setShowEvaluateModal(false);
-      setEvaluationProgress(null);
-    }
-  };
-
-  const fetchContacts = async () => {
-    try {
-      const { data, error } = await supabase.from('contacts').select('id, phone_number, name');
-
-      if (error) throw error;
-
-      // Create a map of phone numbers to names, including common variants
-      const newContactMap = ((data as Contact[]) || []).reduce((acc: Record<string, string>, contact: Contact) => {
-        if (contact.name && contact.phone_number) {
-          for (const key of variantsFor(contact.phone_number)) {
-            if (!acc[key]) acc[key] = contact.name;
-          }
-        }
-        return acc;
-      }, {} as Record<string, string>);
-
-      setContactMap(newContactMap);
-    } catch (err) {
-      console.error('Error fetching contacts:', err);
-    }
-  };
-
-  const getDisplayName = (phone: string) => {
-    // Try direct and common variants
-    for (const key of variantsFor(phone)) {
-      if (contactMap[key]) return contactMap[key];
-    }
-    // Fallback: scan for any contact whose normalized last10 matches
-    const target = last10(phone);
-    for (const [k, name] of Object.entries(contactMap)) {
-      if (last10(k) === target) return name;
-    }
-    return phone;
-  };
-
-  const handleSaveContact = async () => {
-    if (!editingContact) return;
-
-    try {
-      // First check if the contact already exists
-      const { data: existingContacts, error: fetchError } = await supabase
-        .from('contacts')
-        .select('id')
-        .eq('phone_number', editingContact.phone);
-
-      if (fetchError) throw fetchError;
-
-      let result: any;
-      
-      if (existingContacts && existingContacts.length > 0) {
-        // Update existing contact
-        result = await supabase
-          .from('contacts')
-          .update({
-            name: editingContact.name
-          })
-          .eq('phone_number', editingContact.phone)
-          .select();
-      } else {
-        // Get next available ID - don't use single() which can fail if table is empty
-        const { data: maxIdResult } = await supabase
-          .from('contacts')
-          .select('id')
-          .order('id', { ascending: false })
-          .limit(1);
-        
-        // Default to 1 if no contacts exist yet
-        const nextId = maxIdResult && (maxIdResult as any[]).length > 0 ? (maxIdResult as any[])[0].id + 1 : 1;
-
-        // Create new contact with explicit ID
-        result = await supabase
-          .from('contacts')
-          .insert({
-            id: nextId,
-            phone_number: editingContact.phone,
-            name: editingContact.name
-          })
-          .select();
-      }
-
-      if ((result as any).error) throw (result as any).error;
-
-      // Update contacts map
-      setContactMap((prev: Record<string, string>) => ({
-        ...prev,
-        [editingContact.phone]: editingContact.name
-      }));
-
-      toast.success('Contact saved successfully');
-      setEditingContact(null);
-      
-      // Refresh contacts to ensure we have the latest data
-      fetchContacts();
-    } catch (err) {
-      console.error('Error saving contact:', err);
-      setError('Failed to save contact');
-      toast.error('Failed to save contact');
-    }
-  };
-
-  const fetchThreads = async (page = 0, appendToExisting = false) => {
-    try {
-      // Only use AbortController for non-initial loads to avoid React StrictMode issues
-      let abortController: AbortController | null = null;
-      
-      if (page > 0 || appendToExisting) {
-        // Cancel any existing threads query
-        if (threadsAbortController.current && !threadsAbortController.current.signal.aborted) {
-          threadsAbortController.current.abort();
-        }
-        
-        // Create new AbortController for this query
-        abortController = new AbortController();
-        threadsAbortController.current = abortController;
-      }
-      
-      if (!appendToExisting) {
-        setLoading(true);
-        setError(null);
-      } else {
-        setLoadingMoreThreads(true);
-      }
-
-      // Calculate pagination range
-      const from = page * THREADS_PAGE_SIZE;
-      const to = from + THREADS_PAGE_SIZE - 1;
-
-      // Use a more efficient approach with a lateral join to get threads with their latest messages
-      // This eliminates the N+1 query problem by using a single query
-      let query = supabase
-        .rpc('get_threads_with_latest_messages')
-        .range(from, to);
-      
-      // Only add abort signal if we have one
-      if (abortController) {
-        query = query.abortSignal(abortController.signal);
-      }
-      
-      const { data: threadsData, error: threadsError } = await query;
-
-      if (threadsError) {
-        console.error('Error with RPC call, falling back to basic thread fetch:', threadsError);
-        
-        // Fallback: Just get threads without latest messages for now
-        let fallbackQuery = supabase
-          .from('threads')
-          .select('id, group_id, name, client_id, participants, created_at, updated_at, last_read_at')
-          .range(from, to)
-          .order('updated_at', { ascending: false });
-        
-        // Only add abort signal if we have one
-        if (abortController) {
-          fallbackQuery = fallbackQuery.abortSignal(abortController.signal);
-        }
-        
-        const { data: basicThreadsData, error: basicError } = await fallbackQuery;
-
-        if (basicError) throw basicError;
-
-        const threadsWithoutMessages = ((basicThreadsData as Thread[]) || []).map((thread: Thread) => ({
-          ...thread,
-          participants: thread.participants || [],
-          latest_message: undefined,
-          last_read_at: thread.last_read_at || null
-        } as Thread));
-
-        // Handle pagination for fallback as well
-        if (appendToExisting) {
-          setThreads((prev: Thread[]) => [...prev, ...threadsWithoutMessages]);
-        } else {
-          setThreads(threadsWithoutMessages);
-        }
-        
-        // Update hasMoreThreads based on returned data length
-        if (basicThreadsData && (basicThreadsData as any[]).length < THREADS_PAGE_SIZE) {
-          setHasMoreThreads(false);
-        } else {
-          setHasMoreThreads(true);
-        }
-        setThreadsPage(page);
-        return;
-      }
-
-      // Transform the RPC result into the expected Thread format
-      const transformedThreads = ((threadsData as any[]) || []).map((row: any) => ({
-        id: row.thread_id,
-        group_id: row.group_id,
-        name: row.thread_name,
-        client_id: row.client_id,
-        participants: row.participants || [],
-        created_at: row.thread_created_at,
-        updated_at: row.thread_updated_at,
-        last_read_at: row.last_read_at,
-        latest_message: row.latest_message_text || row.latest_message_speech_text
-          ? {
-              text: row.latest_message_text || row.latest_message_speech_text || '',
-              created_at: row.latest_message_created_at,
-              sender_name: row.latest_message_sender_name,
-              sender_phone_number: row.latest_message_sender_phone
-            }
-          : undefined
-      } as Thread));
-
-      // Handle pagination
-      if (appendToExisting) {
-        setThreads((prev: Thread[]) => [...prev, ...transformedThreads]);
-      } else {
-        setThreads(transformedThreads);
-      }
-      
-      // Update hasMoreThreads based on returned data length
-      if (threadsData && (threadsData as any[]).length < THREADS_PAGE_SIZE) {
-        setHasMoreThreads(false);
-      } else {
-        setHasMoreThreads(true);
-      }
-      setThreadsPage(page);
-    } catch (err) {
-      // Don't show error if the request was aborted (user navigated away)
-      if (err instanceof Error && err.name === 'AbortError') {
-        console.log('Thread fetch was cancelled');
-        return;
-      }
-      console.error('Error fetching threads:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load chat threads');
-    } finally {
-      setLoading(false);
-      setLoadingMoreThreads(false);
-    }
-  };
-
-  const fetchMessages = async (threadId: number, page = 0) => {
-    try {
-      // Only use AbortController for non-initial loads
-      let abortController: AbortController | null = null;
-      
-      if (page > 0) {
-        // Cancel any existing messages query
-        if (messagesAbortController.current && !messagesAbortController.current.signal.aborted) {
-          messagesAbortController.current.abort();
-        }
-        
-        // Create new AbortController for this query
-        abortController = new AbortController();
-        messagesAbortController.current = abortController;
-      }
-      
-      setMessagesLoading(true);
-      // Calculate range for pagination
-      const from = page * MESSAGES_PAGE_SIZE;
-      const to = from + MESSAGES_PAGE_SIZE - 1;
-      
-      // Fetch most recent messages (descending) - using specific columns for performance
-      let query = supabase
-        .from('messages')
-        .select(`
-          id, message_id, thread_id, message_type, direction, text, sender_phone_number, 
-          sender_name, reaction, reaction_event, speech_text, speech_metadata, created_at,
-          sent_by_team_member_id,
-          sent_by_team_member:team_members!sent_by_team_member_id(full_name)
-        `)
-        .eq('thread_id', threadId)
-        .order('created_at', { ascending: false })
-        .range(from, to);
-      
-      // Only add abort signal if we have one
-      if (abortController) {
-        query = query.abortSignal(abortController.signal);
-      }
-      
-      const { data: messagesData, error: messagesError } = await query;
-
-      if (messagesError) throw messagesError;
-
-      // Batch fetch attachments for these messages
-      const messageIds = ((messagesData as Message[]) || []).map((m: Message) => m.id);
-      let attachmentsMap: Record<number, any[]> = {};
-      if (messageIds.length > 0) {
-        let attachmentsQuery = supabase
-          .from('attachments')
-          .select('id, message_id, url')
-          .in('message_id', messageIds);
-        
-        // Only add abort signal if we have one
-        if (abortController) {
-          attachmentsQuery = attachmentsQuery.abortSignal(abortController.signal);
-        }
-        
-        const { data: attachmentsData, error: attachmentsError } = await attachmentsQuery;
-        if (attachmentsError) {
-          console.error('Error fetching attachments for messages:', attachmentsError);
-        } else {
-          attachmentsMap = ((attachmentsData as any[]) || []).reduce((acc: Record<number, any[]>, att: any) => {
-            if (!acc[att.message_id]) acc[att.message_id] = [];
-            acc[att.message_id].push(att);
-            return acc;
-          }, {} as Record<number, any[]>);
-        }
-      }
-
-      // Attach attachments to messages
-      const messagesWithAttachments = ((messagesData as Message[]) || []).map((message: Message) => ({
-        ...message,
-        attachments: attachmentsMap[message.id] || []
-      }));
-
-      // If page is 0, set messages; if loading more, prepend
-      if (page === 0) {
-        setMessages(messagesWithAttachments.reverse()); // oldest at top
-      } else {
-        setMessages((prev: Message[]) => [...messagesWithAttachments.reverse(), ...prev]);
-      }
-
-      // Set hasMoreMessages if there are more messages to load
-      if (messagesData && (messagesData as any[]).length < MESSAGES_PAGE_SIZE) {
-        setHasMoreMessages(false);
-      } else {
-        setHasMoreMessages(true);
-      }
-      setMessagesPage(page);
-    } catch (err) {
-      // Don't show error if the request was aborted (user navigated away)
-      if (err instanceof Error && err.name === 'AbortError') {
-        console.log('Message fetch was cancelled');
-        return;
-      }
-      console.error('Error fetching messages:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load messages');
-    } finally {
-      setMessagesLoading(false);
-    }
-  };
-
-  const refreshData = async () => {
-    setRefreshing(true);
-    await fetchThreads();
-    if (selectedThread) {
-      await fetchMessages(selectedThread.id);
-    }
-    setRefreshing(false);
-  };
-
-  // Filter threads based on search query
-  const filteredThreads = threads.filter((thread: Thread) => {
-    const searchString = searchQuery.toLowerCase();
-    return (
-      thread.group_id.toLowerCase().includes(searchString) ||
-      (thread.name && thread.name.toLowerCase().includes(searchString)) ||
-      (thread.participants && thread.participants.some((p: string) => 
-        (contactMap[p] && contactMap[p].toLowerCase().includes(searchString)) || 
-        p.includes(searchString)
-      )) ||
-      (thread.latest_message?.text && thread.latest_message.text.toLowerCase().includes(searchString))
-    );
-  });
-
-  // Handle image selection
-  const handleImagesSelected = (files: File[]) => {
-    // Validate file count
-    const remainingSlots = 3 - selectedImages.length;
-    const filesToAdd = files.slice(0, remainingSlots);
-    
-    // Validate file types and sizes
-    const validFiles: File[] = [];
-    const maxSize = 50 * 1024 * 1024; // 50MB
-    
-    for (const file of filesToAdd) {
-      if (!file.type.startsWith('image/')) {
-        toast.error(`${file.name} is not an image file`);
-        continue;
-      }
-      
-      if (file.size > maxSize) {
-        toast.error(`${file.name} is too large (max 50MB)`);
-        continue;
-      }
-      
-      validFiles.push(file);
-    }
-    
-    if (validFiles.length > 0) {
-      setSelectedImages((prev: File[]) => [...prev, ...validFiles]);
-      toast.success(`${validFiles.length} image${validFiles.length > 1 ? 's' : ''} added`);
-    }
-    
-    if (files.length > remainingSlots) {
-      toast.error(`Maximum 3 images allowed. Only ${remainingSlots} added.`);
-    }
-  };
-
-  // Handle image removal
-  const handleRemoveImage = (index: number) => {
-    setSelectedImages((prev: File[]) => prev.filter((_: File, i: number) => i !== index));
-  };
-
-  // Send a message
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!selectedThread || (!messageInput.trim() && selectedImages.length === 0)) {
-      toast.error('Please enter a message or select images');
-      return;
-    }
-    
-    console.log('🚀 Sending message:', {
-      threadId: selectedThread.id,
-      groupId: selectedThread.group_id,
-      message: messageInput,
-      sender: teamMember?.full_name || 'Unknown User',
-      teamMemberId: teamMember?.id,
-      timestamp: new Date().toISOString(),
-      imageCount: selectedImages.length
-    });
-    
-    try {
-      setSendingMessage(true);
-      setScrollToBottom(true);
-
-      // Upload images if any are selected
-      let attachmentUrls: string[] = [];
-      if (selectedImages.length > 0) {
-        setUploadingImages(true);
-        
-        try {
-          for (const file of selectedImages) {
-            // Generate unique filename
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${selectedThread.id}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-            
-            console.log('📤 Uploading image:', fileName);
-            
-            // Upload to Supabase storage
-            const { data: uploadData, error: uploadError } = await supabase.storage
-              .from('chat-attachments')
-              .upload(fileName, file, {
-                cacheControl: '3600',
-                upsert: false
-              });
-
-            if (uploadError) {
-              console.error('Upload error:', uploadError);
-              throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
-            }
-
-            // Get public URL
-            const { data: urlData } = supabase.storage
-              .from('chat-attachments')
-              .getPublicUrl(fileName);
-
-            if (urlData?.publicUrl) {
-              attachmentUrls.push(urlData.publicUrl);
-              console.log('✅ Image uploaded:', urlData.publicUrl);
-            }
-          }
-        } catch (uploadErr: any) {
-          toast.error(uploadErr.message || 'Failed to upload images');
-          setSendingMessage(false);
-          setUploadingImages(false);
-          return;
-        } finally {
-          setUploadingImages(false);
-        }
-      }
-
-      // Optimistically add the message to the UI immediately
-      const optimisticMessage: Message = {
-        id: Date.now(), // Temporary ID
-        message_id: `temp-${Date.now()}`,
-        thread_id: selectedThread.id,
-        message_type: 'text',
-        direction: 'outbound',
-        text: messageInput || (attachmentUrls.length > 0 ? `Sent ${attachmentUrls.length} image(s)` : ''),
-        sender_phone_number: 'team',
-        sender_name: teamMember?.full_name || 'Team Member',
-        created_at: new Date().toISOString(),
-        sent_by_team_member_id: teamMember?.id,
-        attachments: []
-      };
-
-      // Add optimistic message to current thread
-      setMessages((prev: Message[]) => [...prev, optimisticMessage]);
-
-      // Update thread preview immediately
-      setThreads((prev: Thread[]) =>
-        prev.map((t: Thread) =>
-          t.id === selectedThread.id
-            ? {
-                ...t,
-                latest_message: {
-                  text: messageInput,
-                  created_at: new Date().toISOString(),
-                  sender_name: teamMember?.full_name || 'Team Member',
-                  sender_phone_number: 'team'
-                },
-                updated_at: new Date().toISOString()
-              }
-            : t
-        ).sort((a, b) => {
-          const aDate = a.latest_message?.created_at || a.updated_at;
-          const bDate = b.latest_message?.created_at || b.updated_at;
-          return new Date(bDate).getTime() - new Date(aDate).getTime();
-        })
-      );
-
-      // Call the Supabase Edge Function to send message via LoopMessage API
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/test-loopmessage/`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          group_id: selectedThread.group_id,
-          content: messageInput || (attachmentUrls.length > 0 ? `📷 ${attachmentUrls.length} image(s)` : ''),
-          sender_name: teamMember?.full_name || 'Team Member',
-          team_member_id: teamMember?.id,
-          attachments: attachmentUrls.length > 0 ? attachmentUrls : undefined
+          max_tokens: 500,
+          stream: false
         })
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Message send failed:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText
-        });
-        
-        // Remove optimistic message on failure
-        setMessages((prev: Message[]) => 
-          prev.filter(m => m.message_id !== optimisticMessage.message_id)
-        );
-        
-        throw new Error(`API error: ${response.status} ${errorText}`);
+        console.error('Grok API Error:', errorText);
+        throw new Error(`API request failed: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('✅ Message sent successfully:', {
-        response: data,
-        sentBy: teamMember?.full_name || 'Team Member',
-        teamMemberId: teamMember?.id,
-        threadId: selectedThread.id,
-        messageContent: messageInput,
-        attachmentCount: attachmentUrls.length
-      });
+      const aiResponse = data.choices?.[0]?.message?.content || 'Sorry, I could not generate a response.';
       
-      // Clear the input field and selected images
-      setMessageInput('');
-      setSelectedImages([]);
-      toast.success(`Message sent by ${teamMember?.full_name || 'Team Member'}!`);
-      
-      // Note: The real message will come through the webhook and replace the optimistic one
-      // The webhook should include sent_by_team_member_id for proper attribution
-    } catch (err) {
-      console.error('Error sending message:', err);
-      console.error('💥 Message send error details:', {
-        error: err,
-        threadId: selectedThread?.id,
-        groupId: selectedThread?.group_id,
-        messageLength: messageInput.length,
-        sender: teamMember?.full_name,
-        teamMemberId: teamMember?.id
-      });
-      
-      // Remove optimistic message on error
-      setMessages((prev: Message[]) => 
-        prev.filter(m => m.message_id !== `temp-${Date.now()}`)
-      );
-      
-      toast.error('Failed to send message');
+      setAiConversation(prev => [...prev, { role: 'assistant', content: aiResponse }]);
+    } catch (error) {
+      console.error('AI Error:', error);
+      setAiConversation(prev => [...prev, { 
+        role: 'assistant', 
+        content: 'Sorry, I encountered an error processing your question. Please try again.' 
+      }]);
     } finally {
-      setSendingMessage(false);
+      setAiLoading(false);
     }
-  };
-
-  const fetchModels = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('id, username')
-        .order('username');
-
-      if (error) throw error;
-      setModels((data as Model[]) || []);
-    } catch (err) {
-      console.error('Error fetching models:', err);
-      setError('Failed to load models');
-    }
-  };
-
-  const handleAssignModel = async (modelId: string) => {
-    if (!selectedThread) return;
-
-    try {
-      // Fetch client details (used as model) including phone
-      const { data: modelData, error: modelError } = await supabase
-        .from('clients')
-        .select('id, username, phone')
-        .eq('id', modelId)
-        .single();
-
-      if (modelError) throw modelError;
-      if (!modelData) throw new Error('Model not found');
-
-      // Update thread with model info
-      const { error: threadError } = await supabase
-        .from('threads')
-        .update({
-          name: `@${(modelData as any).username}`,
-          client_id: modelId
-        })
-        .eq('id', selectedThread.id);
-
-      if (threadError) throw threadError;
-
-      // If model has a phone number, sync contact information
-      if ((modelData as any).phone) {
-        const phoneNumber = (modelData as any).phone as string;
-
-        // Get the next available ID
-        const { data: maxIdResult } = await supabase
-          .from('contacts')
-          .select('id')
-          .order('id', { ascending: false })
-          .limit(1);
-
-        const nextId = maxIdResult && (maxIdResult as any[]).length > 0 ? (maxIdResult as any[])[0].id + 1 : 1;
-
-        // Check if contact already exists
-        const { data: existingContact } = await supabase
-          .from('contacts')
-          .select('id')
-          .eq('phone_number', phoneNumber)
-          .maybeSingle();
-
-        if (existingContact) {
-          // Update existing contact
-          await supabase
-            .from('contacts')
-            .update({ name: (modelData as any).username })
-            .eq('phone_number', phoneNumber);
-        } else {
-          // Create new contact with explicit ID
-          await supabase
-            .from('contacts')
-            .insert({
-              id: nextId,
-              phone_number: phoneNumber,
-              name: (modelData as any).username
-            });
-        }
-
-        // Update local contact map
-        setContactMap((prev: Record<string, string>) => ({
-          ...prev,
-          [phoneNumber]: (modelData as any).username as string
-        }));
-      }
-
-      // Update local state
-      setThreads((prev: Thread[]) =>
-        prev.map((t: Thread) =>
-          t.id === selectedThread.id ? { ...t, name: `@${(modelData as any).username}`, client_id: modelId } : t
-        )
-      );
-      setSelectedThread((prev: Thread | null) =>
-        prev ? { ...prev, name: `@${(modelData as any).username}`, client_id: modelId } : null
-      );
-
-      toast.success(`Thread assigned to ${(modelData as any).username}`);
-    } catch (err) {
-      console.error('Error assigning model:', err);
-      setError('Failed to assign model');
-      toast.error('Failed to assign model');
-    }
-  };
-
-  const handleSearchChange = (query: string) => {
-    setSearchQuery(query);
-  };
-
-  const handleShowManagement = () => {
-    setShowManagement(true);
-    setSelectedThread(null); // Clear selected thread when showing management
-  };
-
-  const handleMessageInputChange = (value: string) => {
-    setMessageInput(value);
-  };
-
-  // Function to load more (older) messages
-  const loadMoreMessages = () => {
-    if (selectedThread && hasMoreMessages) {
-      setScrollToBottom(false);
-      fetchMessages(selectedThread.id, messagesPage + 1);
-    }
-  };
-
-  // Function to load more threads
-  const loadMoreThreads = () => {
-    if (hasMoreThreads && !loadingMoreThreads) {
-      fetchThreads(threadsPage + 1, true);
-    }
-  };
-
-  // Message search functions
-  const searchMessages = async (query: string) => {
-    if (!selectedThread || !query.trim()) {
-      setMessageSearchResults([]);
-      setCurrentSearchIndex(0);
-      setSearchResultsLoaded(false);
-      return;
-    }
-
-    try {
-      setIsSearching(true);
-      
-      // Search for messages containing the query in text or speech_text
-      const { data: searchResults, error } = await supabase
-        .from('messages')
-        .select(`
-          id, message_id, thread_id, message_type, direction, text, sender_phone_number, 
-          sender_name, reaction, reaction_event, speech_text, speech_metadata, created_at,
-          sent_by_team_member_id
-        `)
-        .eq('thread_id', selectedThread.id)
-        .or(`text.ilike.%${query}%,speech_text.ilike.%${query}%`)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      const results = (searchResults as Message[]) || [];
-      setMessageSearchResults(results);
-      setCurrentSearchIndex(0);
-      setSearchResultsLoaded(true);
-
-      // If we have results, ensure the first result is loaded in the current view
-      if (results.length > 0) {
-        await ensureMessageIsLoaded(results[0]);
-      }
-    } catch (err) {
-      console.error('Error searching messages:', err);
-      toast.error('Failed to search messages');
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const ensureMessageIsLoaded = async (targetMessage: Message) => {
-    // Check if the message is already in the current messages view
-    const messageExists = messages.some((m: Message) => m.id === targetMessage.id);
-    
-    if (!messageExists) {
-      // We need to load more messages until we find this one
-      // First, determine how many messages we need to load based on created_at
-      const { data: messageCount, error } = await supabase
-        .from('messages')
-        .select('id', { count: 'exact' })
-        .eq('thread_id', selectedThread!.id)
-        .gte('created_at', targetMessage.created_at);
-
-      if (error) {
-        console.error('Error counting messages:', error);
-        return;
-      }
-
-      const totalMessagesNeeded = messageCount?.length || 0;
-      const currentlyLoaded = messages.length;
-      
-      if (totalMessagesNeeded > currentlyLoaded) {
-        // Load enough pages to include the target message
-        const pagesNeeded = Math.ceil((totalMessagesNeeded - currentlyLoaded) / MESSAGES_PAGE_SIZE);
-        
-        for (let i = 0; i < pagesNeeded; i++) {
-          await fetchMessages(selectedThread!.id, messagesPage + i + 1);
-        }
-      }
-    }
-  };
-
-  const navigateToSearchResult = async (direction: 'next' | 'prev') => {
-    if (messageSearchResults.length === 0) return;
-
-    let newIndex = currentSearchIndex;
-    if (direction === 'next') {
-      newIndex = (currentSearchIndex + 1) % messageSearchResults.length;
-    } else {
-      newIndex = currentSearchIndex === 0 ? messageSearchResults.length - 1 : currentSearchIndex - 1;
-    }
-
-    setCurrentSearchIndex(newIndex);
-    const targetMessage = messageSearchResults[newIndex];
-    
-    // Ensure the message is loaded in the view
-    await ensureMessageIsLoaded(targetMessage);
-    
-    // Scroll to the message
-    setTimeout(() => {
-      const messageElement = document.querySelector(`[data-message-id="${targetMessage.message_id}"]`);
-      if (messageElement) {
-        messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Temporarily highlight the message
-        messageElement.classList.add('search-highlight');
-        setTimeout(() => {
-          messageElement.classList.remove('search-highlight');
-        }, 2000);
-      }
-    }, 500);
-  };
-
-  const clearMessageSearch = () => {
-    setMessageSearchQuery('');
-    setMessageSearchResults([]);
-    setCurrentSearchIndex(0);
-    setSearchResultsLoaded(false);
-  };
-
-  const handleMessageSearch = (query: string) => {
-    setMessageSearchQuery(query);
-  };
-
-  const handleMessageSearchSubmit = () => {
-    searchMessages(messageSearchQuery);
   };
 
   return (
-    <Layout title="Client Chats">
-      <div className="fixed inset-0 top-16 left-64 right-0 bottom-0 flex">
-        {/* Thread List Component */}
-        <ThreadList
-          threads={filteredThreads}
-          selectedThread={selectedThread}
-          loading={loading}
-          refreshing={refreshing}
-          searchQuery={searchQuery}
-          contactMap={contactMap}
-          onThreadSelect={setSelectedThread}
-          onRefresh={refreshData}
-          onSearchChange={handleSearchChange}
-          onMarkAsRead={markThreadAsRead}
-          onShowManagement={handleShowManagement}
-          soundEnabled={soundEnabled}
-          onSoundToggle={handleSoundToggle}
-          hasMoreThreads={hasMoreThreads}
-          loadingMoreThreads={loadingMoreThreads}
-          onLoadMoreThreads={loadMoreThreads}
-        />
+    <Layout title={`@${client.username}`}>
+      <div className="space-y-6">
+        {/* Back Button */}
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          Back
+        </button>
 
-        {/* Right Panel - Management or Message View */}
-        {showManagement ? (
-          <ManagementView
-            threads={threads}
-            onThreadSelect={(thread) => {
-              setShowManagement(false);
-              setSelectedThread(thread);
-              markThreadAsRead(thread.id);
-            }}
-            contactMap={contactMap}
-          />
-        ) : (
-          <MessageView
-            thread={selectedThread}
-            messages={messages}
-            loading={messagesLoading}
-            contactMap={contactMap}
-            messageInput={messageInput}
-            sendingMessage={sendingMessage}
-            onMessageInputChange={handleMessageInputChange}
-            onSendMessage={handleSendMessage}
-            onShowNotes={() => setShowNotesModal(true)}
-            onShowSettings={() => setShowDetailModal(true)}
-            scrollToBottom={scrollToBottom}
-            hasMoreMessages={hasMoreMessages}
-            onLoadMoreMessages={loadMoreMessages}
-            messagesPage={messagesPage}
-            pageSize={MESSAGES_PAGE_SIZE}
-            messageSearchQuery={messageSearchQuery}
-            messageSearchResults={messageSearchResults}
-            currentSearchIndex={currentSearchIndex}
-            isSearching={isSearching}
-            searchResultsLoaded={searchResultsLoaded}
-            onMessageSearch={handleMessageSearch}
-            onMessageSearchSubmit={handleMessageSearchSubmit}
-            onNavigateSearchResult={navigateToSearchResult}
-            onClearMessageSearch={clearMessageSearch}
-            selectedImages={selectedImages}
-            onImagesSelected={handleImagesSelected}
-            onRemoveImage={handleRemoveImage}
-            uploadingImages={uploadingImages}
-          />
+        {/* Client Header */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-start space-x-4">
+            {client.avatar_url ? (
+              <img
+                src={client.avatar_url}
+                alt={client.username}
+                className="w-20 h-20 rounded-full border-2 border-blue-500"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                <User className="w-10 h-10 text-blue-600 dark:text-blue-400" />
+              </div>
+            )}
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                @{client.username}
+              </h1>
+              <div className="flex items-center mt-2 space-x-2">
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  client.is_active 
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                }`}>
+                  {client.is_active ? (
+                    <>
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Active
+                    </>
+                  ) : (
+                    'Inactive'
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs Navigation */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="border-b border-gray-200 dark:border-gray-700">
+            <nav className="flex -mb-px overflow-x-auto justify-between" aria-label="Tabs">
+              <div className="flex">
+                {tabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm transition-colors ${
+                        isActive
+                          ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 mr-2" />
+                      {tab.name}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              {/* Add Custom Button */}
+              <button
+                onClick={() => setIsAddCustomModalOpen(true)}
+                className="flex items-center whitespace-nowrap py-4 px-6 border-b-2 border-transparent font-medium text-sm text-green-600 hover:text-green-700 hover:border-green-300 dark:text-green-400 dark:hover:text-green-300 transition-colors"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Custom
+              </button>
+            </nav>
+          </div>
+
+          {/* Tab Content */}
+          <div className="p-6">
+            {activeTab === 'overview' && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Client Overview</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Client ID</p>
+                    <p className="text-base font-medium text-gray-900 dark:text-white mt-1">{client.id}</p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Username</p>
+                    <p className="text-base font-medium text-gray-900 dark:text-white mt-1">@{client.username}</p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Status</p>
+                    <p className="text-base font-medium text-gray-900 dark:text-white mt-1">
+                      {client.is_active ? 'Active' : 'Inactive'}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm text-blue-800 dark:text-blue-300">
+                    This is a placeholder for client overview information. More details will be added here.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'questionnaire' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Client Questionnaire</h2>
+                  
+                  {/* Search Bar */}
+                  {questionnaire && (
+                    <div className="relative w-full max-w-sm">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search className="h-4 w-4 text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search questionnaire..."
+                        className="block w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400"
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center hover:text-gray-700 dark:hover:text-gray-200"
+                        >
+                          <X className="h-4 w-4 text-gray-400" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                
+                {questionnaireLoading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : !questionnaire ? (
+                  <div className="p-6 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="text-center">
+                      <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-gray-600 dark:text-gray-400">
+                        No questionnaire data available for this client yet.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Helper function to check if content matches search */}
+                    {(() => {
+                      const search = searchQuery.toLowerCase().trim();
+                      const matchesSearch = (text: string | null | undefined) => 
+                        !search || (text && text.toLowerCase().includes(search));
+                      
+                      const hardNosVisible = !search || matchesSearch('hard') || matchesSearch('nos') || matchesSearch('boundaries') || matchesSearch('boundary') || matchesSearch(questionnaire.hard_nos);
+                      const basicInfoVisible = !search || matchesSearch('basic') || matchesSearch('information') || matchesSearch('info') || matchesSearch('name') || 
+                        matchesSearch('nickname') || matchesSearch('birthday') || matchesSearch('birth') || matchesSearch('gender') || 
+                        matchesSearch('orientation') || matchesSearch('sexual') || matchesSearch('ethnicity') || matchesSearch('zodiac') || 
+                        matchesSearch('relationship') || matchesSearch('children') || matchesSearch('status') ||
+                        matchesSearch(questionnaire.public_name) || matchesSearch(questionnaire.public_nicknames) || 
+                        matchesSearch(questionnaire.gender) || matchesSearch(questionnaire.sexual_orientation) || 
+                        matchesSearch(questionnaire.ethnicity) || matchesSearch(questionnaire.zodiac_sign) || 
+                        matchesSearch(questionnaire.relationship_status) || matchesSearch(questionnaire.has_children);
+                      const physicalVisible = !search || matchesSearch('physical') || matchesSearch('attributes') || matchesSearch('height') || 
+                        matchesSearch('weight') || matchesSearch('shoe') || matchesSearch('bra') || matchesSearch('size') ||
+                        matchesSearch(questionnaire.height) || matchesSearch(questionnaire.weight) || 
+                        matchesSearch(questionnaire.shoe_size) || matchesSearch(questionnaire.bra_size);
+                      const languageVisible = !search || matchesSearch('language') || matchesSearch('languages') || matchesSearch('location') || 
+                        matchesSearch('native') || matchesSearch('birth place') || matchesSearch('current location') ||
+                        matchesSearch(questionnaire.native_language) || matchesSearch(questionnaire.other_languages) || 
+                        matchesSearch(questionnaire.birth_place) || matchesSearch(questionnaire.current_location);
+                      const interestsVisible = !search || matchesSearch('interests') || matchesSearch('lifestyle') || matchesSearch('hobbies') || 
+                        matchesSearch('hobby') || matchesSearch('colors') || matchesSearch('color') || matchesSearch('pets') || 
+                        matchesSearch('pet') || matchesSearch('car') || matchesSearch('date') || matchesSearch('dream') ||
+                        matchesSearch(questionnaire.hobbies) || matchesSearch(questionnaire.favorite_colors) || 
+                        matchesSearch(questionnaire.pets) || matchesSearch(questionnaire.current_car) || 
+                        matchesSearch(questionnaire.dream_car) || matchesSearch(questionnaire.dream_date);
+                      const routineVisible = !search || matchesSearch('routine') || matchesSearch('daily') || matchesSearch('weekday') || 
+                        matchesSearch('weekend') || matchesSearch('schedule') ||
+                        matchesSearch(questionnaire.weekday_routine) || matchesSearch(questionnaire.weekend_routine);
+                      const travelVisible = !search || matchesSearch('travel') || matchesSearch('destination') || matchesSearch('trip') || 
+                        matchesSearch('vacation') || matchesSearch('favorite place') ||
+                        matchesSearch(questionnaire.favorite_place_traveled) || matchesSearch(questionnaire.dream_destination);
+                      const careerVisible = !search || matchesSearch('education') || matchesSearch('career') || matchesSearch('college') || 
+                        matchesSearch('school') || matchesSearch('job') || matchesSearch('work') ||
+                        matchesSearch(questionnaire.college) || matchesSearch(questionnaire.other_career);
+                      const personasVisible = !search || matchesSearch('persona') || matchesSearch('personas') || personas.some(p => matchesSearch(p));
+                      const additionalVisible = !search || matchesSearch('additional') || matchesSearch('known') || matchesSearch('from') || 
+                        matchesSearch('info') || matchesSearch('notes') ||
+                        matchesSearch(questionnaire.known_from) || matchesSearch(questionnaire.additional_info);
+
+                      return (
+                        <>
+                          {/* Hard Nos / Boundaries - Most Important */}
+                          {hardNosVisible && (
+                            <div className={`border-2 rounded-lg p-5 ${
+                      questionnaire.hard_nos 
+                        ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' 
+                        : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700'
+                    }`}>
+                      <div className="flex items-start space-x-3">
+                        <AlertCircle className={`w-6 h-6 flex-shrink-0 mt-0.5 ${
+                          questionnaire.hard_nos 
+                            ? 'text-red-600 dark:text-red-400' 
+                            : 'text-gray-400 dark:text-gray-500'
+                        }`} />
+                        <div className="flex-1">
+                          <h3 className={`text-base font-semibold mb-2 ${
+                            questionnaire.hard_nos 
+                              ? 'text-red-900 dark:text-red-200' 
+                              : 'text-gray-900 dark:text-white'
+                          }`}>
+                            ⚠️ Hard Nos / Boundaries
+                          </h3>
+                          <p className={`text-sm whitespace-pre-wrap ${
+                            questionnaire.hard_nos 
+                              ? 'text-red-800 dark:text-red-300' 
+                              : 'text-gray-500 dark:text-gray-400 italic'
+                          }`}>
+                            {questionnaire.hard_nos || 'Not provided'}
+                          </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Basic Information */}
+                      {basicInfoVisible && (
+                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white">Basic Information</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Public Name</p>
+                          <p className={`text-sm ${questionnaire.public_name ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.public_name || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Nicknames</p>
+                          <p className={`text-sm ${questionnaire.public_nicknames ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.public_nicknames || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Birthday</p>
+                          <p className={`text-sm ${questionnaire.public_birthday ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.public_birthday 
+                              ? new Date(questionnaire.public_birthday).toLocaleDateString('en-US', { 
+                                  month: 'long', 
+                                  day: 'numeric', 
+                                  year: 'numeric' 
+                                })
+                              : 'Not provided'
+                            }
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Gender</p>
+                          <p className={`text-sm ${questionnaire.gender ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.gender || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Sexual Orientation</p>
+                          <p className={`text-sm ${questionnaire.sexual_orientation ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.sexual_orientation || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Ethnicity</p>
+                          <p className={`text-sm ${questionnaire.ethnicity ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.ethnicity || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Zodiac Sign</p>
+                          <p className={`text-sm ${questionnaire.zodiac_sign ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.zodiac_sign || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Relationship Status</p>
+                          <p className={`text-sm ${questionnaire.relationship_status ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.relationship_status || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Has Children</p>
+                          <p className={`text-sm ${questionnaire.has_children ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.has_children || 'Not provided'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                      {/* Physical Attributes */}
+                      {physicalVisible && (
+                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <User className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white">Physical Attributes</h3>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Height</p>
+                          <p className={`text-sm ${questionnaire.height ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.height || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Weight</p>
+                          <p className={`text-sm ${questionnaire.weight ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.weight || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Shoe Size</p>
+                          <p className={`text-sm ${questionnaire.shoe_size ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.shoe_size || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Bra Size</p>
+                          <p className={`text-sm ${questionnaire.bra_size ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.bra_size || 'Not provided'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                      {/* Languages & Location */}
+                      {languageVisible && (
+                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <Globe className="w-5 h-5 text-green-600 dark:text-green-400" />
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white">Languages & Location</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Native Language</p>
+                          <p className={`text-sm ${questionnaire.native_language ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.native_language || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Other Languages</p>
+                          <p className={`text-sm ${questionnaire.other_languages ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.other_languages || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Birth Place</p>
+                          <p className={`text-sm ${questionnaire.birth_place ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.birth_place || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Current Location</p>
+                          <p className={`text-sm ${questionnaire.current_location ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.current_location || 'Not provided'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                      {/* Interests & Lifestyle */}
+                      {interestsVisible && (
+                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <Heart className="w-5 h-5 text-pink-600 dark:text-pink-400" />
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white">Interests & Lifestyle</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Hobbies</p>
+                          <p className={`text-sm ${questionnaire.hobbies ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.hobbies || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Favorite Colors</p>
+                          <p className={`text-sm ${questionnaire.favorite_colors ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.favorite_colors || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Pets</p>
+                          <p className={`text-sm ${questionnaire.pets ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.pets || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Current Car</p>
+                          <p className={`text-sm ${questionnaire.current_car ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.current_car || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Dream Car</p>
+                          <p className={`text-sm ${questionnaire.dream_car ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.dream_car || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Dream Date</p>
+                          <p className={`text-sm ${questionnaire.dream_date ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.dream_date || 'Not provided'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                      {/* Daily Routines */}
+                      {routineVisible && (
+                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white">Daily Routines</h3>
+                      </div>
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Weekday Routine</p>
+                          <p className={`text-sm whitespace-pre-wrap ${questionnaire.weekday_routine ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.weekday_routine || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Weekend Routine</p>
+                          <p className={`text-sm whitespace-pre-wrap ${questionnaire.weekend_routine ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.weekend_routine || 'Not provided'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                      {/* Travel */}
+                      {travelVisible && (
+                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <MapPin className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white">Travel</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Favorite Place Traveled</p>
+                          <p className={`text-sm ${questionnaire.favorite_place_traveled ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.favorite_place_traveled || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Dream Destination</p>
+                          <p className={`text-sm ${questionnaire.dream_destination ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.dream_destination || 'Not provided'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                      {/* Education & Career */}
+                      {careerVisible && (
+                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <Briefcase className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white">Education & Career</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">College</p>
+                          <p className={`text-sm ${questionnaire.college ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.college || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Other Career</p>
+                          <p className={`text-sm ${questionnaire.other_career ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.other_career || 'Not provided'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                      {/* Personas */}
+                      {personasVisible && (
+                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <User className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white">Personas</h3>
+                      </div>
+                      {personas && personas.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {personas.map((persona, index) => (
+                            <span 
+                              key={index}
+                              className="px-3 py-1.5 bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300 rounded-full text-sm font-medium"
+                            >
+                              {persona}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-400 dark:text-gray-500 italic">Not provided</p>
+                      )}
+                    </div>
+                  )}
+
+                    {/* Known From & Additional Info */}
+                    {additionalVisible && (
+                      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <FileText className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white">Additional Information</h3>
+                      </div>
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Known From</p>
+                          <p className={`text-sm ${questionnaire.known_from ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.known_from || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Additional Info</p>
+                          <p className={`text-sm whitespace-pre-wrap ${questionnaire.additional_info ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {questionnaire.additional_info || 'Not provided'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                      {/* No Results Message */}
+                      {searchQuery && !hardNosVisible && !basicInfoVisible && !physicalVisible && 
+                       !languageVisible && !interestsVisible && !routineVisible && !travelVisible && 
+                       !careerVisible && !personasVisible && !additionalVisible && (
+                        <div className="text-center py-12">
+                          <Search className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                          <p className="text-gray-500 dark:text-gray-400">
+                            No results found for "{searchQuery}"
+                          </p>
+                          <button
+                            onClick={() => setSearchQuery('')}
+                            className="mt-3 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            Clear search
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
         )}
+
+            {activeTab === 'pricing' && (
+              <div className="space-y-6">
+                {/* Content Type Availability */}
+                <div className="space-y-4">
+                  {(() => {
+                    // Map content types to display labels
+                    const contentTypeLabels: Record<string, string> = {
+                      'buttContent': 'Bare Butt',
+                      'breastContent': 'Breast Content',
+                      'visibleNipples': 'Visible Nipples',
+                      'girlGirlContent': 'Girl/Girl Content',
+                      'boyGirlContent': 'Boy/Girl Content',
+                      'twerkVideos': 'Twerk Videos',
+                      'fullNudityCensored': 'Full Nudity (Censored)',
+                      'fullNudityUncensored': 'Full Nudity (Uncensored)',
+                      'masturbation': 'Masturbation',
+                      'fetishKink': 'Fetish Content',
+                      'feet': 'Feet Content',
+                      'dickRates': 'Dick Rates',
+                      'customRequests': 'Custom Requests',
+                    };
+
+                    // Create a map of content details by type
+                    const contentDetailsMap: Record<string, any> = {};
+                    if (contentDetails) {
+                      contentDetails.forEach((detail: any) => {
+                        contentDetailsMap[detail.content_type] = detail;
+                      });
+                    }
+
+                    // Separate available and unavailable content
+                    const availableContent: Array<{key: string, label: string, priceMin: number, priceMax: number}> = [];
+                    const unavailableContent: Array<{key: string, label: string}> = [];
+
+                    Object.entries(contentTypeLabels).forEach(([key, label]) => {
+                      const detail = contentDetailsMap[key];
+                      if (detail && detail.enabled) {
+                        availableContent.push({
+                          key,
+                          label,
+                          priceMin: detail.price_min || 0,
+                          priceMax: detail.price_max || 0
+                        });
+                      } else {
+                        unavailableContent.push({ key, label });
+                      }
+                    });
+
+                    return (
+                      <>
+                        {/* Available Section */}
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Available</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {availableContent.length > 0 ? (
+                              availableContent.map((item) => (
+                                <div
+                                  key={item.key}
+                                  className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 flex items-center justify-between"
+                                >
+                                  <div className="flex items-center space-x-3">
+                                    <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                                    <span className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
+                                      {item.label}
+                                    </span>
+                                  </div>
+                                  <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                                    {item.priceMin === item.priceMax 
+                                      ? `$${item.priceMin}` 
+                                      : item.priceMax > 0
+                                      ? `$${item.priceMin}-$${item.priceMax}`
+                                      : `$${item.priceMin}`
+                                    }
+                                  </span>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="col-span-2 p-6 text-center bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                                <p className="text-sm text-gray-500 dark:text-gray-400">No available content types</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Unavailable Section */}
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Unavailable</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {unavailableContent.length > 0 ? (
+                              unavailableContent.map((item) => (
+                                <div
+                                  key={item.key}
+                                  className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center space-x-3"
+                                >
+                                  <X className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+                                  <span className="text-sm font-medium text-red-900 dark:text-red-100">
+                                    {item.label}
+                                  </span>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="col-span-2 p-6 text-center bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                                <p className="text-sm text-gray-500 dark:text-gray-400">All content types are available</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {/* Custom Content Preferences */}
+                <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Custom Content Preferences</h3>
+                  
+                  {preferencesLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : preferences ? (
+                    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+                      <div className="space-y-4">
+                        {/* Minimum Pricing */}
+                        <div className="pb-4 border-b border-gray-200 dark:border-gray-700">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Minimum Pricing</span>
+                            <span className="text-lg font-bold text-blue-600 dark:text-blue-400">${preferences.minimum_pricing || 0}</span>
+                          </div>
+                        </div>
+
+                        {/* Custom Preferences Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {[
+                            { key: 'video_call', label: 'Video Call' },
+                            { key: 'audio_call', label: 'Audio Call' },
+                            { key: 'dick_rates', label: 'Dick Rates' },
+                            { key: 'fan_signs', label: 'Fan Signs' },
+                            { key: 'using_fans_name', label: "Using Fan's Name" },
+                            { key: 'saying_specific_things', label: 'Saying Specific Things' },
+                            { key: 'roleplaying', label: 'Roleplaying' },
+                            { key: 'using_toys_props', label: 'Using Toys/Props' },
+                            { key: 'specific_outfits', label: 'Specific Outfits' },
+                            { key: 'full_nudity_censored', label: 'Full Nudity (Censored)' },
+                            { key: 'full_nudity_uncensored', label: 'Full Nudity (Uncensored)' },
+                            { key: 'masturbation', label: 'Masturbation' },
+                            { key: 'anal_content', label: 'Anal Content' },
+                            { key: 'feet_content', label: 'Feet Content' },
+                          ].map((item) => {
+                            const isEnabled = preferences[item.key as keyof typeof preferences];
+                            return (
+                              <div
+                                key={item.key}
+                                className={`rounded-lg p-3 flex items-center space-x-3 ${
+                                  isEnabled
+                                    ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+                                    : 'bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700'
+                                }`}
+                              >
+                                {isEnabled ? (
+                                  <CheckCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                                ) : (
+                                  <X className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                                )}
+                                <span className={`text-sm font-medium ${
+                                  isEnabled
+                                    ? 'text-blue-900 dark:text-blue-100'
+                                    : 'text-gray-500 dark:text-gray-400'
+                                }`}>
+                                  {item.label}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-6 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div className="text-center">
+                        <Settings className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                        <p className="text-gray-600 dark:text-gray-400">
+                          No custom content preferences set
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'askAi' && (
+              <div className="space-y-4 h-[600px] flex flex-col">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                    <Sparkles className="w-5 h-5 mr-2 text-purple-600 dark:text-purple-400" />
+                    Ask AI about {client.username}
+                  </h2>
+                  {aiConversation.length > 0 && (
+                    <button
+                      onClick={() => setAiConversation([])}
+                      className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                    >
+                      Clear conversation
+                    </button>
+                  )}
+                </div>
+
+                {/* AI Conversation */}
+                <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 overflow-y-auto">
+                  {aiConversation.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center">
+                      <Sparkles className="w-16 h-16 text-purple-300 dark:text-purple-700 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                        Ask me anything about this client
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md mb-4">
+                        I have access to their questionnaire data and content preferences. Ask questions like:
+                      </p>
+                      <div className="space-y-2 text-sm text-left max-w-md">
+                        <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg">
+                          <p className="text-purple-900 dark:text-purple-200">"What are their content boundaries?"</p>
+                        </div>
+                        <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg">
+                          <p className="text-purple-900 dark:text-purple-200">"What kind of customs do they like?"</p>
+                        </div>
+                        <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg">
+                          <p className="text-purple-900 dark:text-purple-200">"Tell me about their hobbies and interests"</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {aiConversation.map((message, index) => (
+                        <div
+                          key={index}
+                          className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div
+                            className={`max-w-[80%] rounded-lg p-4 ${
+                              message.role === 'user'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
+                            }`}
+                          >
+                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                          </div>
+                        </div>
+                      ))}
+                      {aiLoading && (
+                        <div className="flex justify-start">
+                          <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Input Area */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={aiQuestion}
+                    onChange={(e) => setAiQuestion(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && !aiLoading && handleAskAI()}
+                    placeholder="Ask a question about this client..."
+                    disabled={aiLoading || questionnaireLoading}
+                    className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-purple-500 focus:border-purple-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <button
+                    onClick={handleAskAI}
+                    disabled={!aiQuestion.trim() || aiLoading || questionnaireLoading}
+                    className="px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center space-x-2"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>Ask</span>
+                  </button>
+                </div>
+
+                {/* Info Note */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                  <p className="text-xs text-blue-800 dark:text-blue-300">
+                    <strong>✨ Powered by Grok AI:</strong> This assistant has full access to the client's questionnaire, content preferences, boundaries, and persona information. 
+                    Ask anything to help you better understand and work with this client!
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'fanNotes' && (
+              <div className="flex gap-6 h-[calc(100vh-20rem)] min-h-[600px]">
+                {/* Left Sidebar - Fan List */}
+                <div className="w-80 flex-shrink-0 flex flex-col bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  {/* Sidebar Header */}
+                  <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Fans with Notes</h3>
+                      <button
+                        onClick={() => setIsAddFanNoteModalOpen(true)}
+                        className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                        title="Add Fan Note"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                    
+                    {/* Search Bar */}
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search className="h-4 w-4 text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        value={fanListSearchQuery}
+                        onChange={(e) => setFanListSearchQuery(e.target.value)}
+                        placeholder="Search fans..."
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Fan List */}
+                  <div className="flex-1 overflow-y-auto">
+                    {fanNotesLoading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      </div>
+                    ) : (() => {
+                      const groupedNotes = getNotesGroupedByFan();
+                      const filteredFans = groupedNotes.filter(group => 
+                        group.fanName.toLowerCase().includes(fanListSearchQuery.toLowerCase())
+                      );
+
+                      if (filteredFans.length === 0) {
+                        return (
+                          <div className="p-8 text-center">
+                            <User className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {fanListSearchQuery ? 'No fans found' : 'No fan notes yet'}
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                          {/* Individual Fans */}
+                          {filteredFans.map((group) => (
+                            <button
+                              key={group.fanName}
+                              onClick={() => setSelectedFanFilter(group.fanName)}
+                              className={`w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                                selectedFanFilter === group.fanName
+                                  ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-600'
+                                  : ''
+                              }`}
+                            >
+                              <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                                  <User className="w-5 h-5 text-white" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-sm font-semibold truncate ${
+                                    selectedFanFilter === group.fanName
+                                      ? 'text-blue-900 dark:text-blue-200'
+                                      : 'text-gray-900 dark:text-white'
+                                  }`}>
+                                    {group.fanName}
+                                  </p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    {group.totalNotes} {group.totalNotes === 1 ? 'note' : 'notes'}
+                                  </p>
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* Right Content Area - Notes Display */}
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  {/* Notes Display Area */}
+                  <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    {fanNotesLoading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      </div>
+                    ) : fanNotes.length === 0 ? (
+                      <div className="p-12 text-center">
+                        <User className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                        <p className="text-gray-600 dark:text-gray-400 text-lg font-medium">No fan notes yet</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+                          Create your first fan note using the form above
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {selectedFanFilter ? (
+                          <>
+                            {/* Display Header */}
+                            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                Notes for {selectedFanFilter}
+                              </h3>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                {(() => {
+                                  const groupedNotes = getNotesGroupedByFan();
+                                  const filteredGroups = groupedNotes.filter(group => group.fanName === selectedFanFilter);
+                                  const totalNotes = filteredGroups.reduce((acc, group) => acc + group.totalNotes, 0);
+                                  return `${totalNotes} ${totalNotes === 1 ? 'note' : 'notes'}`;
+                                })()}
+                              </p>
+                            </div>
+                            
+                            {/* Scrollable Notes Content */}
+                            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    {(() => {
+                      const groupedNotes = getNotesGroupedByFan();
+                      const filteredGroups = selectedFanFilter
+                        ? groupedNotes.filter(group => group.fanName === selectedFanFilter)
+                        : groupedNotes;
+
+                      if (filteredGroups.length === 0) {
+                        return (
+                          <div className="p-12 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <div className="text-center">
+                              <User className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                              <p className="text-gray-600 dark:text-gray-400">No notes found for this fan</p>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return filteredGroups.map((group) => (
+                        <div key={group.fanName} className="space-y-4">
+                            {group.notes.map((note) => {
+                              const noteReplies = fanReplies[note.id] || [];
+                              const isExpanded = expandedFanNotes.has(note.id);
+                              const canDelete = teamMember?.id === note.author_id;
+
+                              return (
+                                <div
+                                  key={note.id}
+                                  className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg"
+                                >
+                                  {/* Note Content */}
+                                  <div className="p-3">
+                                    <div className="flex items-start justify-between mb-2">
+                                      <div className="flex items-start space-x-3 flex-1">
+                                        <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                                          <User className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center space-x-2 mb-1">
+                                            <span className="font-semibold text-sm text-gray-900 dark:text-white">
+                                              {note.author_name}
+                                            </span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                                              {formatTimestamp(note.created_at)}
+                                            </span>
+                                          </div>
+                                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
+                                            {note.content}
+                                          </p>
+                                          {note.image_url && (
+                                            <img 
+                                              src={note.image_url} 
+                                              alt="Note attachment" 
+                                              className="mt-2 max-h-48 rounded border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90"
+                                              onClick={() => window.open(note.image_url!, '_blank')}
+                                            />
+                                          )}
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Actions */}
+                                      {canDelete && (
+                                        <button
+                                          onClick={() => handleDeleteFanNote(note.id)}
+                                          className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors ml-2"
+                                          title="Delete note"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    {/* Actions Footer */}
+                                    <div className="flex items-center space-x-4 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                      <button
+                                        onClick={() => setShowFanReplyInput(showFanReplyInput === note.id ? null : note.id)}
+                                        className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center space-x-1"
+                                      >
+                                        <Reply className="w-3.5 h-3.5" />
+                                        <span>Reply</span>
+                                      </button>
+                                      {noteReplies.length > 0 && (
+                                        <button
+                                          onClick={() => toggleFanNoteExpanded(note.id)}
+                                          className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center space-x-1"
+                                        >
+                                          <MessageSquare className="w-3.5 h-3.5" />
+                                          <span>{noteReplies.length} {noteReplies.length === 1 ? 'reply' : 'replies'}</span>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Reply Input */}
+                                  {showFanReplyInput === note.id && (
+                                    <div className="px-3 pb-3 border-t border-gray-200 dark:border-gray-700 pt-3">
+                                      <div className="flex space-x-2">
+                                        <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                                          <User className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                        </div>
+                                        <div className="flex-1 space-y-2">
+                                          <textarea
+                                            value={fanReplyContent[note.id] || ''}
+                                            onChange={(e) => setFanReplyContent(prev => ({ ...prev, [note.id]: e.target.value }))}
+                                            placeholder="Write a reply..."
+                                            rows={2}
+                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 resize-none"
+                                          />
+                                          
+                                          {/* Image Preview */}
+                                          {fanReplyImagePreviews[note.id] && (
+                                            <div className="relative inline-block">
+                                              <img 
+                                                src={fanReplyImagePreviews[note.id]!} 
+                                                alt="Preview" 
+                                                className="max-h-32 rounded border border-gray-300 dark:border-gray-600"
+                                              />
+                                              <button
+                                                onClick={() => handleRemoveFanReplyImage(note.id)}
+                                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                                              >
+                                                <X className="w-4 h-4" />
+                                              </button>
+                                            </div>
+                                          )}
+
+                                          <div className="flex justify-between items-center">
+                                            <div>
+                                              <input
+                                                type="file"
+                                                id={`fan-reply-image-upload-${note.id}`}
+                                                accept="image/*"
+                                                onChange={(e) => handleFanReplyImageChange(note.id, e)}
+                                                className="hidden"
+                                              />
+                                              <label
+                                                htmlFor={`fan-reply-image-upload-${note.id}`}
+                                                className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                                              >
+                                                <ImageIcon className="w-4 h-4 mr-2" />
+                                                Add Image
+                                              </label>
+                                            </div>
+                                            <div className="flex space-x-2">
+                                              <button
+                                                onClick={() => setShowFanReplyInput(null)}
+                                                className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                                              >
+                                                Cancel
+                                              </button>
+                                              <button
+                                                onClick={() => handleCreateFanReply(note.id)}
+                                                disabled={!fanReplyContent[note.id]?.trim() && !fanReplyImages[note.id]}
+                                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded text-sm font-medium transition-colors"
+                                              >
+                                                Reply
+                                              </button>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Replies */}
+                                  {isExpanded && noteReplies.length > 0 && (
+                                    <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                                      <div className="p-3 space-y-3">
+                                        {noteReplies.map((reply) => {
+                                          const canDeleteReply = teamMember?.id === reply.author_id;
+                                          
+                                          return (
+                                            <div key={reply.id} className="flex space-x-3">
+                                              <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                                                <User className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+                                              </div>
+                                              <div className="flex-1 min-w-0">
+                                                <div className="flex items-start justify-between">
+                                                  <div className="flex-1">
+                                                    <div className="flex items-center space-x-2 mb-1">
+                                                      <span className="font-semibold text-xs text-gray-900 dark:text-white">
+                                                        {reply.author_name}
+                                                      </span>
+                                                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                        {formatTimestamp(reply.created_at)}
+                                                      </span>
+                                                    </div>
+                                                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
+                                                      {reply.content}
+                                                    </p>
+                                                    {reply.image_url && (
+                                                      <img 
+                                                        src={reply.image_url} 
+                                                        alt="Reply attachment" 
+                                                        className="mt-2 max-h-32 rounded border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90"
+                                                        onClick={() => window.open(reply.image_url!, '_blank')}
+                                                      />
+                                                    )}
+                                                  </div>
+                                                  {canDeleteReply && (
+                                                    <button
+                                                      onClick={() => handleDeleteFanReply(reply.id)}
+                                                      className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors ml-2"
+                                                      title="Delete reply"
+                                                    >
+                                                      <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                        </div>
+                      ));
+                    })()}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex-1 flex items-center justify-center p-12">
+                            <div className="text-center">
+                              <User className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                              <p className="text-gray-600 dark:text-gray-400 text-lg font-medium">Select a fan to view notes</p>
+                              <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+                                Choose a fan from the sidebar to see their notes
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Add Fan Note Modal */}
+                <AddFanNoteModal
+                  isOpen={isAddFanNoteModalOpen}
+                  onClose={() => setIsAddFanNoteModalOpen(false)}
+                  fanNames={fanNames}
+                  onSubmit={handleCreateFanNote}
+                />
+              </div>
+            )}
+
+            {activeTab === 'notes' && (
+              <div className="space-y-6">
+                {/* Create New Note */}
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Add a Note</h3>
+                  <div className="space-y-3">
+                    <textarea
+                      value={newNoteContent}
+                      onChange={(e) => setNewNoteContent(e.target.value)}
+                      placeholder="Write a note about this client..."
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 resize-none"
+                    />
+                    
+                    {/* Image Preview */}
+                    {newNoteImagePreview && (
+                      <div className="relative inline-block">
+                        <img 
+                          src={newNoteImagePreview} 
+                          alt="Preview" 
+                          className="max-h-40 rounded border border-gray-300 dark:border-gray-600"
+                        />
+                        <button
+                          onClick={handleRemoveNoteImage}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <input
+                          type="file"
+                          id="note-image-upload"
+                          accept="image/*"
+                          onChange={handleNoteImageChange}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="note-image-upload"
+                          className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                        >
+                          <ImageIcon className="w-4 h-4 mr-2" />
+                          Add Image
+                        </label>
+                      </div>
+                      <button
+                        onClick={handleCreateNote}
+                        disabled={!newNoteContent.trim() && !newNoteImage}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium text-sm transition-colors"
+                      >
+                        Post Note
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notes Layout */}
+                {notesLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : notes.length === 0 ? (
+                  <div className="p-12 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="text-center">
+                      <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-gray-600 dark:text-gray-400">No notes yet</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+                        Add the first note about this client above
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Pinned Notes Column */}
+                    <div className="lg:col-span-1">
+                      <div className="sticky top-4">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                          <Pin className="w-4 h-4 mr-2 text-yellow-600 dark:text-yellow-400" />
+                          Pinned Notes
+                        </h3>
+                        <div className="space-y-3">
+                          {(() => {
+                            const pinnedNotes = notes.filter(note => note.is_pinned);
+                            
+                            if (pinnedNotes.length === 0) {
+                              return (
+                                <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 text-center">
+                                  <Pin className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">No pinned notes</p>
+                                </div>
+                              );
+                            }
+                            
+                            return pinnedNotes.map((note) => {
+                              const noteReplies = replies[note.id] || [];
+                              const isExpanded = expandedNotes.has(note.id);
+                              const canDelete = teamMember?.id === note.author_id;
+                              
+                              return (
+                                <div
+                                  key={note.id}
+                                  className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-400 dark:border-yellow-600 rounded-lg transition-all"
+                                >
+                                  {/* Note Content */}
+                                  <div className="p-3">
+                                    <div className="flex items-start justify-between mb-2">
+                                      <div className="flex items-start space-x-2 flex-1 min-w-0">
+                                        <div className="w-6 h-6 rounded-full bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center flex-shrink-0">
+                                          <User className="w-3 h-3 text-yellow-600 dark:text-yellow-400" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center space-x-1 mb-1">
+                                            <span className="font-semibold text-xs text-gray-900 dark:text-white truncate">
+                                              {note.author_name}
+                                            </span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                                              {formatTimestamp(note.created_at)}
+                                            </span>
+                                          </div>
+                                          <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words line-clamp-3">
+                                            {note.content}
+                                          </p>
+                                          {note.image_url && (
+                                            <img 
+                                              src={note.image_url} 
+                                              alt="Note attachment" 
+                                              className="mt-2 max-h-32 rounded border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90"
+                                              onClick={() => window.open(note.image_url!, '_blank')}
+                                            />
+                                          )}
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Actions */}
+                                      <div className="flex items-center space-x-1 ml-2">
+                                        <button
+                                          onClick={() => handleTogglePin(note.id)}
+                                          className="p-1 rounded hover:bg-yellow-100 dark:hover:bg-yellow-900/50 transition-colors text-yellow-600 dark:text-yellow-400"
+                                          title="Unpin note"
+                                        >
+                                          <Pin className="w-3.5 h-3.5" />
+                                        </button>
+                                        {canDelete && (
+                                          <button
+                                            onClick={() => handleDeleteNote(note.id)}
+                                            className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                            title="Delete note"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Actions Footer */}
+                                    <div className="flex items-center space-x-3 mt-2 pt-2 border-t border-yellow-200 dark:border-yellow-800">
+                                      <button
+                                        onClick={() => setShowReplyInput(showReplyInput === note.id ? null : note.id)}
+                                        className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-400 flex items-center space-x-1"
+                                      >
+                                        <Reply className="w-3 h-3" />
+                                        <span>Reply</span>
+                                      </button>
+                                      {noteReplies.length > 0 && (
+                                        <button
+                                          onClick={() => toggleNoteExpanded(note.id)}
+                                          className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-400 flex items-center space-x-1"
+                                        >
+                                          <MessageSquare className="w-3 h-3" />
+                                          <span>{noteReplies.length}</span>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Reply Input */}
+                                  {showReplyInput === note.id && (
+                                    <div className="px-3 pb-3 border-t border-yellow-200 dark:border-yellow-800 pt-3">
+                                      <div className="space-y-2">
+                                        <textarea
+                                          value={replyContent[note.id] || ''}
+                                          onChange={(e) => setReplyContent(prev => ({ ...prev, [note.id]: e.target.value }))}
+                                          placeholder="Write a reply..."
+                                          rows={2}
+                                          className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs focus:ring-yellow-500 focus:border-yellow-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 resize-none"
+                                        />
+                                        
+                                        {/* Image Preview */}
+                                        {replyImagePreviews[note.id] && (
+                                          <div className="relative inline-block">
+                                            <img 
+                                              src={replyImagePreviews[note.id]!} 
+                                              alt="Preview" 
+                                              className="max-h-24 rounded border border-gray-300 dark:border-gray-600"
+                                            />
+                                            <button
+                                              onClick={() => handleRemoveReplyImage(note.id)}
+                                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+                                            >
+                                              <X className="w-3 h-3" />
+                                            </button>
+                                          </div>
+                                        )}
+
+                                        <div className="flex justify-between items-center">
+                                          <div>
+                                            <input
+                                              type="file"
+                                              id={`reply-image-upload-pinned-${note.id}`}
+                                              accept="image/*"
+                                              onChange={(e) => handleReplyImageChange(note.id, e)}
+                                              className="hidden"
+                                            />
+                                            <label
+                                              htmlFor={`reply-image-upload-pinned-${note.id}`}
+                                              className="inline-flex items-center px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                                            >
+                                              <ImageIcon className="w-3 h-3 mr-1" />
+                                              Image
+                                            </label>
+                                          </div>
+                                          <div className="flex space-x-2">
+                                            <button
+                                              onClick={() => setShowReplyInput(null)}
+                                              className="px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                                            >
+                                              Cancel
+                                            </button>
+                                            <button
+                                              onClick={() => handleCreateReply(note.id)}
+                                              disabled={!replyContent[note.id]?.trim() && !replyImages[note.id]}
+                                              className="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded text-xs font-medium transition-colors"
+                                            >
+                                              Reply
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Replies */}
+                                  {isExpanded && noteReplies.length > 0 && (
+                                    <div className="border-t border-yellow-200 dark:border-yellow-800 bg-yellow-50/50 dark:bg-yellow-900/10">
+                                      <div className="p-3 space-y-2">
+                                        {noteReplies.map((reply) => {
+                                          const canDeleteReply = teamMember?.id === reply.author_id;
+                                          
+                                          return (
+                                            <div key={reply.id} className="flex space-x-2">
+                                              <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                                                <User className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                                              </div>
+                                              <div className="flex-1 min-w-0">
+                                                <div className="flex items-start justify-between">
+                                                  <div className="flex-1">
+                                                    <div className="flex items-center space-x-1 mb-0.5">
+                                                      <span className="font-semibold text-xs text-gray-900 dark:text-white">
+                                                        {reply.author_name}
+                                                      </span>
+                                                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                        {formatTimestamp(reply.created_at)}
+                                                      </span>
+                                                    </div>
+                                                    <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
+                                                      {reply.content}
+                                                    </p>
+                                                    {reply.image_url && (
+                                                      <img 
+                                                        src={reply.image_url} 
+                                                        alt="Reply attachment" 
+                                                        className="mt-1 max-h-24 rounded border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90"
+                                                        onClick={() => window.open(reply.image_url!, '_blank')}
+                                                      />
+                                                    )}
+                                                  </div>
+                                                  {canDeleteReply && (
+                                                    <button
+                                                      onClick={() => handleDeleteReply(reply.id)}
+                                                      className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors ml-2"
+                                                      title="Delete reply"
+                                                    >
+                                                      <Trash2 className="w-3 h-3" />
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* All Notes Column */}
+                    <div className="lg:col-span-2">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">All Notes</h3>
+                      <div className="space-y-4">
+                    {notes.map((note) => {
+                      const noteReplies = replies[note.id] || [];
+                      const isExpanded = expandedNotes.has(note.id);
+                      const canDelete = teamMember?.id === note.author_id;
+
+                      return (
+                        <div
+                          key={note.id}
+                          className={`bg-white dark:bg-gray-800 border rounded-lg transition-all ${
+                            note.is_pinned
+                              ? 'border-yellow-400 dark:border-yellow-600 shadow-md'
+                              : 'border-gray-200 dark:border-gray-700'
+                          }`}
+                        >
+                          {/* Note Header */}
+                          <div className="p-4">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-start space-x-3 flex-1">
+                                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
+                                  <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center space-x-2 mb-1">
+                                    <span className="font-semibold text-sm text-gray-900 dark:text-white">
+                                      {note.author_name}
+                                    </span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                      {formatTimestamp(note.created_at)}
+                                    </span>
+                                    {note.is_pinned && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">
+                                        <Pin className="w-3 h-3 mr-1" />
+                                        Pinned
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
+                                    {note.content}
+                                  </p>
+                                  {note.image_url && (
+                                    <img 
+                                      src={note.image_url} 
+                                      alt="Note attachment" 
+                                      className="mt-2 max-h-48 rounded border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90"
+                                      onClick={() => window.open(note.image_url!, '_blank')}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* Actions */}
+                              <div className="flex items-center space-x-1 ml-3">
+                                <button
+                                  onClick={() => handleTogglePin(note.id)}
+                                  className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                                    note.is_pinned ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-400 dark:text-gray-500'
+                                  }`}
+                                  title={note.is_pinned ? 'Unpin note' : 'Pin note'}
+                                >
+                                  <Pin className="w-4 h-4" />
+                                </button>
+                                {canDelete && (
+                                  <button
+                                    onClick={() => handleDeleteNote(note.id)}
+                                    className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                    title="Delete note"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Actions Footer */}
+                            <div className="flex items-center space-x-4 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                              <button
+                                onClick={() => setShowReplyInput(showReplyInput === note.id ? null : note.id)}
+                                className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center space-x-1"
+                              >
+                                <Reply className="w-3.5 h-3.5" />
+                                <span>Reply</span>
+                              </button>
+                              {noteReplies.length > 0 && (
+                                <button
+                                  onClick={() => toggleNoteExpanded(note.id)}
+                                  className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center space-x-1"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5" />
+                                  <span>{noteReplies.length} {noteReplies.length === 1 ? 'reply' : 'replies'}</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Reply Input */}
+                          {showReplyInput === note.id && (
+                            <div className="px-4 pb-4 border-t border-gray-100 dark:border-gray-700 pt-4">
+                              <div className="flex space-x-2">
+                                <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                                  <User className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                </div>
+                                <div className="flex-1 space-y-2">
+                                  <textarea
+                                    value={replyContent[note.id] || ''}
+                                    onChange={(e) => setReplyContent(prev => ({ ...prev, [note.id]: e.target.value }))}
+                                    placeholder="Write a reply..."
+                                    rows={2}
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 resize-none"
+                                  />
+                                  
+                                  {/* Image Preview */}
+                                  {replyImagePreviews[note.id] && (
+                                    <div className="relative inline-block">
+                                      <img 
+                                        src={replyImagePreviews[note.id]!} 
+                                        alt="Preview" 
+                                        className="max-h-32 rounded border border-gray-300 dark:border-gray-600"
+                                      />
+                                      <button
+                                        onClick={() => handleRemoveReplyImage(note.id)}
+                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  <div className="flex justify-between items-center">
+                                    <div>
+                                      <input
+                                        type="file"
+                                        id={`reply-image-upload-${note.id}`}
+                                        accept="image/*"
+                                        onChange={(e) => handleReplyImageChange(note.id, e)}
+                                        className="hidden"
+                                      />
+                                      <label
+                                        htmlFor={`reply-image-upload-${note.id}`}
+                                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                                      >
+                                        <ImageIcon className="w-4 h-4 mr-2" />
+                                        Add Image
+                                      </label>
+                                    </div>
+                                    <div className="flex space-x-2">
+                                      <button
+                                        onClick={() => setShowReplyInput(null)}
+                                        className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        onClick={() => handleCreateReply(note.id)}
+                                        disabled={!replyContent[note.id]?.trim() && !replyImages[note.id]}
+                                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded text-sm font-medium transition-colors"
+                                      >
+                                        Reply
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Replies */}
+                          {isExpanded && noteReplies.length > 0 && (
+                            <div className="border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                              <div className="p-4 space-y-3">
+                                {noteReplies.map((reply) => {
+                                  const canDeleteReply = teamMember?.id === reply.author_id;
+                                  
+                                  return (
+                                    <div key={reply.id} className="flex space-x-3">
+                                      <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                                        <User className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-start justify-between">
+                                          <div className="flex-1">
+                                            <div className="flex items-center space-x-2 mb-1">
+                                              <span className="font-semibold text-xs text-gray-900 dark:text-white">
+                                                {reply.author_name}
+                                              </span>
+                                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                {formatTimestamp(reply.created_at)}
+                                              </span>
+                                            </div>
+                                            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
+                                              {reply.content}
+                                            </p>
+                                            {reply.image_url && (
+                                              <img 
+                                                src={reply.image_url} 
+                                                alt="Reply attachment" 
+                                                className="mt-2 max-h-32 rounded border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90"
+                                                onClick={() => window.open(reply.image_url!, '_blank')}
+                                              />
+                                            )}
+                                          </div>
+                                          {canDeleteReply && (
+                                            <button
+                                              onClick={() => handleDeleteReply(reply.id)}
+                                              className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors ml-2"
+                                              title="Delete reply"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+          </div>
+        </div>
       </div>
 
-      {/* Thread Notes Modal */}
-      <ThreadNotes
-        isOpen={showNotesModal}
-        onClose={() => setShowNotesModal(false)}
-        notes={threadNotes}
-        onEvaluate={handleEvaluateMessages}
-        evaluating={evaluatingNotes}
-        evaluationProgress={evaluationProgress}
-      />
-
-      {/* Sound Notifier Component */}
-      <SoundNotifier
-        enabled={soundEnabled}
-        onToggle={handleSoundToggle}
-        triggerSound={triggerSound}
-        onSoundPlayed={handleSoundPlayed}
-      />
-
-      {/* Thread Settings Modal */}
-      <ThreadSettings
-        isOpen={showDetailModal}
-        onClose={() => setShowDetailModal(false)}
-        models={models}
-        onAssignModel={handleAssignModel}
-        editingContact={editingContact}
-        onEditContact={setEditingContact}
-        onSaveContact={handleSaveContact}
-        threadParticipants={selectedThread?.participants || []}
-        contactMap={contactMap}
+      {/* Add Custom Modal */}
+      <AddCustomModal
+        isOpen={isAddCustomModalOpen}
+        onClose={() => setIsAddCustomModalOpen(false)}
+        clientUsername={client.username}
+        onSubmit={handleAddCustom}
       />
     </Layout>
   );
-}
+};
+
+export default ClientProfilePage;
+
