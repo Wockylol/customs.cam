@@ -441,10 +441,6 @@ ${questionnaire.additional_info ? `- Additional Info: ${questionnaire.additional
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       
-      // #region agent log
-      console.log('DEBUG [D,E] Frontend calling edge function:', {url:`${supabaseUrl}/functions/v1/grok-chat`,hasAnonKey:!!supabaseAnonKey,messageLength:userMessage.length});
-      // #endregion
-      
       // Call Grok API via Supabase edge function
       const response = await fetch(`${supabaseUrl}/functions/v1/grok-chat`, {
         method: 'POST',
