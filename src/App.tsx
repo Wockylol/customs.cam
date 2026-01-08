@@ -39,6 +39,7 @@ import ChatterPerformance from './pages/ChatterPerformance';
 import NotificationsPage from './pages/NotificationsPage';
 import PayrollSheet from './pages/PayrollSheet';
 import DebugLogsPage from './pages/DebugLogsPage';
+import VibeCheckPage from './pages/VibeCheckPage';
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -270,6 +271,7 @@ function AnimatedRoutes() {
             <Route path="/agency/:agencySlug/all-customs" element={<AgencyAllCustoms />} />
             <Route path="/app/:clientUsername" element={<MobileClientView />} />
             <Route path="/app/:clientUsername/scene/:assignmentId" element={<SceneViewerPage />} />
+            <Route path="/app/:clientUsername/vibe-check" element={<VibeCheckPage />} />
             <Route path="/debug-logs" element={<DebugLogsPage />} />
       </Routes>
     </AnimatePresence>
