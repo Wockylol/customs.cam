@@ -437,12 +437,16 @@ ${questionnaire.known_from ? `- Known From: ${questionnaire.known_from}` : ''}
 ${questionnaire.additional_info ? `- Additional Info: ${questionnaire.additional_info}` : ''}
       `.trim();
 
-      // Call Grok API
-      const response = await fetch('https://api.x.ai/v1/chat/completions', {
+      // Get the Supabase URL for edge function
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      // Call Grok API via Supabase edge function
+      const response = await fetch(`${supabaseUrl}/functions/v1/grok-chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer xai-qalGj0UiEV1Vyxqt2V1ZDHKnfCoqup0krvbmLO6O1JlnhSxfUp2kVN9PvLSPgpKWLqGk4edot3P7VBE5`
+          'Authorization': `Bearer ${supabaseAnonKey}`
         },
         body: JSON.stringify({
           model: 'grok-2-latest',
