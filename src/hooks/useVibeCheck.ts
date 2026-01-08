@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { VoiceAnalysis } from '../lib/database.types';
 
 // Types for the conversation
 export interface ChatMessage {
@@ -9,31 +10,8 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
-export interface IdiolectAnalysis {
-  personalityTraits: {
-    dominantSubmissive: number;
-    playfulSerious: number;
-    confidentShy: number;
-    warmthLevel: number;
-  };
-  communicationStyle: {
-    avgResponseLength: 'brief' | 'moderate' | 'detailed';
-    emojiUsage: 'none' | 'minimal' | 'moderate' | 'heavy';
-    capitalizationStyle: 'lowercase' | 'normal' | 'expressive';
-    punctuationStyle: string;
-    sentenceStructure: string;
-  };
-  signaturePatterns: {
-    greetings: string[];
-    petNames: string[];
-    closings: string[];
-    fillerWords: string[];
-    uniquePhrases: string[];
-  };
-  flirtationApproach: string;
-  loveLanguageIndicators: string[];
-  chatterGuidelines: string;
-}
+// Re-export VoiceAnalysis for consumers
+export type { VoiceAnalysis };
 
 export type VibeCheckStatus = 'not_started' | 'in_progress' | 'analyzing' | 'completed';
 
@@ -71,7 +49,7 @@ export const useVibeCheck = (clientId: string | undefined) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
   const [status, setStatus] = useState<VibeCheckStatus>('not_started');
-  const [analysis, setAnalysis] = useState<IdiolectAnalysis | null>(null);
+  const [analysis, setAnalysis] = useState<VoiceAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [waitingForFan, setWaitingForFan] = useState(false);
@@ -107,31 +85,8 @@ export const useVibeCheck = (clientId: string | undefined) => {
         
         if (data.status === 'completed') {
           setStatus('completed');
-          setAnalysis({
-            personalityTraits: {
-              dominantSubmissive: data.trait_dominant_submissive || 0,
-              playfulSerious: data.trait_playful_serious || 0,
-              confidentShy: data.trait_confident_shy || 0,
-              warmthLevel: data.trait_warmth_level || 50
-            },
-            communicationStyle: {
-              avgResponseLength: data.avg_response_length || 'moderate',
-              emojiUsage: data.emoji_usage || 'minimal',
-              capitalizationStyle: data.capitalization_style || 'normal',
-              punctuationStyle: data.punctuation_style || '',
-              sentenceStructure: data.sentence_structure || ''
-            },
-            signaturePatterns: {
-              greetings: data.greetings || [],
-              petNames: data.pet_names || [],
-              closings: data.closings || [],
-              fillerWords: data.filler_words || [],
-              uniquePhrases: data.unique_phrases || []
-            },
-            flirtationApproach: data.flirtation_approach || '',
-            loveLanguageIndicators: data.love_language_indicators || [],
-            chatterGuidelines: data.chatter_guidelines || ''
-          });
+          // Use new voice_analysis if available, otherwise it will be null
+          setAnalysis(data.voice_analysis as VoiceAnalysis || null);
         } else if (data.status === 'in_progress') {
           setStatus('in_progress');
         }
@@ -160,6 +115,7 @@ export const useVibeCheck = (clientId: string | undefined) => {
           status: 'in_progress',
           current_step: 0,
           conversation_transcript: [],
+          voice_analysis: null,
           started_at: new Date().toISOString()
         }, { onConflict: 'client_id' });
     } catch (err) {
@@ -318,9 +274,9 @@ export const useVibeCheck = (clientId: string | undefined) => {
       }
 
       const { analysis: analysisResult } = response.data;
-      setAnalysis(analysisResult);
+      setAnalysis(analysisResult as VoiceAnalysis);
       
-      // Save final analysis to database
+      // Save final analysis to database with new voice_analysis column
       await supabase
         .from('client_idiolect_analysis')
         .upsert({
@@ -329,27 +285,7 @@ export const useVibeCheck = (clientId: string | undefined) => {
           current_step: TOTAL_STEPS,
           conversation_transcript: conversation,
           completed_at: new Date().toISOString(),
-          // Personality traits
-          trait_dominant_submissive: analysisResult.personalityTraits.dominantSubmissive,
-          trait_playful_serious: analysisResult.personalityTraits.playfulSerious,
-          trait_confident_shy: analysisResult.personalityTraits.confidentShy,
-          trait_warmth_level: analysisResult.personalityTraits.warmthLevel,
-          // Communication style
-          avg_response_length: analysisResult.communicationStyle.avgResponseLength,
-          emoji_usage: analysisResult.communicationStyle.emojiUsage,
-          capitalization_style: analysisResult.communicationStyle.capitalizationStyle,
-          punctuation_style: analysisResult.communicationStyle.punctuationStyle,
-          sentence_structure: analysisResult.communicationStyle.sentenceStructure,
-          // Signature patterns
-          greetings: analysisResult.signaturePatterns.greetings,
-          pet_names: analysisResult.signaturePatterns.petNames,
-          closings: analysisResult.signaturePatterns.closings,
-          filler_words: analysisResult.signaturePatterns.fillerWords,
-          unique_phrases: analysisResult.signaturePatterns.uniquePhrases,
-          // Additional insights
-          flirtation_approach: analysisResult.flirtationApproach,
-          love_language_indicators: analysisResult.loveLanguageIndicators,
-          chatter_guidelines: analysisResult.chatterGuidelines
+          voice_analysis: analysisResult
         }, { onConflict: 'client_id' });
 
       setStatus('completed');
@@ -409,4 +345,3 @@ export const useVibeCheck = (clientId: string | undefined) => {
 };
 
 export default useVibeCheck;
-
