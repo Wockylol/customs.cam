@@ -201,7 +201,7 @@ const AddCustomModal: React.FC<AddCustomModalProps> = ({
     setError(null);
 
     const requestPayload = {
-      model: 'grok-4-latest',
+      model: 'grok-3',
       messages: [
         {
           role: 'system',
