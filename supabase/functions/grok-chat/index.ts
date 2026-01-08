@@ -17,7 +17,7 @@ serve(async (req) => {
     const XAI_API_KEY = Deno.env.get('XAI_API_KEY')
     
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/811a88ed-ce7c-4965-bb66-ff046273fa15',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'grok-chat/index.ts:13',message:'Edge function entry - checking API key',data:{hasKey:!!XAI_API_KEY,keyPrefix:XAI_API_KEY?XAI_API_KEY.substring(0,8)+'***':'none'},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B'})}).catch(()=>{});
+    console.log('DEBUG [A,B] Edge function entry - checking API key:', {hasKey:!!XAI_API_KEY,keyPrefix:XAI_API_KEY?XAI_API_KEY.substring(0,8)+'***':'none'});
     // #endregion
     
     if (!XAI_API_KEY) {
@@ -38,7 +38,7 @@ serve(async (req) => {
     const body = await req.json()
     
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/811a88ed-ce7c-4965-bb66-ff046273fa15',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'grok-chat/index.ts:35',message:'Request body parsed',data:{model:body.model,messageCount:body.messages?.length,hasTemp:!!body.temperature,hasMaxTokens:!!body.max_tokens},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C,E'})}).catch(()=>{});
+    console.log('DEBUG [C,E] Request body parsed:', {model:body.model,messageCount:body.messages?.length,hasTemp:!!body.temperature,hasMaxTokens:!!body.max_tokens});
     // #endregion
     
     // Validate required fields
@@ -52,13 +52,8 @@ serve(async (req) => {
       )
     }
 
-    console.log('Proxying request to Grok API:', {
-      model: body.model,
-      messageCount: body.messages?.length
-    })
-
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/811a88ed-ce7c-4965-bb66-ff046273fa15',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'grok-chat/index.ts:52',message:'About to call Grok API',data:{url:'https://api.x.ai/v1/chat/completions',model:body.model,authPrefix:XAI_API_KEY.substring(0,8)+'***'},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C,D'})}).catch(()=>{});
+    console.log('DEBUG [C,D] About to call Grok API:', {url:'https://api.x.ai/v1/chat/completions',model:body.model,authPrefix:XAI_API_KEY.substring(0,8)+'***'});
     // #endregion
 
     // Forward the request to Grok API
@@ -72,7 +67,7 @@ serve(async (req) => {
     })
 
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/811a88ed-ce7c-4965-bb66-ff046273fa15',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'grok-chat/index.ts:67',message:'Grok API response received',data:{status:grokResponse.status,ok:grokResponse.ok,statusText:grokResponse.statusText},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C,D,E'})}).catch(()=>{});
+    console.log('DEBUG [C,D,E] Grok API response received:', {status:grokResponse.status,ok:grokResponse.ok,statusText:grokResponse.statusText});
     // #endregion
 
     if (!grokResponse.ok) {
@@ -80,7 +75,7 @@ serve(async (req) => {
       console.error('Grok API error:', grokResponse.status, errorText)
       
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/811a88ed-ce7c-4965-bb66-ff046273fa15',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'grok-chat/index.ts:76',message:'Grok API error details',data:{status:grokResponse.status,errorText:errorText,requestedModel:body.model},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+      console.log('DEBUG [C] Grok API error details:', {status:grokResponse.status,errorText:errorText,requestedModel:body.model});
       // #endregion
       return new Response(
         JSON.stringify({ 
@@ -99,7 +94,7 @@ serve(async (req) => {
     const data = await grokResponse.json()
     
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/811a88ed-ce7c-4965-bb66-ff046273fa15',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'grok-chat/index.ts:93',message:'Successful response from Grok',data:{hasChoices:!!data.choices,choiceCount:data.choices?.length,model:data.model},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
+    console.log('DEBUG [E] Successful response from Grok:', {hasChoices:!!data.choices,choiceCount:data.choices?.length,model:data.model});
     // #endregion
     
     return new Response(
