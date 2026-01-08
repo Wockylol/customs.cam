@@ -860,6 +860,92 @@ export interface Database {
           created_at?: string
         }
       }
+      client_idiolect_analysis: {
+        Row: {
+          id: string
+          client_id: string
+          conversation_transcript: any[]
+          trait_dominant_submissive: number
+          trait_playful_serious: number
+          trait_confident_shy: number
+          trait_warmth_level: number
+          avg_response_length: 'brief' | 'moderate' | 'detailed' | null
+          emoji_usage: 'none' | 'minimal' | 'moderate' | 'heavy' | null
+          capitalization_style: 'lowercase' | 'normal' | 'expressive' | null
+          punctuation_style: string | null
+          sentence_structure: string | null
+          greetings: string[]
+          pet_names: string[]
+          closings: string[]
+          filler_words: string[]
+          unique_phrases: string[]
+          flirtation_approach: string | null
+          love_language_indicators: string[]
+          chatter_guidelines: string | null
+          status: 'incomplete' | 'in_progress' | 'completed'
+          current_step: number
+          started_at: string | null
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          conversation_transcript?: any[]
+          trait_dominant_submissive?: number
+          trait_playful_serious?: number
+          trait_confident_shy?: number
+          trait_warmth_level?: number
+          avg_response_length?: 'brief' | 'moderate' | 'detailed' | null
+          emoji_usage?: 'none' | 'minimal' | 'moderate' | 'heavy' | null
+          capitalization_style?: 'lowercase' | 'normal' | 'expressive' | null
+          punctuation_style?: string | null
+          sentence_structure?: string | null
+          greetings?: string[]
+          pet_names?: string[]
+          closings?: string[]
+          filler_words?: string[]
+          unique_phrases?: string[]
+          flirtation_approach?: string | null
+          love_language_indicators?: string[]
+          chatter_guidelines?: string | null
+          status?: 'incomplete' | 'in_progress' | 'completed'
+          current_step?: number
+          started_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          conversation_transcript?: any[]
+          trait_dominant_submissive?: number
+          trait_playful_serious?: number
+          trait_confident_shy?: number
+          trait_warmth_level?: number
+          avg_response_length?: 'brief' | 'moderate' | 'detailed' | null
+          emoji_usage?: 'none' | 'minimal' | 'moderate' | 'heavy' | null
+          capitalization_style?: 'lowercase' | 'normal' | 'expressive' | null
+          punctuation_style?: string | null
+          sentence_structure?: string | null
+          greetings?: string[]
+          pet_names?: string[]
+          closings?: string[]
+          filler_words?: string[]
+          unique_phrases?: string[]
+          flirtation_approach?: string | null
+          love_language_indicators?: string[]
+          chatter_guidelines?: string | null
+          status?: 'incomplete' | 'in_progress' | 'completed'
+          current_step?: number
+          started_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
