@@ -27,6 +27,7 @@ import PriorityFeed from '../components/ui/PriorityFeed';
 import StatusLine from '../components/ui/StatusLine';
 import { priorityEngine } from '../lib/priorityEngine';
 import { useClientNotifications } from '../hooks/useClientNotifications';
+import VibeCheckCard from '../components/ui/VibeCheckCard';
 
 type CustomRequest = Database['public']['Tables']['custom_requests']['Row'];
 type Client = Database['public']['Tables']['clients']['Row'];
@@ -390,9 +391,19 @@ const MobileClientView: React.FC = () => {
         </div>
       </div>
 
+      {/* Vibe Check Card - Above Priority Feed */}
+      {activeFilter === 'all' && client && (
+        <div className="px-5 -mt-2 mb-4">
+          <VibeCheckCard 
+            clientId={client.id} 
+            clientUsername={clientUsername || ''} 
+          />
+        </div>
+      )}
+
       {/* Priority Feed - Replaces Quick Action Tiles */}
       {activeFilter === 'all' && (
-        <div className="px-5 -mt-4 mb-6">
+        <div className="px-5 -mt-2 mb-6">
           <PriorityFeed 
             items={priorityFeedItems}
             totalEarned={totalEarned}
