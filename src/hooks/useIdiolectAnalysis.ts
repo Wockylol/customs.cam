@@ -1,27 +1,15 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { VoiceAnalysis } from '../lib/database.types';
+
+// Re-export for consumers
+export type { VoiceAnalysis };
 
 export interface IdiolectAnalysisData {
   id: string;
   client_id: string;
   conversation_transcript: any[];
-  trait_dominant_submissive: number;
-  trait_playful_serious: number;
-  trait_confident_shy: number;
-  trait_warmth_level: number;
-  avg_response_length: 'brief' | 'moderate' | 'detailed' | null;
-  emoji_usage: 'none' | 'minimal' | 'moderate' | 'heavy' | null;
-  capitalization_style: 'lowercase' | 'normal' | 'expressive' | null;
-  punctuation_style: string | null;
-  sentence_structure: string | null;
-  greetings: string[];
-  pet_names: string[];
-  closings: string[];
-  filler_words: string[];
-  unique_phrases: string[];
-  flirtation_approach: string | null;
-  love_language_indicators: string[];
-  chatter_guidelines: string | null;
+  voice_analysis: VoiceAnalysis | null;
   status: 'incomplete' | 'in_progress' | 'completed';
   current_step: number;
   started_at: string | null;
@@ -50,7 +38,7 @@ export const useIdiolectAnalysis = (clientId: string | undefined) => {
     try {
       const { data, error: fetchError } = await supabase
         .from('client_idiolect_analysis')
-        .select('*')
+        .select('id, client_id, conversation_transcript, voice_analysis, status, current_step, started_at, completed_at, created_at, updated_at')
         .eq('client_id', clientId)
         .maybeSingle();
 
@@ -59,7 +47,7 @@ export const useIdiolectAnalysis = (clientId: string | undefined) => {
         setError('Failed to load analysis');
       }
 
-      setAnalysis(data || null);
+      setAnalysis(data as IdiolectAnalysisData || null);
     } catch (err) {
       console.error('Error in fetchAnalysis:', err);
       setError('Failed to load analysis');
@@ -74,12 +62,13 @@ export const useIdiolectAnalysis = (clientId: string | undefined) => {
 
   return {
     analysis,
+    voiceAnalysis: analysis?.voice_analysis || null,
     loading,
     error,
     refetch,
-    isComplete: analysis?.status === 'completed'
+    isComplete: analysis?.status === 'completed',
+    hasVoiceAnalysis: !!analysis?.voice_analysis
   };
 };
 
 export default useIdiolectAnalysis;
-
