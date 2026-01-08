@@ -6,6 +6,80 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+// Voice Analysis Types for Idiolect
+export interface VoiceAnalysis {
+  writingMechanics: {
+    capitalization: {
+      sentenceStart: 'always' | 'often' | 'sometimes' | 'rarely' | 'never'
+      examples: string[]
+    }
+    punctuation: {
+      periods: 'always' | 'often' | 'sometimes' | 'rarely' | 'never'
+      commas: 'often' | 'sometimes' | 'rarely'
+      ellipsis: 'heavy' | 'moderate' | 'light' | 'never'
+      exclamationMarks: 'heavy' | 'moderate' | 'light' | 'never'
+      questionMarks: 'normal' | 'light' | 'never'
+      overall: 'high' | 'medium' | 'low'
+    }
+    emoji: {
+      frequency: 'none' | 'minimal' | 'moderate' | 'heavy'
+      position: 'end' | 'mid' | 'start' | 'standalone' | 'mixed'
+      style: 'single' | 'clusters' | 'none'
+      favorites: string[]
+      mirrors_fan: boolean
+    }
+    abbreviations: {
+      uses: string[]
+      avoids: string[]
+      textSpeak: 'heavy' | 'moderate' | 'light' | 'none'
+      examples: string[]
+    }
+    formality: {
+      pronouns: 'u' | 'you' | 'mixed'
+      contractions: 'always' | 'sometimes' | 'never'
+      profanity: 'none' | 'light' | 'moderate' | 'heavy'
+      softeners: 'heavy' | 'moderate' | 'light' | 'none'
+      examples: string[]
+    }
+    messageStructure: {
+      typicalLength: 'very-short' | 'short' | 'medium' | 'long'
+      multipleMessages: boolean
+      lineBreaks: boolean
+      letterStretching: 'heavy' | 'moderate' | 'light' | 'none'
+      examples: string[]
+    }
+  }
+  signaturePatterns: {
+    greetings: string[]
+    petNames: string[]
+    closings: string[]
+    fillerWords: string[]
+    uniquePhrases: string[]
+  }
+  neverDoes: {
+    behaviors: string[]
+    critical: boolean
+  }
+  voiceModes: {
+    casualChat: { tone: string; example: string }
+    flirting: { tone: string; example: string }
+    customRequests: { tone: string; example: string }
+    complimentResponse: { tone: string; example: string }
+  }
+  chatterPlaybook: {
+    quickRules: string[]
+    doNot: string[]
+    copyTheseExactly: string[]
+    replyTemplates: {
+      smallTalk: string
+      compliment: string
+      customRequest: string
+      boundary: string
+    }
+    confidence: 'high' | 'medium' | 'low'
+  }
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -865,6 +939,8 @@ export interface Database {
           id: string
           client_id: string
           conversation_transcript: any[]
+          voice_analysis: VoiceAnalysis | null
+          // Legacy fields (kept for backwards compatibility)
           trait_dominant_submissive: number
           trait_playful_serious: number
           trait_confident_shy: number
@@ -893,6 +969,7 @@ export interface Database {
           id?: string
           client_id: string
           conversation_transcript?: any[]
+          voice_analysis?: VoiceAnalysis | null
           trait_dominant_submissive?: number
           trait_playful_serious?: number
           trait_confident_shy?: number
@@ -921,6 +998,7 @@ export interface Database {
           id?: string
           client_id?: string
           conversation_transcript?: any[]
+          voice_analysis?: VoiceAnalysis | null
           trait_dominant_submissive?: number
           trait_playful_serious?: number
           trait_confident_shy?: number
