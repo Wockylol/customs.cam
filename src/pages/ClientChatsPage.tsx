@@ -543,7 +543,7 @@ export function ClientChatsPage() {
           'Authorization': `Bearer ${supabaseAnonKey}`
         },
         body: JSON.stringify({
-          model: 'grok-2-latest',
+          model: 'grok-3-mini',
           messages: [
             {
               role: 'system',
