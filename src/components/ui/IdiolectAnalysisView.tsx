@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
 import { 
-  Sparkles, 
-  MessageCircle, 
-  Heart, 
-  Zap, 
-  Star, 
+  Check, 
+  X, 
   Copy, 
-  Check,
   ChevronDown,
   ChevronUp,
   AlertCircle,
-  Clock
+  Clock,
+  Sparkles,
+  MessageCircle
 } from 'lucide-react';
-import { IdiolectAnalysisData } from '../../hooks/useIdiolectAnalysis';
+import { IdiolectAnalysisData, VoiceAnalysis } from '../../hooks/useIdiolectAnalysis';
 
 interface IdiolectAnalysisViewProps {
   analysis: IdiolectAnalysisData | null;
@@ -26,14 +24,12 @@ const IdiolectAnalysisView: React.FC<IdiolectAnalysisViewProps> = ({
   clientUsername 
 }) => {
   const [showTranscript, setShowTranscript] = useState(false);
-  const [copiedGuidelines, setCopiedGuidelines] = useState(false);
+  const [copiedItem, setCopiedItem] = useState<string | null>(null);
 
-  const handleCopyGuidelines = async () => {
-    if (analysis?.chatter_guidelines) {
-      await navigator.clipboard.writeText(analysis.chatter_guidelines);
-      setCopiedGuidelines(true);
-      setTimeout(() => setCopiedGuidelines(false), 2000);
-    }
+  const copyToClipboard = async (text: string, id: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedItem(id);
+    setTimeout(() => setCopiedItem(null), 2000);
   };
 
   if (loading) {
@@ -41,7 +37,7 @@ const IdiolectAnalysisView: React.FC<IdiolectAnalysisViewProps> = ({
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400 text-sm">Loading analysis...</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">Loading voice profile...</p>
         </div>
       </div>
     );
@@ -57,8 +53,8 @@ const IdiolectAnalysisView: React.FC<IdiolectAnalysisViewProps> = ({
           No Vibe Check Yet
         </h3>
         <p className="text-gray-500 dark:text-gray-400 text-sm max-w-md mx-auto">
-          @{clientUsername} hasn't completed their Vibe Check simulation yet. 
-          Once they do, their communication style analysis will appear here.
+          @{clientUsername} hasn't completed their Vibe Check yet. 
+          Once they do, their voice profile will appear here.
         </p>
       </div>
     );
@@ -73,9 +69,8 @@ const IdiolectAnalysisView: React.FC<IdiolectAnalysisViewProps> = ({
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
           Vibe Check In Progress
         </h3>
-        <p className="text-gray-500 dark:text-gray-400 text-sm max-w-md mx-auto">
-          @{clientUsername} has started their Vibe Check but hasn't finished yet.
-          They're {Math.round((analysis.current_step / 8) * 100)}% complete.
+        <p className="text-gray-500 dark:text-gray-400 text-sm">
+          {Math.round((analysis.current_step / 8) * 100)}% complete
         </p>
         <div className="mt-4 w-48 h-2 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto overflow-hidden">
           <div 
@@ -87,230 +82,180 @@ const IdiolectAnalysisView: React.FC<IdiolectAnalysisViewProps> = ({
     );
   }
 
-  // Helper functions
-  const getTraitLabel = (value: number, lowLabel: string, highLabel: string) => {
-    if (value < -30) return { label: lowLabel, intensity: 'Strong' };
-    if (value < 0) return { label: lowLabel, intensity: 'Slight' };
-    if (value > 30) return { label: highLabel, intensity: 'Strong' };
-    if (value > 0) return { label: highLabel, intensity: 'Slight' };
-    return { label: 'Balanced', intensity: '' };
-  };
-
-  const getTraitColor = (value: number) => {
-    if (Math.abs(value) > 50) return 'text-purple-600 dark:text-purple-400';
-    if (Math.abs(value) > 20) return 'text-blue-600 dark:text-blue-400';
-    return 'text-gray-600 dark:text-gray-400';
-  };
-
-  const traits = [
-    {
-      icon: <Zap className="w-5 h-5" />,
-      name: 'Energy',
-      value: analysis.trait_dominant_submissive,
-      ...getTraitLabel(analysis.trait_dominant_submissive, 'Submissive', 'Dominant'),
-      color: 'from-purple-500 to-pink-500'
-    },
-    {
-      icon: <Sparkles className="w-5 h-5" />,
-      name: 'Tone',
-      value: analysis.trait_playful_serious,
-      ...getTraitLabel(analysis.trait_playful_serious, 'Serious', 'Playful'),
-      color: 'from-amber-500 to-orange-500'
-    },
-    {
-      icon: <Star className="w-5 h-5" />,
-      name: 'Confidence',
-      value: analysis.trait_confident_shy,
-      ...getTraitLabel(analysis.trait_confident_shy, 'Reserved', 'Confident'),
-      color: 'from-blue-500 to-cyan-500'
-    },
-    {
-      icon: <Heart className="w-5 h-5" />,
-      name: 'Warmth',
-      value: analysis.trait_warmth_level,
-      label: analysis.trait_warmth_level > 60 ? 'Very Warm' : analysis.trait_warmth_level > 40 ? 'Warm' : 'Reserved',
-      intensity: analysis.trait_warmth_level > 70 ? 'High' : '',
-      color: 'from-rose-500 to-red-500'
-    }
-  ];
+  const voice = analysis.voice_analysis;
+  
+  if (!voice) {
+    return (
+      <div className="text-center py-12">
+        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+          <AlertCircle className="w-8 h-8 text-gray-400" />
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          Analysis Pending
+        </h3>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">
+          Voice analysis is still processing. Please refresh in a moment.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Voice Profile</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Completed {analysis.completed_at ? new Date(analysis.completed_at).toLocaleDateString() : 'recently'}
-            </p>
-          </div>
+      <div className="flex items-center gap-3 pb-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
+          <Sparkles className="w-5 h-5 text-white" />
         </div>
+        <div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Voice Profile</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Completed {analysis.completed_at ? new Date(analysis.completed_at).toLocaleDateString() : 'recently'}
+          </p>
+        </div>
+        {voice.chatterPlaybook?.confidence && (
+          <span className={`ml-auto px-2 py-1 rounded text-xs font-medium ${
+            voice.chatterPlaybook.confidence === 'high' 
+              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+              : voice.chatterPlaybook.confidence === 'medium'
+              ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+              : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+          }`}>
+            {voice.chatterPlaybook.confidence} confidence
+          </span>
+        )}
       </div>
 
-      {/* Personality Traits Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {traits.map((trait, index) => (
-          <div 
-            key={index}
-            className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
-          >
-            <div className={`w-10 h-10 bg-gradient-to-br ${trait.color} rounded-xl flex items-center justify-center mb-3`}>
-              {React.cloneElement(trait.icon, { className: 'w-5 h-5 text-white' })}
-            </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
-              {trait.name}
-            </p>
-            <p className={`font-semibold ${getTraitColor(trait.value)}`}>
-              {trait.intensity && <span className="text-xs font-normal mr-1">{trait.intensity}</span>}
-              {trait.label}
-            </p>
-          </div>
-        ))}
-      </div>
+      {/* Quick Rules - DO THIS */}
+      <RulesCard
+        title="✓ DO THIS"
+        items={voice.chatterPlaybook?.quickRules || []}
+        variant="success"
+      />
 
-      {/* Communication Style */}
-      <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-        <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Communication Style</h4>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Response Length</p>
-            <p className="font-medium text-gray-900 dark:text-white capitalize">
-              {analysis.avg_response_length || 'Unknown'}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Emoji Usage</p>
-            <p className="font-medium text-gray-900 dark:text-white capitalize">
-              {analysis.emoji_usage || 'Unknown'}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Capitalization</p>
-            <p className="font-medium text-gray-900 dark:text-white capitalize">
-              {analysis.capitalization_style || 'Unknown'}
-            </p>
-          </div>
-          {analysis.punctuation_style && (
-            <div className="col-span-2 md:col-span-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Punctuation Style</p>
-              <p className="font-medium text-gray-900 dark:text-white">
-                {analysis.punctuation_style}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Don't Do - AVOID THIS */}
+      <RulesCard
+        title="✗ AVOID THIS"
+        items={[
+          ...(voice.chatterPlaybook?.doNot || []),
+          ...(voice.neverDoes?.behaviors || [])
+        ]}
+        variant="danger"
+      />
 
-      {/* Signature Patterns */}
-      <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-        <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Signature Patterns</h4>
-        <div className="space-y-4">
-          {analysis.greetings?.length > 0 && (
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Greetings</p>
-              <div className="flex flex-wrap gap-2">
-                {analysis.greetings.map((phrase, i) => (
-                  <span key={i} className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm">
-                    "{phrase}"
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {analysis.pet_names?.length > 0 && (
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Pet Names / Terms of Endearment</p>
-              <div className="flex flex-wrap gap-2">
-                {analysis.pet_names.map((phrase, i) => (
-                  <span key={i} className="px-3 py-1 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-full text-sm">
-                    "{phrase}"
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {analysis.closings?.length > 0 && (
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Sign-offs</p>
-              <div className="flex flex-wrap gap-2">
-                {analysis.closings.map((phrase, i) => (
-                  <span key={i} className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-sm">
-                    "{phrase}"
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {analysis.unique_phrases?.length > 0 && (
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Unique Expressions</p>
-              <div className="flex flex-wrap gap-2">
-                {analysis.unique_phrases.map((phrase, i) => (
-                  <span key={i} className="px-3 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full text-sm">
-                    "{phrase}"
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Flirtation Approach */}
-      {analysis.flirtation_approach && (
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-          <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Flirtation Approach</h4>
-          <p className="text-gray-700 dark:text-gray-300">{analysis.flirtation_approach}</p>
-        </div>
-      )}
-
-      {/* Love Languages */}
-      {analysis.love_language_indicators?.length > 0 && (
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-          <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Love Language Indicators</h4>
+      {/* Copy These Phrases */}
+      {voice.chatterPlaybook?.copyTheseExactly && voice.chatterPlaybook.copyTheseExactly.length > 0 && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+          <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
+            <Copy className="w-4 h-4" />
+            Copy These Phrases
+          </h4>
           <div className="flex flex-wrap gap-2">
-            {analysis.love_language_indicators.map((lang, i) => (
-              <span key={i} className="px-3 py-1.5 bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 rounded-lg text-sm font-medium">
-                {lang}
-              </span>
+            {voice.chatterPlaybook.copyTheseExactly.map((phrase, i) => (
+              <button
+                key={i}
+                onClick={() => copyToClipboard(phrase, `phrase-${i}`)}
+                className="group px-3 py-1.5 bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded-lg text-sm text-gray-900 dark:text-white hover:border-blue-400 transition-colors flex items-center gap-2"
+              >
+                "{phrase}"
+                {copiedItem === `phrase-${i}` ? (
+                  <Check className="w-3 h-3 text-green-500" />
+                ) : (
+                  <Copy className="w-3 h-3 text-gray-400 group-hover:text-blue-500" />
+                )}
+              </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* Chatter Guidelines */}
-      {analysis.chatter_guidelines && (
-        <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-5 border border-blue-200 dark:border-blue-800">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <MessageCircle className="w-5 h-5 text-blue-500" />
-              Chatter Guidelines
-            </h4>
-            <button
-              onClick={handleCopyGuidelines}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-600"
-            >
-              {copiedGuidelines ? (
-                <>
-                  <Check className="w-4 h-4 text-green-500" />
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4" />
-                  Copy
-                </>
-              )}
-            </button>
+      {/* Writing Style Quick Reference */}
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+        <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Writing Style</h4>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+          <StyleItem 
+            label="Capitalization" 
+            value={voice.writingMechanics?.capitalization?.sentenceStart || 'unknown'} 
+          />
+          <StyleItem 
+            label="Periods" 
+            value={voice.writingMechanics?.punctuation?.periods || 'unknown'} 
+          />
+          <StyleItem 
+            label="Emojis" 
+            value={voice.writingMechanics?.emoji?.frequency || 'unknown'} 
+          />
+          <StyleItem 
+            label="Text Speak" 
+            value={voice.writingMechanics?.abbreviations?.textSpeak || 'unknown'} 
+          />
+          <StyleItem 
+            label="You/U" 
+            value={voice.writingMechanics?.formality?.pronouns || 'unknown'} 
+          />
+          <StyleItem 
+            label="Message Length" 
+            value={voice.writingMechanics?.messageStructure?.typicalLength || 'unknown'} 
+          />
+        </div>
+      </div>
+
+      {/* Signature Phrases */}
+      {voice.signaturePatterns && (
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+          <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Signature Phrases</h4>
+          <div className="space-y-3">
+            <PhraseRow label="Greetings" items={voice.signaturePatterns.greetings} />
+            <PhraseRow label="Pet Names" items={voice.signaturePatterns.petNames} />
+            <PhraseRow label="Closings" items={voice.signaturePatterns.closings} />
+            <PhraseRow label="Filler Words" items={voice.signaturePatterns.fillerWords} />
           </div>
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 overflow-auto max-h-96">
-              {analysis.chatter_guidelines}
-            </pre>
+        </div>
+      )}
+
+      {/* How to Reply */}
+      {voice.chatterPlaybook?.replyTemplates && (
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+          <h4 className="font-semibold text-gray-900 dark:text-white mb-4">How to Reply</h4>
+          <div className="space-y-3">
+            <ReplyGuide label="Small Talk" guide={voice.chatterPlaybook.replyTemplates.smallTalk} />
+            <ReplyGuide label="Compliments" guide={voice.chatterPlaybook.replyTemplates.compliment} />
+            <ReplyGuide label="Custom Requests" guide={voice.chatterPlaybook.replyTemplates.customRequest} />
+            <ReplyGuide label="Boundaries" guide={voice.chatterPlaybook.replyTemplates.boundary} />
+          </div>
+        </div>
+      )}
+
+      {/* Voice Modes */}
+      {voice.voiceModes && (
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+          <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Tone by Situation</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <VoiceModeCard label="Casual Chat" mode={voice.voiceModes.casualChat} />
+            <VoiceModeCard label="Flirting" mode={voice.voiceModes.flirting} />
+            <VoiceModeCard label="Custom Requests" mode={voice.voiceModes.customRequests} />
+            <VoiceModeCard label="Compliments" mode={voice.voiceModes.complimentResponse} />
+          </div>
+        </div>
+      )}
+
+      {/* Emoji Details (if they use emojis) */}
+      {voice.writingMechanics?.emoji?.frequency !== 'none' && voice.writingMechanics?.emoji?.favorites?.length > 0 && (
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+          <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Emoji Usage</h4>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <div>
+              <span className="text-gray-500 dark:text-gray-400">Position: </span>
+              <span className="text-gray-900 dark:text-white font-medium">{voice.writingMechanics.emoji.position}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 dark:text-gray-400">Style: </span>
+              <span className="text-gray-900 dark:text-white font-medium">{voice.writingMechanics.emoji.style}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 dark:text-gray-400">Favorites: </span>
+              <span className="text-gray-900 dark:text-white font-medium">{voice.writingMechanics.emoji.favorites.join(' ')}</span>
+            </div>
           </div>
         </div>
       )}
@@ -323,7 +268,7 @@ const IdiolectAnalysisView: React.FC<IdiolectAnalysisViewProps> = ({
             className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-750 transition-colors"
           >
             <span className="font-medium text-gray-900 dark:text-white">
-              View Vibe Check Transcript
+              View Original Conversation
             </span>
             {showTranscript ? (
               <ChevronUp className="w-5 h-5 text-gray-500" />
@@ -333,7 +278,7 @@ const IdiolectAnalysisView: React.FC<IdiolectAnalysisViewProps> = ({
           </button>
           
           {showTranscript && (
-            <div className="p-4 space-y-3 max-h-96 overflow-y-auto bg-white dark:bg-gray-900">
+            <div className="p-4 space-y-3 max-h-80 overflow-y-auto bg-white dark:bg-gray-900">
               {analysis.conversation_transcript.map((msg: any, index: number) => (
                 <div 
                   key={index}
@@ -356,5 +301,80 @@ const IdiolectAnalysisView: React.FC<IdiolectAnalysisViewProps> = ({
   );
 };
 
-export default IdiolectAnalysisView;
+// Sub-components
 
+const RulesCard: React.FC<{
+  title: string;
+  items: string[];
+  variant: 'success' | 'danger';
+}> = ({ title, items, variant }) => {
+  if (!items || items.length === 0) return null;
+  
+  const colors = variant === 'success' 
+    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-900 dark:text-green-100'
+    : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-900 dark:text-red-100';
+  
+  const iconColors = variant === 'success' ? 'text-green-600' : 'text-red-600';
+  
+  return (
+    <div className={`rounded-xl p-4 border ${colors}`}>
+      <h4 className="font-bold text-base mb-3">{title}</h4>
+      <ul className="space-y-2">
+        {items.map((item, i) => (
+          <li key={i} className="flex items-start gap-2 text-sm">
+            {variant === 'success' ? (
+              <Check className={`w-4 h-4 mt-0.5 flex-shrink-0 ${iconColors}`} />
+            ) : (
+              <X className={`w-4 h-4 mt-0.5 flex-shrink-0 ${iconColors}`} />
+            )}
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+const StyleItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <div>
+    <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider mb-1">{label}</p>
+    <p className="text-gray-900 dark:text-white font-medium capitalize">{value}</p>
+  </div>
+);
+
+const PhraseRow: React.FC<{ label: string; items?: string[] }> = ({ label, items }) => {
+  if (!items || items.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-gray-500 dark:text-gray-400 text-sm w-24 flex-shrink-0">{label}:</span>
+      {items.map((item, i) => (
+        <span key={i} className="px-2 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white">
+          {item}
+        </span>
+      ))}
+    </div>
+  );
+};
+
+const ReplyGuide: React.FC<{ label: string; guide?: string }> = ({ label, guide }) => {
+  if (!guide) return null;
+  return (
+    <div className="flex items-start gap-3">
+      <span className="text-gray-500 dark:text-gray-400 text-sm w-32 flex-shrink-0 pt-0.5">{label}:</span>
+      <span className="text-gray-900 dark:text-white text-sm">{guide}</span>
+    </div>
+  );
+};
+
+const VoiceModeCard: React.FC<{ label: string; mode?: { tone: string; example: string } }> = ({ label, mode }) => {
+  if (!mode) return null;
+  return (
+    <div className="bg-white dark:bg-gray-700 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
+      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-sm text-gray-900 dark:text-white font-medium mb-2">{mode.tone}</p>
+      <p className="text-xs text-gray-500 dark:text-gray-300 italic">Example: "{mode.example}"</p>
+    </div>
+  );
+};
+
+export default IdiolectAnalysisView;
