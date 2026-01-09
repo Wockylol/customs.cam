@@ -142,11 +142,11 @@ const ProspectIntakePage: React.FC = () => {
 
       const result = data?.[0];
       
-      if (!result?.success) {
-        throw new Error(result?.message || 'Failed to submit form');
+      if (!result?.out_success) {
+        throw new Error(result?.out_message || 'Failed to submit form');
       }
 
-      setCreatedUsername(result.username);
+      setCreatedUsername(result.out_username);
       setSubmitted(true);
     } catch (err: any) {
       console.error('Error submitting form:', err);
