@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, FileText, DollarSign, MessageSquare, Settings, CheckCircle, Globe, Heart, MapPin, Briefcase, AlertCircle, Calendar, Search, X, Sparkles, Send, Pin, Trash2, Reply, Image as ImageIcon, Plus } from 'lucide-react';
+import { ArrowLeft, User, FileText, DollarSign, MessageSquare, Settings, CheckCircle, Globe, Heart, MapPin, Briefcase, AlertCircle, Calendar, Search, X, Sparkles, Send, Pin, Trash2, Reply, Image as ImageIcon, Plus, Target, UserPlus, Clock, Phone, Mail } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { useClients } from '../hooks/useClients';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,12 +9,25 @@ import { useClientPreferences } from '../hooks/useClientPreferences';
 import { useClientNotes } from '../hooks/useClientNotes';
 import { useCustomRequests } from '../hooks/useCustomRequests';
 import { useFanNotes } from '../hooks/useFanNotes';
+import { useLeadActivities } from '../hooks/useLeadActivities';
+import { useLeads } from '../hooks/useLeads';
 import AddCustomModal from '../components/modals/AddCustomModal';
 import AddFanNoteModal from '../components/modals/AddFanNoteModal';
 import IdiolectAnalysisView from '../components/ui/IdiolectAnalysisView';
 import { useIdiolectAnalysis } from '../hooks/useIdiolectAnalysis';
+import { Database } from '../lib/database.types';
 
-type TabType = 'overview' | 'questionnaire' | 'pricing' | 'askAi' | 'notes' | 'fanNotes' | 'voice';
+type ClientStatus = Database['public']['Enums']['client_status'];
+type TabType = 'overview' | 'questionnaire' | 'pricing' | 'askAi' | 'notes' | 'fanNotes' | 'voice' | 'pipeline';
+
+const STATUS_CONFIG: Record<ClientStatus, { label: string; color: string; bgColor: string; icon: React.ReactNode }> = {
+  lead: { label: 'Lead', color: 'text-purple-700 dark:text-purple-300', bgColor: 'bg-purple-100 dark:bg-purple-900/30', icon: <Target className="w-4 h-4" /> },
+  prospect: { label: 'Prospect', color: 'text-blue-700 dark:text-blue-300', bgColor: 'bg-blue-100 dark:bg-blue-900/30', icon: <UserPlus className="w-4 h-4" /> },
+  pending_contract: { label: 'Pending Contract', color: 'text-orange-700 dark:text-orange-300', bgColor: 'bg-orange-100 dark:bg-orange-900/30', icon: <FileText className="w-4 h-4" /> },
+  active: { label: 'Active', color: 'text-green-700 dark:text-green-300', bgColor: 'bg-green-100 dark:bg-green-900/30', icon: <CheckCircle className="w-4 h-4" /> },
+  inactive: { label: 'Inactive', color: 'text-gray-700 dark:text-gray-300', bgColor: 'bg-gray-100 dark:bg-gray-900/30', icon: <Clock className="w-4 h-4" /> },
+  churned: { label: 'Churned', color: 'text-red-700 dark:text-red-300', bgColor: 'bg-red-100 dark:bg-red-900/30', icon: <AlertCircle className="w-4 h-4" /> },
+};
 
 const ClientProfilePage: React.FC = () => {
   const { clientId } = useParams<{ clientId: string }>();
@@ -44,6 +57,10 @@ const ClientProfilePage: React.FC = () => {
   
   // Idiolect analysis hook
   const { analysis: idiolectAnalysis, loading: idiolectLoading } = useIdiolectAnalysis(clientId);
+  
+  // Lead/Pipeline hooks
+  const { activities, loading: activitiesLoading, scheduleCall, markCallCompleted, sendContract, signContract, addNote: addLeadNote, getActivityLabel, getActivityIcon, getActivityColor } = useLeadActivities(clientId);
+  const { updateLeadStatus } = useLeads();
   
   // Modal state
   const [isAddCustomModalOpen, setIsAddCustomModalOpen] = useState(false);
@@ -95,7 +112,13 @@ const ClientProfilePage: React.FC = () => {
     );
   }
 
+  // Get client status
+  const clientStatus = ((client as any).status as ClientStatus) || 'active';
+  const statusConfig = STATUS_CONFIG[clientStatus];
+  const isLeadOrProspect = ['lead', 'prospect', 'pending_contract'].includes(clientStatus);
+
   const tabs = [
+    ...(isLeadOrProspect ? [{ id: 'pipeline' as TabType, name: 'Pipeline', icon: Target }] : []),
     { id: 'overview' as TabType, name: 'Overview', icon: User },
     { id: 'questionnaire' as TabType, name: 'Questionnaire', icon: FileText },
     { id: 'pricing' as TabType, name: 'Pricing Preferences', icon: DollarSign },
@@ -104,6 +127,13 @@ const ClientProfilePage: React.FC = () => {
     { id: 'notes' as TabType, name: 'Notes', icon: MessageSquare },
     { id: 'fanNotes' as TabType, name: 'Fan Notes', icon: User },
   ];
+
+  // Set initial tab based on client status
+  useEffect(() => {
+    if (isLeadOrProspect && activeTab === 'overview') {
+      setActiveTab('pipeline');
+    }
+  }, [clientStatus]);
 
   // Handler for adding custom request
   const handleAddCustom = async (customData: {
@@ -594,6 +624,191 @@ ${contextSummary}`
 
           {/* Tab Content */}
           <div className="p-6">
+            {activeTab === 'pipeline' && (
+              <div className="space-y-6">
+                {/* Status & Quick Actions */}
+                <div className="flex flex-col md:flex-row gap-6">
+                  {/* Current Status */}
+                  <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Current Status</h3>
+                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${statusConfig.bgColor} ${statusConfig.color}`}>
+                      {statusConfig.icon}
+                      <span className="font-medium">{statusConfig.label}</span>
+                    </div>
+                    
+                    {/* Status Change Buttons */}
+                    <div className="mt-6">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Move to:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {(Object.keys(STATUS_CONFIG) as ClientStatus[])
+                          .filter(s => s !== clientStatus)
+                          .map((status) => {
+                            const config = STATUS_CONFIG[status];
+                            return (
+                              <button
+                                key={status}
+                                onClick={() => updateLeadStatus(client.id, status)}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors hover:opacity-80 ${config.bgColor} ${config.color} border-current`}
+                              >
+                                {config.icon}
+                                {config.label}
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contact Info */}
+                  <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Contact Information</h3>
+                    <div className="space-y-3">
+                      {(client as any).first_name || (client as any).last_name ? (
+                        <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+                          <User className="w-5 h-5 text-gray-400" />
+                          <span>{(client as any).first_name} {(client as any).last_name}</span>
+                        </div>
+                      ) : null}
+                      {(client as any).email && (
+                        <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+                          <Mail className="w-5 h-5 text-gray-400" />
+                          <a href={`mailto:${(client as any).email}`} className="hover:text-blue-600">{(client as any).email}</a>
+                        </div>
+                      )}
+                      {client.phone && (
+                        <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+                          <Phone className="w-5 h-5 text-gray-400" />
+                          <a href={`tel:${client.phone}`} className="hover:text-blue-600">{client.phone}</a>
+                        </div>
+                      )}
+                      {(client as any).lead_source && (
+                        <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+                          <Target className="w-5 h-5 text-gray-400" />
+                          <span>Source: {(client as any).lead_source}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => {
+                        const date = prompt('Enter call date/time (e.g., 2026-01-15 14:00):');
+                        if (date) scheduleCall(date, 'Scheduled via quick action');
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                    >
+                      <Calendar className="w-4 h-4" />
+                      Schedule Call
+                    </button>
+                    <button
+                      onClick={() => markCallCompleted('Call completed via quick action')}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
+                    >
+                      <Phone className="w-4 h-4" />
+                      Mark Call Complete
+                    </button>
+                    <button
+                      onClick={() => sendContract('Contract sent via quick action')}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Send Contract
+                    </button>
+                    <button
+                      onClick={() => signContract('Contract signed via quick action')}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-colors"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Contract Signed
+                    </button>
+                  </div>
+                </div>
+
+                {/* Activity Timeline */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Activity Timeline</h3>
+                    <button
+                      onClick={() => {
+                        const note = prompt('Add a note:');
+                        if (note) addLeadNote(note);
+                      }}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Note
+                    </button>
+                  </div>
+
+                  {activitiesLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : activities.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p>No activities recorded yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {activities.map((activity, index) => (
+                        <div key={activity.id} className="flex gap-4">
+                          {/* Timeline line */}
+                          <div className="flex flex-col items-center">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${getActivityColor(activity.activity_type)}`}>
+                              {getActivityIcon(activity.activity_type)}
+                            </div>
+                            {index < activities.length - 1 && (
+                              <div className="w-0.5 h-full bg-gray-200 dark:bg-gray-700 mt-2" />
+                            )}
+                          </div>
+
+                          {/* Activity content */}
+                          <div className="flex-1 pb-4">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">
+                                  {getActivityLabel(activity.activity_type)}
+                                </p>
+                                {activity.notes && (
+                                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                    {activity.notes}
+                                  </p>
+                                )}
+                                {activity.scheduled_at && (
+                                  <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+                                    Scheduled: {new Date(activity.scheduled_at).toLocaleString()}
+                                  </p>
+                                )}
+                              </div>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                {new Date(activity.created_at).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                            {(activity as any).created_by_member && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                by {(activity as any).created_by_member.full_name}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {activeTab === 'overview' && (
               <div className="space-y-4">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Client Overview</h2>
