@@ -19,6 +19,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                       !location.pathname.startsWith('/clients') && 
                       !location.pathname.startsWith('/client-profile') &&
                       !location.pathname.startsWith('/client-data') &&
+                      !location.pathname.startsWith('/leads') &&
                       !location.pathname.startsWith('/agencies') &&
                       !location.pathname.startsWith('/customs') &&
                       !location.pathname.startsWith('/my-customs') &&
