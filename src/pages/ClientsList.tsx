@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Plus, ExternalLink, Users, AlertCircle, Loader2, Edit, Trash2, MoreVertical, Search, ChevronUp, ChevronDown, MessageCircle, Settings } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Plus, ExternalLink, Users, AlertCircle, Loader2, Edit, Trash2, MoreVertical, Search, ChevronUp, ChevronDown, MessageCircle, Settings, Target, UserPlus, FileText, CheckCircle, Clock } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import ClientAvatar from '../components/ui/ClientAvatar';
 import PlatformBadge from '../components/ui/PlatformBadge';
@@ -17,8 +17,21 @@ import { useImagePreloader } from '../hooks/useImagePreloader';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { StaggerContainer } from '../components/ui/StaggerContainer';
+import { Database } from '../lib/database.types';
+
+type ClientStatus = Database['public']['Enums']['client_status'];
+
+const STATUS_CONFIG: Record<ClientStatus, { label: string; color: string; bgColor: string; icon: React.ReactNode }> = {
+  lead: { label: 'Lead', color: 'text-purple-700 dark:text-purple-300', bgColor: 'bg-purple-100 dark:bg-purple-900/30', icon: <Target className="w-3 h-3" /> },
+  prospect: { label: 'Prospect', color: 'text-blue-700 dark:text-blue-300', bgColor: 'bg-blue-100 dark:bg-blue-900/30', icon: <UserPlus className="w-3 h-3" /> },
+  pending_contract: { label: 'Pending', color: 'text-orange-700 dark:text-orange-300', bgColor: 'bg-orange-100 dark:bg-orange-900/30', icon: <FileText className="w-3 h-3" /> },
+  active: { label: 'Active', color: 'text-green-700 dark:text-green-300', bgColor: 'bg-green-100 dark:bg-green-900/30', icon: <CheckCircle className="w-3 h-3" /> },
+  inactive: { label: 'Inactive', color: 'text-gray-700 dark:text-gray-300', bgColor: 'bg-gray-100 dark:bg-gray-900/30', icon: <Clock className="w-3 h-3" /> },
+  churned: { label: 'Churned', color: 'text-red-700 dark:text-red-300', bgColor: 'bg-red-100 dark:bg-red-900/30', icon: <AlertCircle className="w-3 h-3" /> },
+};
 
 const ClientsList: React.FC = () => {
+  const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -27,6 +40,7 @@ const ClientsList: React.FC = () => {
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [platformFilter, setPlatformFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<ClientStatus | 'all'>('all');
   const [sortField, setSortField] = useState<'customCount' | 'totalPaid' | 'totalPending' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const { clients, loading, error, addClient, updateClient, deleteClient } = useClients();
@@ -250,6 +264,26 @@ const ClientsList: React.FC = () => {
       .reduce((sum, custom) => sum + (custom.proposed_amount || 0), 0);
   };
 
+  // Get status counts
+  const statusCounts = React.useMemo(() => {
+    const counts: Record<ClientStatus | 'all', number> = {
+      all: clients.length,
+      lead: 0,
+      prospect: 0,
+      pending_contract: 0,
+      active: 0,
+      inactive: 0,
+      churned: 0,
+    };
+    clients.forEach(client => {
+      const status = (client as any).status as ClientStatus || 'active';
+      if (counts[status] !== undefined) {
+        counts[status]++;
+      }
+    });
+    return counts;
+  }, [clients]);
+
   // Filter and sort clients
   const filteredAndSortedClients = React.useMemo(() => {
     let filtered = clients;
@@ -262,10 +296,21 @@ const ClientsList: React.FC = () => {
       filtered = filtered.filter(client => assignedClientIds.includes(client.id));
     }
 
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(client => {
+        const status = (client as any).status as ClientStatus || 'active';
+        return status === statusFilter;
+      });
+    }
+
     // Apply search filter
     filtered = filtered.filter(client =>
       client.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.phone && client.phone.toLowerCase().includes(searchTerm.toLowerCase()))
+      (client.phone && client.phone.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      ((client as any).first_name && (client as any).first_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      ((client as any).last_name && (client as any).last_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      ((client as any).email && (client as any).email.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     // Apply platform filter
@@ -310,7 +355,7 @@ const ClientsList: React.FC = () => {
     }
 
     return filtered;
-  }, [clients, customRequests, searchTerm, sortField, sortDirection, teamMember, assignments, clientPlatformsMap, platformFilter]);
+  }, [clients, customRequests, searchTerm, sortField, sortDirection, teamMember, assignments, clientPlatformsMap, platformFilter, statusFilter]);
 
   // Close dropdown when clicking outside
   React.useEffect(() => {
@@ -368,6 +413,37 @@ const ClientsList: React.FC = () => {
           </button>
         </div>
 
+        {/* Status Filter Tabs */}
+        <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-4">
+          <button
+            onClick={() => setStatusFilter('all')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              statusFilter === 'all'
+                ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+          >
+            All ({statusCounts.all})
+          </button>
+          {(Object.keys(STATUS_CONFIG) as ClientStatus[]).map((status) => {
+            const config = STATUS_CONFIG[status];
+            return (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(statusFilter === status ? 'all' : status)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                  statusFilter === status
+                    ? `${config.bgColor} ${config.color}`
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {config.icon}
+                {config.label} ({statusCounts[status]})
+              </button>
+            );
+          })}
+        </div>
+
         {/* Search Bar */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4">
           <div className="relative">
@@ -376,7 +452,7 @@ const ClientsList: React.FC = () => {
             </div>
             <input
               type="text"
-              placeholder="Search clients by username or phone..."
+              placeholder="Search by username, name, email, or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
@@ -429,6 +505,9 @@ const ClientsList: React.FC = () => {
                   Client
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Platforms
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -446,22 +525,37 @@ const ClientsList: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredAndSortedClients.map((client) => (
-                <tr key={client.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+              {filteredAndSortedClients.map((client) => {
+                const clientStatus = ((client as any).status as ClientStatus) || 'active';
+                const statusConfig = STATUS_CONFIG[clientStatus];
+                
+                return (
+                <tr 
+                  key={client.id} 
+                  className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                  onClick={() => navigate(`/client-profile/${client.id}`)}
+                >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <ClientAvatar client={client} size="md" />
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {(client as any).first_name || (client as any).last_name 
+                            ? `${(client as any).first_name || ''} ${(client as any).last_name || ''}`.trim()
+                            : `@${client.username}`
+                          }
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
                           @{client.username}
                         </div>
-                        {client.phone && teamMember?.role === 'admin' && (
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {client.phone}
-                          </div>
-                        )}
                       </div>
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusConfig.bgColor} ${statusConfig.color}`}>
+                      {statusConfig.icon}
+                      {statusConfig.label}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-wrap gap-1">
@@ -494,14 +588,14 @@ const ClientsList: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-orange-600">
                     ${getTotalPendingAmount(client.id).toFixed(2)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center space-x-2">
                       <Link
                         to={`/clients/${client.username}`}
                         className="text-blue-600 hover:text-blue-800 inline-flex items-center"
                       >
                         <ExternalLink className="w-4 h-4 mr-1" />
-                        View Customs
+                        Customs
                       </Link>
                       {teamMember?.role === 'admin' && (
                         <Link
@@ -523,11 +617,11 @@ const ClientsList: React.FC = () => {
                         </Link>
                       )}
                       <Link
-                        to={`/${client.username}`}
+                        to={`/app/${client.username}`}
                         className="text-green-600 hover:text-green-800 inline-flex items-center"
                       >
                         <ExternalLink className="w-4 h-4 mr-1" />
-                        Public View
+                        Portal
                       </Link>
                       
                       {/* Dropdown Menu */}
@@ -573,7 +667,8 @@ const ClientsList: React.FC = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
             </table>
           </div>
