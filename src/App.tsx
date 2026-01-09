@@ -27,6 +27,8 @@ import Assignments from './pages/Assignments';
 import PlatformAssignmentsOverview from './pages/PlatformAssignmentsOverview';
 import Calls from './pages/Calls';
 import ClientDataManagement from './pages/ClientDataManagement';
+import LeadsTrackerPage from './pages/LeadsTrackerPage';
+import ProspectIntakePage from './pages/ProspectIntakePage';
 import SMSMessaging from './pages/SMSMessaging';
 import SceneLibrary from './pages/SceneLibrary';
 import SceneAssignments from './pages/SceneAssignments';
@@ -192,6 +194,15 @@ function AnimatedRoutes() {
                 </ProtectedRoute>
               }
             />
+            <Route 
+              path="/leads" 
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <LeadsTrackerPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/intake" element={<ProspectIntakePage />} />
             <Route 
               path="/sms-messaging" 
               element={
