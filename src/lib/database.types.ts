@@ -167,7 +167,14 @@ export interface Database {
           is_active: boolean
           created_at: string
           updated_at: string
-         avatar_url: string | null
+          avatar_url: string | null
+          status: 'lead' | 'prospect' | 'pending_contract' | 'active' | 'inactive' | 'churned'
+          first_name: string | null
+          last_name: string | null
+          email: string | null
+          lead_source: string | null
+          intake_token: string | null
+          intake_completed_at: string | null
         }
         Insert: {
           id?: string
@@ -179,7 +186,14 @@ export interface Database {
           is_active?: boolean
           created_at?: string
           updated_at?: string
-         avatar_url?: string | null
+          avatar_url?: string | null
+          status?: 'lead' | 'prospect' | 'pending_contract' | 'active' | 'inactive' | 'churned'
+          first_name?: string | null
+          last_name?: string | null
+          email?: string | null
+          lead_source?: string | null
+          intake_token?: string | null
+          intake_completed_at?: string | null
         }
         Update: {
           id?: string
@@ -191,7 +205,14 @@ export interface Database {
           is_active?: boolean
           created_at?: string
           updated_at?: string
-         avatar_url?: string | null
+          avatar_url?: string | null
+          status?: 'lead' | 'prospect' | 'pending_contract' | 'active' | 'inactive' | 'churned'
+          first_name?: string | null
+          last_name?: string | null
+          email?: string | null
+          lead_source?: string | null
+          intake_token?: string | null
+          intake_completed_at?: string | null
         }
       }
       platforms: {
@@ -1024,6 +1045,64 @@ export interface Database {
           updated_at?: string
         }
       }
+      lead_activities: {
+        Row: {
+          id: string
+          client_id: string
+          activity_type: 'lead_discovered' | 'form_sent' | 'form_completed' | 'call_scheduled' | 'call_completed' | 'contract_sent' | 'contract_signed' | 'portal_accessed' | 'status_changed' | 'note_added'
+          notes: string | null
+          scheduled_at: string | null
+          completed_at: string | null
+          metadata: Json
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          activity_type: 'lead_discovered' | 'form_sent' | 'form_completed' | 'call_scheduled' | 'call_completed' | 'contract_sent' | 'contract_signed' | 'portal_accessed' | 'status_changed' | 'note_added'
+          notes?: string | null
+          scheduled_at?: string | null
+          completed_at?: string | null
+          metadata?: Json
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          activity_type?: 'lead_discovered' | 'form_sent' | 'form_completed' | 'call_scheduled' | 'call_completed' | 'contract_sent' | 'contract_signed' | 'portal_accessed' | 'status_changed' | 'note_added'
+          notes?: string | null
+          scheduled_at?: string | null
+          completed_at?: string | null
+          metadata?: Json
+          created_by?: string | null
+          created_at?: string
+        }
+      }
+      platform_interests: {
+        Row: {
+          id: string
+          client_id: string
+          platform_id: string
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          platform_id: string
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          platform_id?: string
+          notes?: string | null
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -1040,6 +1119,8 @@ export interface Database {
       scene_status: 'pending' | 'completed'
       sms_direction: 'inbound' | 'outbound'
       sms_status: 'queued' | 'sent' | 'delivered' | 'failed' | 'undelivered' | 'received'
+      client_status: 'lead' | 'prospect' | 'pending_contract' | 'active' | 'inactive' | 'churned'
+      lead_activity_type: 'lead_discovered' | 'form_sent' | 'form_completed' | 'call_scheduled' | 'call_completed' | 'contract_sent' | 'contract_signed' | 'portal_accessed' | 'status_changed' | 'note_added'
     }
   }
   attendance_records: {
