@@ -95,12 +95,24 @@ const ClientProfilePage: React.FC = () => {
   // Find the client
   const client = clients.find(c => c.id === clientId);
 
+  // Get client status (calculate before early return for use in hooks)
+  const clientStatus = client ? (((client as any).status as ClientStatus) || 'active') : 'active';
+  const statusConfig = STATUS_CONFIG[clientStatus];
+  const isLeadOrProspect = ['lead', 'prospect', 'pending_contract'].includes(clientStatus);
+
   useEffect(() => {
     // If client not found, redirect back
     if (!client && clients.length > 0) {
       navigate('/clients');
     }
   }, [client, clients, navigate]);
+
+  // Set initial tab based on client status
+  useEffect(() => {
+    if (client && isLeadOrProspect && activeTab === 'overview') {
+      setActiveTab('pipeline');
+    }
+  }, [client, clientStatus, isLeadOrProspect, activeTab]);
 
   if (!client) {
     return (
@@ -112,11 +124,6 @@ const ClientProfilePage: React.FC = () => {
     );
   }
 
-  // Get client status
-  const clientStatus = ((client as any).status as ClientStatus) || 'active';
-  const statusConfig = STATUS_CONFIG[clientStatus];
-  const isLeadOrProspect = ['lead', 'prospect', 'pending_contract'].includes(clientStatus);
-
   const tabs = [
     ...(isLeadOrProspect ? [{ id: 'pipeline' as TabType, name: 'Pipeline', icon: Target }] : []),
     { id: 'overview' as TabType, name: 'Overview', icon: User },
@@ -127,13 +134,6 @@ const ClientProfilePage: React.FC = () => {
     { id: 'notes' as TabType, name: 'Notes', icon: MessageSquare },
     { id: 'fanNotes' as TabType, name: 'Fan Notes', icon: User },
   ];
-
-  // Set initial tab based on client status
-  useEffect(() => {
-    if (isLeadOrProspect && activeTab === 'overview') {
-      setActiveTab('pipeline');
-    }
-  }, [clientStatus]);
 
   // Handler for adding custom request
   const handleAddCustom = async (customData: {
