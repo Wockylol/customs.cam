@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, FileText, X, Clock, Package, TrendingUp, Building2, MessageSquare, Moon, Sun, UserCheck, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, Phone, Database, Smartphone, Film, DollarSign, Calendar, Bell } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, X, Clock, Package, TrendingUp, Building2, MessageSquare, Moon, Sun, UserCheck, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, Phone, Database, Smartphone, Film, DollarSign, Calendar, Bell, Target } from 'lucide-react';
 import { UserCog, Layers } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -40,7 +40,8 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
   const [isClientManagementExpanded, setIsClientManagementExpanded] = useState(
     location.pathname === '/clients' || 
     location.pathname === '/client-data' || 
-    location.pathname === '/platform-assignments'
+    location.pathname === '/platform-assignments' ||
+    location.pathname === '/leads'
   );
   const [isScenesExpanded, setIsScenesExpanded] = useState(
     location.pathname === '/scene-library' || 
@@ -109,7 +110,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
     if (location.pathname === '/chats' || location.pathname === '/sms-messaging') {
       setIsCommunicationsExpanded(true);
     }
-    if (location.pathname === '/clients' || location.pathname === '/client-data' || location.pathname === '/platform-assignments') {
+    if (location.pathname === '/clients' || location.pathname === '/client-data' || location.pathname === '/platform-assignments' || location.pathname === '/leads') {
       setIsClientManagementExpanded(true);
     }
     if (location.pathname === '/scene-library' || location.pathname === '/scene-assignments') {
@@ -444,6 +445,26 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
                 {/* Nested Client Management Menu */}
                 {isClientManagementExpanded && (
                   <ul className="mt-2 mb-2 space-y-1 ml-4 border-l-2 border-gray-200 dark:border-gray-700">
+                    {/* Lead Tracker */}
+                    <li>
+                      <Link
+                        to="/leads"
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                          location.pathname === '/leads'
+                            ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                        }`}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onToggle();
+                          }
+                        }}
+                      >
+                        <Target className="w-5 h-5 mr-2 flex-shrink-0 text-purple-500" />
+                        <span className="flex-1 truncate">Lead Tracker</span>
+                      </Link>
+                    </li>
+                    
                     {/* All Clients Expandable */}
                     <li>
                       <button
