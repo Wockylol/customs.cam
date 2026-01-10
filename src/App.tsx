@@ -43,6 +43,7 @@ import NotificationsPage from './pages/NotificationsPage';
 import PayrollSheet from './pages/PayrollSheet';
 import DebugLogsPage from './pages/DebugLogsPage';
 import VibeCheckPage from './pages/VibeCheckPage';
+import PlatformAdminPage from './pages/PlatformAdminPage';
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -285,6 +286,7 @@ function AnimatedRoutes() {
             <Route path="/app/:clientUsername/scene/:assignmentId" element={<SceneViewerPage />} />
             <Route path="/app/:clientUsername/vibe-check" element={<VibeCheckPage />} />
             <Route path="/debug-logs" element={<DebugLogsPage />} />
+            <Route path="/platform-admin" element={<PlatformAdminPage />} />
       </Routes>
     </AnimatePresence>
   );
