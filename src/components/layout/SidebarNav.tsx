@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, FileText, X, Clock, Package, TrendingUp, Building2, MessageSquare, Moon, Sun, UserCheck, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, Phone, Database, Smartphone, Film, DollarSign, Calendar, Bell, Target } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, X, Clock, Package, TrendingUp, Building2, MessageSquare, Moon, Sun, UserCheck, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, Phone, Database, Smartphone, Film, DollarSign, Calendar, Bell, Target, Shield } from 'lucide-react';
 import { UserCog, Layers } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -20,7 +20,7 @@ interface SidebarNavProps {
 
 const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, onToggleCollapse }) => {
   const location = useLocation();
-  const { teamMember } = useAuth();
+  const { teamMember, isPlatformAdmin } = useAuth();
   const { isDarkMode, toggleDarkMode } = useTheme();
   const { customRequests } = useCustomRequests();
   const { teamMembers } = useTeamMembers();
@@ -1001,6 +1001,36 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
                   {isCollapsed && (
                     <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
                       Agencies
+                    </div>
+                  )}
+                </Link>
+              </li>
+            )}
+
+            {/* Platform Admin - Platform Admins Only */}
+            {isPlatformAdmin && (
+              <li className="pt-4 mt-2 border-t border-gray-200 dark:border-gray-700">
+                <Link
+                  to="/platform-admin"
+                  className={`flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2 text-sm font-medium rounded-lg transition-colors group relative ${
+                    location.pathname === '/platform-admin'
+                      ? 'bg-amber-50 text-amber-700 border-r-2 border-amber-600 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-500'
+                      : 'text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20'
+                  }`}
+                  title={isCollapsed ? 'Platform Admin' : undefined}
+                  onClick={() => {
+                    if (window.innerWidth < 1024) {
+                      onToggle();
+                    }
+                  }}
+                >
+                  <Shield className={`${isCollapsed ? '' : 'mr-3'} h-5 w-5 flex-shrink-0 text-amber-500 dark:text-amber-400`} />
+                  {!isCollapsed && <span className="flex-1 whitespace-nowrap overflow-hidden">Platform Admin</span>}
+                  
+                  {/* Tooltip for collapsed state */}
+                  {isCollapsed && (
+                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                      Platform Admin
                     </div>
                   )}
                 </Link>
