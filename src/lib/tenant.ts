@@ -84,20 +84,38 @@ const RESERVED_SUBDOMAINS = ['www', 'admin', 'api', 'app', 'platform', 'support'
  * - agency.platform.com -> 'agency'
  * - platform.com -> null (main site)
  * - admin.platform.com -> null (reserved)
- * - localhost:5173 -> null (development)
+ * - localhost:5173 -> null (development, uses ?tenant= or localStorage)
+ * - *.cursor.sh, *.webcontainer.io, etc -> null (dev preview, uses ?tenant= or localStorage)
  * 
  * @returns The tenant slug or null if on main site
  */
 export function getTenantSlugFromSubdomain(): string | null {
   const hostname = window.location.hostname;
   
-  // Handle localhost development - check for local IPs and localhost variants
-  if (hostname === 'localhost' || 
-      hostname === '127.0.0.1' || 
-      hostname.startsWith('192.168.') ||
-      hostname.startsWith('10.') ||
-      hostname.includes('localhost')) {
-    // In development, check for a query param or use localStorage override
+  // Development/preview environment detection
+  // These environments don't support real subdomains, so we use query params or localStorage
+  const isDevEnvironment = 
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname.startsWith('192.168.') ||
+    hostname.startsWith('10.') ||
+    hostname.includes('localhost') ||
+    // Cursor preview URLs (contain long random strings with -- separators)
+    hostname.includes('--') ||
+    // Common dev/preview services
+    hostname.endsWith('.cursor.sh') ||
+    hostname.endsWith('.webcontainer.io') ||
+    hostname.endsWith('.stackblitz.io') ||
+    hostname.endsWith('.codesandbox.io') ||
+    hostname.endsWith('.gitpod.io') ||
+    hostname.endsWith('.vercel.app') ||
+    hostname.endsWith('.netlify.app') ||
+    hostname.endsWith('.pages.dev') ||
+    // Check for UUID-like patterns in hostname (common in preview URLs)
+    /^[a-z0-9]{20,}/.test(hostname.split('.')[0] || '');
+
+  if (isDevEnvironment) {
+    // In development/preview, check for a query param or use localStorage override
     const urlParams = new URLSearchParams(window.location.search);
     const devTenant = urlParams.get('tenant') || localStorage.getItem('dev_tenant_slug');
     return devTenant || null;
