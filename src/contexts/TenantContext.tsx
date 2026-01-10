@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase';
 import { 
   TenantAgency, 
   TenantCapability, 
-  TenantCapabilityRow,
   getTenantSlugFromSubdomain,
   isMainPlatformSite,
   isPlatformAdminSite
@@ -81,6 +80,38 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
     // If we have a slug from subdomain, fetch by slug
     // If user is logged in, verify they belong to this tenant
     if (!tenantSlug) {
+      // In dev, if user is logged in and has a tenant_id, we can use that
+      if (user && teamMember?.tenant_id) {
+        // Fetch tenant by user's tenant_id instead
+        try {
+          const { data: tenantData, error: tenantError } = await supabase
+            .from('tenant_agencies')
+            .select('*')
+            .eq('id', teamMember.tenant_id)
+            .eq('is_active', true)
+            .single();
+
+          if (!tenantError && tenantData) {
+            const tenant = tenantData as unknown as TenantAgency;
+            setTenant(tenant);
+            // Store slug for future use
+            localStorage.setItem('dev_tenant_slug', tenant.slug);
+            
+            // Fetch capabilities
+            const { data: capsData } = await supabase
+              .from('tenant_capabilities')
+              .select('capability')
+              .eq('tenant_id', tenant.id)
+              .eq('enabled', true);
+            
+            if (capsData) {
+              setCapabilities(capsData.map((c: { capability: TenantCapability }) => c.capability));
+            }
+          }
+        } catch (err) {
+          console.error('Error auto-detecting tenant:', err);
+        }
+      }
       setLoading(false);
       return;
     }
@@ -108,11 +139,12 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
         return;
       }
 
-      setTenant(tenantData);
+      const tenant = tenantData as unknown as TenantAgency;
+      setTenant(tenant);
 
       // If user is logged in, verify they belong to this tenant
       if (user && teamMember) {
-        if (teamMember.tenant_id !== tenantData.id) {
+        if (teamMember.tenant_id !== tenant.id) {
           setError('You do not have access to this agency');
           // Don't clear tenant - just show error
         }
@@ -122,7 +154,7 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
       const { data: capsData, error: capsError } = await supabase
         .from('tenant_capabilities')
         .select('capability')
-        .eq('tenant_id', tenantData.id)
+        .eq('tenant_id', tenant.id)
         .eq('enabled', true);
 
       if (capsError) {
