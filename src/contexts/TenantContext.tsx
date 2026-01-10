@@ -1,0 +1,215 @@
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
+import { 
+  TenantAgency, 
+  TenantCapability, 
+  TenantCapabilityRow,
+  getTenantSlugFromSubdomain,
+  isMainPlatformSite,
+  isPlatformAdminSite
+} from '../lib/tenant';
+import { useAuth } from './AuthContext';
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface TenantContextType {
+  // Current tenant
+  tenant: TenantAgency | null;
+  tenantSlug: string | null;
+  
+  // Loading states
+  loading: boolean;
+  error: string | null;
+  
+  // Capability checking
+  capabilities: TenantCapability[];
+  hasCapability: (capability: TenantCapability) => boolean;
+  
+  // Site type detection
+  isMainSite: boolean;
+  isPlatformAdmin: boolean;
+  
+  // Actions
+  refreshTenant: () => Promise<void>;
+}
+
+// ============================================================================
+// CONTEXT
+// ============================================================================
+
+const TenantContext = createContext<TenantContextType | undefined>(undefined);
+
+export const useTenant = (): TenantContextType => {
+  const context = useContext(TenantContext);
+  if (context === undefined) {
+    throw new Error('useTenant must be used within a TenantProvider');
+  }
+  return context;
+};
+
+// ============================================================================
+// PROVIDER
+// ============================================================================
+
+interface TenantProviderProps {
+  children: React.ReactNode;
+}
+
+export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
+  const { user, teamMember } = useAuth();
+  
+  const [tenant, setTenant] = useState<TenantAgency | null>(null);
+  const [capabilities, setCapabilities] = useState<TenantCapability[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Detect tenant slug from subdomain
+  const tenantSlug = getTenantSlugFromSubdomain();
+  const isMainSite = isMainPlatformSite();
+  const isPlatformAdmin = isPlatformAdminSite();
+
+  // Fetch tenant data
+  const fetchTenant = useCallback(async () => {
+    // Skip tenant fetch on main site or platform admin
+    if (isMainSite || isPlatformAdmin) {
+      setLoading(false);
+      return;
+    }
+
+    // If we have a slug from subdomain, fetch by slug
+    // If user is logged in, verify they belong to this tenant
+    if (!tenantSlug) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch tenant by slug
+      const { data: tenantData, error: tenantError } = await supabase
+        .from('tenant_agencies')
+        .select('*')
+        .eq('slug', tenantSlug)
+        .eq('is_active', true)
+        .single();
+
+      if (tenantError) {
+        if (tenantError.code === 'PGRST116') {
+          setError('Agency not found');
+        } else {
+          throw tenantError;
+        }
+        setTenant(null);
+        setCapabilities([]);
+        return;
+      }
+
+      setTenant(tenantData);
+
+      // If user is logged in, verify they belong to this tenant
+      if (user && teamMember) {
+        if (teamMember.tenant_id !== tenantData.id) {
+          setError('You do not have access to this agency');
+          // Don't clear tenant - just show error
+        }
+      }
+
+      // Fetch capabilities for this tenant
+      const { data: capsData, error: capsError } = await supabase
+        .from('tenant_capabilities')
+        .select('capability')
+        .eq('tenant_id', tenantData.id)
+        .eq('enabled', true);
+
+      if (capsError) {
+        console.error('Error fetching capabilities:', capsError);
+      } else {
+        setCapabilities((capsData || []).map((c: { capability: TenantCapability }) => c.capability));
+      }
+
+    } catch (err: any) {
+      console.error('Error fetching tenant:', err);
+      setError(err.message || 'Failed to load agency');
+    } finally {
+      setLoading(false);
+    }
+  }, [tenantSlug, user, teamMember, isMainSite, isPlatformAdmin]);
+
+  // Fetch tenant on mount and when dependencies change
+  useEffect(() => {
+    fetchTenant();
+  }, [fetchTenant]);
+
+  // Capability check function
+  const hasCapability = useCallback((capability: TenantCapability): boolean => {
+    return capabilities.includes(capability);
+  }, [capabilities]);
+
+  // Refresh function
+  const refreshTenant = useCallback(async () => {
+    await fetchTenant();
+  }, [fetchTenant]);
+
+  const value: TenantContextType = {
+    tenant,
+    tenantSlug,
+    loading,
+    error,
+    capabilities,
+    hasCapability,
+    isMainSite,
+    isPlatformAdmin,
+    refreshTenant,
+  };
+
+  return (
+    <TenantContext.Provider value={value}>
+      {children}
+    </TenantContext.Provider>
+  );
+};
+
+// ============================================================================
+// HOOK: useCapability
+// ============================================================================
+
+/**
+ * Hook to check if the current tenant has a specific capability.
+ * 
+ * @example
+ * const canUseSms = useCapability('sms_two_way');
+ * if (canUseSms) { ... }
+ */
+export const useCapability = (capability: TenantCapability): boolean => {
+  const { hasCapability, loading } = useTenant();
+  
+  // Return false while loading to prevent flash of content
+  if (loading) return false;
+  
+  return hasCapability(capability);
+};
+
+/**
+ * Hook to check multiple capabilities at once.
+ * 
+ * @example
+ * const caps = useCapabilities(['sms_two_way', 'payroll']);
+ * if (caps.sms_two_way) { ... }
+ */
+export const useCapabilities = <T extends TenantCapability>(capabilities: T[]): Record<T, boolean> => {
+  const { hasCapability, loading } = useTenant();
+  
+  const result = {} as Record<T, boolean>;
+  for (const cap of capabilities) {
+    result[cap] = loading ? false : hasCapability(cap);
+  }
+  
+  return result;
+};
+
+export default TenantContext;
+
