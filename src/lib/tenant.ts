@@ -91,8 +91,12 @@ const RESERVED_SUBDOMAINS = ['www', 'admin', 'api', 'app', 'platform', 'support'
 export function getTenantSlugFromSubdomain(): string | null {
   const hostname = window.location.hostname;
   
-  // Handle localhost development
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+  // Handle localhost development - check for local IPs and localhost variants
+  if (hostname === 'localhost' || 
+      hostname === '127.0.0.1' || 
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.') ||
+      hostname.includes('localhost')) {
     // In development, check for a query param or use localStorage override
     const urlParams = new URLSearchParams(window.location.search);
     const devTenant = urlParams.get('tenant') || localStorage.getItem('dev_tenant_slug');
