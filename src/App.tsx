@@ -3,6 +3,7 @@ import { AnimatePresence } from 'framer-motion';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ImageCacheProvider } from './contexts/ImageCacheContext';
+import { TenantProvider } from './contexts/TenantContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
 import ClientsList from './pages/ClientsList';
@@ -293,11 +294,13 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <ImageCacheProvider>
-          <Router>
-            <AnimatedRoutes />
-          </Router>
-        </ImageCacheProvider>
+        <TenantProvider>
+          <ImageCacheProvider>
+            <Router>
+              <AnimatedRoutes />
+            </Router>
+          </ImageCacheProvider>
+        </TenantProvider>
       </AuthProvider>
     </ThemeProvider>
   );
