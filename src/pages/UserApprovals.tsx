@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Clock, CheckCircle, XCircle, User, Mail, Calendar, AlertCircle, Loader2, Search, Edit, Trash2, MoreVertical } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, User, Mail, Calendar, AlertCircle, Loader2, Search, Edit, Trash2, MoreVertical, UserPlus } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import EditUserModal from '../components/modals/EditUserModal';
 import DeleteUserModal from '../components/modals/DeleteUserModal';
+import InviteTeamMemberModal from '../components/modals/InviteTeamMemberModal';
 import { useTeamMembers } from '../hooks/useTeamMembers';
 import { useAuth } from '../contexts/AuthContext';
 import { StaggerContainer } from '../components/ui/StaggerContainer';
@@ -13,6 +14,7 @@ const UserApprovals: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
   const { teamMembers, loading: membersLoading, error: membersError, updateTeamMember, deleteTeamMember } = useTeamMembers();
@@ -163,14 +165,25 @@ const UserApprovals: React.FC = () => {
       <StaggerContainer className="space-y-6">
         {/* Header */}
         <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-6 lg:p-8 text-white shadow-2xl">
-          <div className="flex items-center mb-4">
-            <div className="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-4 backdrop-blur-sm">
-              <Clock className="w-6 h-6 text-white" />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-4 backdrop-blur-sm">
+                <Clock className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-bold">User Approvals</h1>
+                <p className="text-blue-100 text-sm lg:text-base">Manage pending account approvals</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-bold">User Approvals</h1>
-              <p className="text-blue-100 text-sm lg:text-base">Manage pending account approvals</p>
-            </div>
+            {(teamMember?.role === 'admin' || teamMember?.role === 'owner') && (
+              <button
+                onClick={() => setInviteModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg backdrop-blur-sm transition-colors"
+              >
+                <UserPlus className="w-5 h-5" />
+                <span className="hidden sm:inline">Invite Team Member</span>
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
@@ -480,6 +493,11 @@ const UserApprovals: React.FC = () => {
         }}
         user={selectedUser}
         onConfirm={handleDeleteUser}
+      />
+
+      <InviteTeamMemberModal
+        isOpen={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
       />
     </Layout>
   );
