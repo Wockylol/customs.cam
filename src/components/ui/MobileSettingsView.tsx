@@ -235,6 +235,12 @@ const MobileSettingsView: React.FC<MobileSettingsViewProps> = ({
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [showPlatformDropdown, setShowPlatformDropdown] = useState(false);
   const [showSocialDropdown, setShowSocialDropdown] = useState(false);
+  
+  // Refs for dropdown positioning
+  const platformButtonRef = React.useRef<HTMLButtonElement>(null);
+  const socialButtonRef = React.useRef<HTMLButtonElement>(null);
+  const [platformDropdownPosition, setPlatformDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const [socialDropdownPosition, setSocialDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
 
   const [contentDetails, setContentDetails] = useState<Record<string, ContentDetail>>({
     buttContent: { enabled: false, priceMin: 0, priceMax: 0 },
@@ -594,6 +600,32 @@ const MobileSettingsView: React.FC<MobileSettingsViewProps> = ({
     setHasUnsavedChanges(true);
   };
 
+  // Handle platform dropdown toggle with positioning
+  const handlePlatformDropdownToggle = () => {
+    if (!showPlatformDropdown && platformButtonRef.current) {
+      const rect = platformButtonRef.current.getBoundingClientRect();
+      setPlatformDropdownPosition({
+        top: rect.bottom + 8,
+        left: rect.left,
+        width: rect.width
+      });
+    }
+    setShowPlatformDropdown(!showPlatformDropdown);
+  };
+
+  // Handle social dropdown toggle with positioning
+  const handleSocialDropdownToggle = () => {
+    if (!showSocialDropdown && socialButtonRef.current) {
+      const rect = socialButtonRef.current.getBoundingClientRect();
+      setSocialDropdownPosition({
+        top: rect.bottom + 8,
+        left: rect.left,
+        width: rect.width
+      });
+    }
+    setShowSocialDropdown(!showSocialDropdown);
+  };
+
   const updateSocialAccount = (id: string, value: string) => {
     setSocialMediaAccounts(prev =>
       prev.map(acc => acc.id === id ? { ...acc, username: value } : acc)
@@ -869,15 +901,23 @@ const MobileSettingsView: React.FC<MobileSettingsViewProps> = ({
                 
                 <div className="relative">
                   <button
-                    onClick={() => setShowPlatformDropdown(!showPlatformDropdown)}
+                    ref={platformButtonRef}
+                    onClick={handlePlatformDropdownToggle}
                     className="w-full py-2.5 border-2 border-dashed border-gray-300 rounded-xl text-sm font-medium text-gray-500 hover:border-purple-400 hover:text-purple-600 transition-colors"
                   >
                     + Add Platform
                   </button>
-                  {showPlatformDropdown && (
+                  {showPlatformDropdown && ReactDOM.createPortal(
                     <>
-                      <div className="fixed inset-0 z-10" onClick={() => setShowPlatformDropdown(false)} />
-                      <div className="absolute z-20 w-full mt-2 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                      <div className="fixed inset-0 z-[100]" onClick={() => setShowPlatformDropdown(false)} />
+                      <div 
+                        className="fixed z-[101] bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden"
+                        style={{
+                          top: platformDropdownPosition.top,
+                          left: platformDropdownPosition.left,
+                          width: platformDropdownPosition.width
+                        }}
+                      >
                         {platformOptions.map((platform) => (
                           <button
                             key={platform}
@@ -888,7 +928,8 @@ const MobileSettingsView: React.FC<MobileSettingsViewProps> = ({
                           </button>
                         ))}
                       </div>
-                    </>
+                    </>,
+                    document.body
                   )}
                 </div>
               </div>
@@ -927,15 +968,23 @@ const MobileSettingsView: React.FC<MobileSettingsViewProps> = ({
                 
                 <div className="relative">
                   <button
-                    onClick={() => setShowSocialDropdown(!showSocialDropdown)}
+                    ref={socialButtonRef}
+                    onClick={handleSocialDropdownToggle}
                     className="w-full py-2.5 border-2 border-dashed border-gray-300 rounded-xl text-sm font-medium text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors"
                   >
                     + Add Account
                   </button>
-                  {showSocialDropdown && (
+                  {showSocialDropdown && ReactDOM.createPortal(
                     <>
-                      <div className="fixed inset-0 z-10" onClick={() => setShowSocialDropdown(false)} />
-                      <div className="absolute z-20 w-full mt-2 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                      <div className="fixed inset-0 z-[100]" onClick={() => setShowSocialDropdown(false)} />
+                      <div 
+                        className="fixed z-[101] bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden"
+                        style={{
+                          top: socialDropdownPosition.top,
+                          left: socialDropdownPosition.left,
+                          width: socialDropdownPosition.width
+                        }}
+                      >
                         {socialPlatformOptions.map((platform) => (
                           <button
                             key={platform}
@@ -946,7 +995,8 @@ const MobileSettingsView: React.FC<MobileSettingsViewProps> = ({
                           </button>
                         ))}
                       </div>
-                    </>
+                    </>,
+                    document.body
                   )}
                 </div>
               </div>
