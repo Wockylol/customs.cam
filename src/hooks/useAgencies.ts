@@ -1,22 +1,38 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Database } from '../lib/database.types';
+import { useTenant } from '../contexts/TenantContext';
 
-type Agency = Database['public']['Tables']['agencies']['Row'];
-type AgencyInsert = Database['public']['Tables']['agencies']['Insert'];
+// Managed Agency type (B2B partners, not tenant agencies)
+interface ManagedAgency {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  is_active: boolean;
+  tenant_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+type Agency = ManagedAgency;
 
 export const useAgencies = () => {
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { tenant } = useTenant();
 
   const fetchAgencies = async () => {
     try {
       setLoading(true);
       setError(null);
       
+      // Fetch from managed_agencies (renamed from agencies)
+      // RLS will automatically filter by tenant
       const { data, error } = await supabase
-        .from('agencies')
+        .from('managed_agencies')
         .select('*')
         .order('name', { ascending: true });
 
@@ -41,17 +57,22 @@ export const useAgencies = () => {
     contactPhone?: string;
   }) => {
     try {
-      const insertData: AgencyInsert = {
+      if (!tenant) {
+        throw new Error('No tenant context available');
+      }
+
+      const insertData = {
         name: agencyData.name,
         slug: agencyData.slug,
         description: agencyData.description || null,
         contact_email: agencyData.contactEmail || null,
         contact_phone: agencyData.contactPhone || null,
-        is_active: true
+        is_active: true,
+        tenant_id: tenant.id
       };
 
       const { data, error } = await supabase
-        .from('agencies')
+        .from('managed_agencies')
         .insert(insertData)
         .select()
         .single();
@@ -78,7 +99,7 @@ export const useAgencies = () => {
     isActive?: boolean;
   }) => {
     try {
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
       if (agencyData.name !== undefined) updateData.name = agencyData.name;
       if (agencyData.slug !== undefined) updateData.slug = agencyData.slug;
       if (agencyData.description !== undefined) updateData.description = agencyData.description || null;
@@ -87,7 +108,7 @@ export const useAgencies = () => {
       if (agencyData.isActive !== undefined) updateData.is_active = agencyData.isActive;
 
       const { data, error } = await supabase
-        .from('agencies')
+        .from('managed_agencies')
         .update(updateData)
         .eq('id', agencyId)
         .select()
@@ -113,7 +134,7 @@ export const useAgencies = () => {
   const deleteAgency = async (agencyId: string) => {
     try {
       const { error } = await supabase
-        .from('agencies')
+        .from('managed_agencies')
         .delete()
         .eq('id', agencyId);
 
