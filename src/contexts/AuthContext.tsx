@@ -118,19 +118,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn('Non-fatal team member fetch error, proceeding without team member.');
         }
         setTeamMember(null);
+      } else if (data) {
+        setTeamMember(data as unknown as TeamMember);
       } else {
-        setTeamMember(data as TeamMember || null);
+        setTeamMember(null);
       }
 
       // Check if user is a platform admin
-      const { data: platformAdminData } = await supabase
-        .from('platform_admins')
-        .select('id, role')
-        .eq('user_id', userId)
-        .eq('is_active', true)
-        .maybeSingle();
+      // Wrap in try/catch as this may fail if RLS policies aren't properly configured
+      try {
+        const { data: platformAdminData, error: paError } = await supabase
+          .from('platform_admins')
+          .select('id, role')
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .maybeSingle();
 
-      setIsPlatformAdmin(!!platformAdminData);
+        if (paError) {
+          console.warn('Platform admin check failed (RLS issue?):', paError.message);
+          setIsPlatformAdmin(false);
+        } else {
+          setIsPlatformAdmin(!!platformAdminData);
+        }
+      } catch (paErr) {
+        console.warn('Platform admin check error:', paErr);
+        setIsPlatformAdmin(false);
+      }
 
     } catch (error) {
       console.error('Unexpected error in fetchTeamMember:', error);
