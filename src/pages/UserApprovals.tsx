@@ -255,7 +255,7 @@ const UserApprovals: React.FC = () => {
                           >
                             Approve as Chatter
                           </button>
-                          {teamMember?.role === 'admin' && (
+                          {(teamMember?.role === 'admin' || teamMember?.role === 'owner') && (
                             <>
                               <button
                                 onClick={() => handleApproveUser(member.id, 'manager')}
@@ -391,6 +391,7 @@ const UserApprovals: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            member.role === 'owner' ? 'bg-amber-100 text-amber-800' :
                             member.role === 'admin' ? 'bg-green-100 text-green-800' :
                             member.role === 'manager' ? 'bg-purple-100 text-purple-800' :
                             'bg-blue-100 text-blue-800'
