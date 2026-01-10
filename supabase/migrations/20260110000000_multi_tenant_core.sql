@@ -159,13 +159,15 @@ COMMENT ON TABLE public.tenant_invites IS 'Invite tokens for user registration. 
 -- ============================================================================
 
 -- Function to get tenant_id for the current authenticated user
+-- NOTE: This is a placeholder that returns NULL. It will be replaced in 
+-- migration 20260110000001 after tenant_id columns are added to tables.
 CREATE OR REPLACE FUNCTION public.get_user_tenant_id()
 RETURNS UUID
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 AS $$
-  SELECT tenant_id FROM public.team_members WHERE id = auth.uid() LIMIT 1;
+  SELECT NULL::UUID;
 $$;
 
 -- Function to check if current user is a platform admin
