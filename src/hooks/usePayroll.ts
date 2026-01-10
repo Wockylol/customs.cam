@@ -281,7 +281,7 @@ export const usePayroll = () => {
   };
 
   useEffect(() => {
-    if (teamMember?.role === 'admin') {
+    if (teamMember?.role === 'admin' || teamMember?.role === 'owner') {
       fetchPayrollData();
     }
   }, [teamMember]);
