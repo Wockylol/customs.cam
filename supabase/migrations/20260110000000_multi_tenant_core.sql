@@ -330,6 +330,8 @@ CREATE POLICY "Tenant admins can view own tenant invites"
     OR public.is_platform_admin()
   );
 
+-- Note: Using 'admin' only here because 'owner' enum value can't be used in same transaction
+-- The RLS migration will update these policies to include 'owner'
 CREATE POLICY "Tenant admins can create invites"
   ON public.tenant_invites FOR INSERT
   WITH CHECK (
@@ -337,7 +339,7 @@ CREATE POLICY "Tenant admins can create invites"
     AND EXISTS (
       SELECT 1 FROM public.team_members 
       WHERE id = auth.uid() 
-      AND role IN ('owner', 'admin')
+      AND role = 'admin'
     )
   );
 
@@ -348,7 +350,7 @@ CREATE POLICY "Tenant admins can update invites"
     AND EXISTS (
       SELECT 1 FROM public.team_members 
       WHERE id = auth.uid() 
-      AND role IN ('owner', 'admin')
+      AND role = 'admin'
     )
   );
 
@@ -359,7 +361,7 @@ CREATE POLICY "Tenant admins can delete invites"
     AND EXISTS (
       SELECT 1 FROM public.team_members 
       WHERE id = auth.uid() 
-      AND role IN ('owner', 'admin')
+      AND role = 'admin'
     )
   );
 
