@@ -20,7 +20,7 @@ const PayrollSheet: React.FC = () => {
   const [expandedBonuses, setExpandedBonuses] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (teamMember?.role === 'admin') {
+    if (teamMember?.role === 'admin' || teamMember?.role === 'owner') {
       fetchPayrollData(selectedMonth, selectedYear);
     }
   }, [selectedMonth, selectedYear, teamMember]);
@@ -285,6 +285,7 @@ const PayrollSheet: React.FC = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              member.role === 'owner' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' :
                               member.role === 'admin' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
                               member.role === 'manager' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' :
                               'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
