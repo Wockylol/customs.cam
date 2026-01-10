@@ -1,18 +1,22 @@
 import React from 'react';
-import { Clock } from 'lucide-react';
+import { Clock, Lock } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTenant } from '../../contexts/TenantContext';
 import { supabase } from '../../lib/supabase';
+import { TenantCapability, TenantRole, hasRolePermission, CAPABILITY_LABELS } from '../../lib/tenant';
 import AuthContainer from './AuthContainer';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'admin' | 'manager' | 'chatter' | 'pending';
+  requiredRole?: TenantRole;
+  requiredCapability?: TenantCapability;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole, requiredCapability }) => {
   const { user, teamMember, loading } = useAuth();
+  const { tenant, hasCapability, loading: tenantLoading, error: tenantError } = useTenant();
 
-  if (loading) {
+  if (loading || tenantLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -23,8 +27,49 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
     );
   }
 
+  // Check for tenant errors (e.g., user accessing wrong tenant)
+  if (tenantError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-gray-600 mb-6">{tenantError}</p>
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
     return <AuthContainer />;
+  }
+
+  // Check capability requirement
+  if (requiredCapability && !hasCapability(requiredCapability)) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-8 h-8 text-amber-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Feature Not Available</h2>
+          <p className="text-gray-600 mb-6">
+            {CAPABILITY_LABELS[requiredCapability] || requiredCapability} is not enabled for your agency.
+          </p>
+          <p className="text-sm text-gray-500">
+            Contact your administrator to enable this feature.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   // Check if user has pending role and show pending approval screen
@@ -109,11 +154,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
 
   // Check role-based access
   if (requiredRole) {
-    const roleHierarchy = { admin: 4, manager: 3, chatter: 2, pending: 1 } as const;
-    const userRoleLevel = roleHierarchy[teamMember.role as keyof typeof roleHierarchy];
-    const requiredRoleLevel = roleHierarchy[requiredRole];
-
-    if (userRoleLevel < requiredRoleLevel) {
+    const userRole = teamMember.role as TenantRole;
+    
+    if (!hasRolePermission(userRole, requiredRole)) {
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
