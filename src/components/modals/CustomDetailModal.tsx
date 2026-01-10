@@ -810,6 +810,7 @@ const CustomDetailModal: React.FC<CustomDetailModalProps> = ({
                                   {note.team_member?.full_name || 'Unknown User'}
                                 </span>
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  note.team_member?.role === 'owner' ? 'bg-amber-100 text-amber-700' :
                                   note.team_member?.role === 'admin' ? 'bg-green-100 text-green-700' :
                                   note.team_member?.role === 'manager' ? 'bg-purple-100 text-purple-700' :
                                   'bg-blue-100 text-blue-700'
