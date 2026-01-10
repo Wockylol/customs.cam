@@ -282,35 +282,55 @@ CREATE POLICY "Service role full access to capabilities"
   WITH CHECK (true);
 
 -- PLATFORM_ADMINS policies
--- Platform admins can view themselves
-CREATE POLICY "Platform admins can view platform admins"
+-- IMPORTANT: Cannot use is_platform_admin() here as it would cause infinite recursion
+-- Users can view their own platform_admin record
+CREATE POLICY "Users can view own platform admin record"
+  ON public.platform_admins FOR SELECT
+  USING (user_id = auth.uid());
+
+-- Platform owners can view all platform admins (uses direct column check, not function)
+CREATE POLICY "Platform owners can view all platform admins"
   ON public.platform_admins FOR SELECT
   USING (
-    user_id = auth.uid()
-    OR (public.is_platform_admin() AND (
-      SELECT role FROM public.platform_admins WHERE user_id = auth.uid()
-    ) = 'platform_owner'
+    EXISTS (
+      SELECT 1 FROM public.platform_admins pa
+      WHERE pa.user_id = auth.uid() 
+      AND pa.role = 'platform_owner' 
+      AND pa.is_active = true
     )
   );
 
 -- Only platform owners can manage platform admins
 CREATE POLICY "Platform owners can manage platform admins"
-  ON public.platform_admins FOR ALL
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.platform_admins 
-      WHERE user_id = auth.uid() 
-      AND role = 'platform_owner' 
-      AND is_active = true
-    )
-  )
+  ON public.platform_admins FOR INSERT
   WITH CHECK (
     EXISTS (
-      SELECT 1 FROM public.platform_admins 
-      WHERE user_id = auth.uid() 
-      AND role = 'platform_owner' 
-      AND is_active = true
+      SELECT 1 FROM public.platform_admins pa
+      WHERE pa.user_id = auth.uid() 
+      AND pa.role = 'platform_owner' 
+      AND pa.is_active = true
+    )
+  );
+
+CREATE POLICY "Platform owners can update platform admins"
+  ON public.platform_admins FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.platform_admins pa
+      WHERE pa.user_id = auth.uid() 
+      AND pa.role = 'platform_owner' 
+      AND pa.is_active = true
+    )
+  );
+
+CREATE POLICY "Platform owners can delete platform admins"
+  ON public.platform_admins FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.platform_admins pa
+      WHERE pa.user_id = auth.uid() 
+      AND pa.role = 'platform_owner' 
+      AND pa.is_active = true
     )
   );
 
