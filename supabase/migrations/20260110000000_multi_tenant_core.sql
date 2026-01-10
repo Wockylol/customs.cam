@@ -9,6 +9,15 @@
 -- ============================================================================
 
 -- ============================================================================
+-- 0. ADD 'OWNER' TO TEAM_ROLE ENUM
+-- ============================================================================
+-- Must be done before any policies reference it
+-- Note: ALTER TYPE ADD VALUE cannot be inside a transaction block in older PostgreSQL
+-- Using IF NOT EXISTS syntax (PostgreSQL 9.3+)
+
+ALTER TYPE public.team_role ADD VALUE IF NOT EXISTS 'owner' BEFORE 'admin';
+
+-- ============================================================================
 -- 1. TENANT AGENCIES TABLE
 -- ============================================================================
 -- The core tenant table. Each agency that signs up gets a row here.
