@@ -597,7 +597,7 @@ const ClientsList: React.FC = () => {
                         <ExternalLink className="w-4 h-4 mr-1" />
                         Customs
                       </Link>
-                      {teamMember?.role === 'admin' && (
+                      {(teamMember?.role === 'admin' || teamMember?.role === 'owner') && (
                         <Link
                           to={clientThreads[client.id] ? `/chats?thread=${clientThreads[client.id]}` : '#'}
                           className={`inline-flex items-center ${
