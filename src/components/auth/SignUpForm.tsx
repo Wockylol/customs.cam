@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserPlus, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useTenant } from '../../contexts/TenantContext';
 
 interface SignUpFormProps {
   onSwitchToLogin: () => void;
@@ -14,6 +15,7 @@ type SignUpFormData = {
 };
 
 const SignUpForm: React.FC<SignUpFormProps> = ({ onSwitchToLogin }) => {
+  const { tenant } = useTenant();
   const [formData, setFormData] = useState<SignUpFormData>({
     email: '',
     password: '',
@@ -58,7 +60,7 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSwitchToLogin }) => {
       }
 
       if (authData.user) {
-        // Create team member record
+        // Create team member record with tenant_id if in tenant context
         const { error: teamMemberError } = await supabase
           .from('team_members')
           .insert({
@@ -66,7 +68,8 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSwitchToLogin }) => {
             email: formData.email,
             full_name: formData.fullName,
             role: 'pending',
-            is_active: true
+            is_active: true,
+            tenant_id: tenant?.id || null
           });
 
         if (teamMemberError) {
