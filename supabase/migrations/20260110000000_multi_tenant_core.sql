@@ -147,8 +147,10 @@ CREATE TABLE IF NOT EXISTS public.tenant_invites (
 CREATE INDEX IF NOT EXISTS idx_tenant_invites_tenant ON public.tenant_invites(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_tenant_invites_token ON public.tenant_invites(token);
 CREATE INDEX IF NOT EXISTS idx_tenant_invites_email ON public.tenant_invites(tenant_id, email);
-CREATE INDEX IF NOT EXISTS idx_tenant_invites_pending ON public.tenant_invites(tenant_id) 
-  WHERE accepted_at IS NULL AND expires_at > now();
+-- Note: Cannot use now() in partial index predicate (not IMMUTABLE)
+-- Filter expired invites at query time instead
+CREATE INDEX IF NOT EXISTS idx_tenant_invites_pending ON public.tenant_invites(tenant_id, expires_at) 
+  WHERE accepted_at IS NULL;
 
 COMMENT ON TABLE public.tenant_invites IS 'Invite tokens for user registration. Users must have a valid invite to join a tenant.';
 
