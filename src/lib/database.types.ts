@@ -83,7 +83,8 @@ export interface VoiceAnalysis {
 export interface Database {
   public: {
     Tables: {
-      agencies: {
+      // Renamed from 'agencies' to 'managed_agencies' - B2B partners, not tenant agencies
+      managed_agencies: {
         Row: {
           id: string
           name: string
@@ -92,6 +93,7 @@ export interface Database {
           contact_email: string | null
           contact_phone: string | null
           is_active: boolean
+          tenant_id: string | null
           created_at: string
           updated_at: string
         }
@@ -103,6 +105,7 @@ export interface Database {
           contact_email?: string | null
           contact_phone?: string | null
           is_active?: boolean
+          tenant_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -114,8 +117,135 @@ export interface Database {
           contact_email?: string | null
           contact_phone?: string | null
           is_active?: boolean
+          tenant_id?: string | null
           created_at?: string
           updated_at?: string
+        }
+      }
+      // Multi-tenant core tables
+      tenant_agencies: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          owner_user_id: string | null
+          is_active: boolean
+          settings: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          owner_user_id?: string | null
+          is_active?: boolean
+          settings?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          owner_user_id?: string | null
+          is_active?: boolean
+          settings?: Json
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      tenant_capabilities: {
+        Row: {
+          id: string
+          tenant_id: string
+          capability: 'sms_outbound' | 'sms_two_way' | 'client_chats' | 'payroll' | 'attendance' | 'scene_library' | 'voice_profiles' | 'advanced_sales' | 'b2b_partners' | 'leads_tracker' | 'automation_rules' | 'api_access'
+          enabled: boolean
+          granted_at: string
+          granted_by: string | null
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          capability: 'sms_outbound' | 'sms_two_way' | 'client_chats' | 'payroll' | 'attendance' | 'scene_library' | 'voice_profiles' | 'advanced_sales' | 'b2b_partners' | 'leads_tracker' | 'automation_rules' | 'api_access'
+          enabled?: boolean
+          granted_at?: string
+          granted_by?: string | null
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          capability?: 'sms_outbound' | 'sms_two_way' | 'client_chats' | 'payroll' | 'attendance' | 'scene_library' | 'voice_profiles' | 'advanced_sales' | 'b2b_partners' | 'leads_tracker' | 'automation_rules' | 'api_access'
+          enabled?: boolean
+          granted_at?: string
+          granted_by?: string | null
+        }
+      }
+      tenant_invites: {
+        Row: {
+          id: string
+          tenant_id: string
+          email: string
+          token: string
+          role: string
+          invited_by: string
+          expires_at: string
+          accepted_at: string | null
+          accepted_by_user_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          email: string
+          token?: string
+          role?: string
+          invited_by: string
+          expires_at?: string
+          accepted_at?: string | null
+          accepted_by_user_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          email?: string
+          token?: string
+          role?: string
+          invited_by?: string
+          expires_at?: string
+          accepted_at?: string | null
+          accepted_by_user_id?: string | null
+          created_at?: string
+        }
+      }
+      platform_admins: {
+        Row: {
+          id: string
+          user_id: string
+          role: 'platform_owner' | 'platform_admin' | 'platform_support'
+          is_active: boolean
+          created_at: string
+          updated_at: string
+          last_login_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          role?: 'platform_owner' | 'platform_admin' | 'platform_support'
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+          last_login_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          role?: 'platform_owner' | 'platform_admin' | 'platform_support'
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+          last_login_at?: string | null
         }
       }
       team_members: {
@@ -123,8 +253,9 @@ export interface Database {
           id: string
           email: string
           full_name: string
-          role: 'admin' | 'manager' | 'chatter' | 'pending'
+          role: 'owner' | 'admin' | 'manager' | 'chatter' | 'pending'
           is_active: boolean
+          tenant_id: string | null
           created_at: string
           updated_at: string
           approved_by: string | null
@@ -135,8 +266,9 @@ export interface Database {
           id: string
           email: string
           full_name: string
-          role?: 'admin' | 'manager' | 'chatter' | 'pending'
+          role?: 'owner' | 'admin' | 'manager' | 'chatter' | 'pending'
           is_active?: boolean
+          tenant_id?: string | null
           created_at?: string
           updated_at?: string
           approved_by?: string | null
@@ -147,8 +279,9 @@ export interface Database {
           id?: string
           email?: string
           full_name?: string
-          role?: 'admin' | 'manager' | 'chatter' | 'pending'
+          role?: 'owner' | 'admin' | 'manager' | 'chatter' | 'pending'
           is_active?: boolean
+          tenant_id?: string | null
           created_at?: string
           updated_at?: string
           approved_by?: string | null
@@ -162,6 +295,7 @@ export interface Database {
           username: string
           phone: string | null
           agency_id: string | null
+          tenant_id: string | null
           assigned_chatter_id: string | null
           assigned_manager_id: string | null
           is_active: boolean
@@ -181,6 +315,7 @@ export interface Database {
           username: string
           phone?: string | null
           agency_id?: string | null
+          tenant_id?: string | null
           assigned_chatter_id?: string | null
           assigned_manager_id?: string | null
           is_active?: boolean
@@ -200,6 +335,7 @@ export interface Database {
           username?: string
           phone?: string | null
           agency_id?: string | null
+          tenant_id?: string | null
           assigned_chatter_id?: string | null
           assigned_manager_id?: string | null
           is_active?: boolean
@@ -1111,7 +1247,7 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
-      team_role: 'admin' | 'manager' | 'chatter' | 'pending'
+      team_role: 'owner' | 'admin' | 'manager' | 'chatter' | 'pending'
       request_status: 'pending_team_approval' | 'pending_client_approval' | 'in_progress' | 'completed' | 'delivered' | 'cancelled' | 'pending'
       request_priority: 'low' | 'medium' | 'high' | 'urgent'
       activity_action: 'created' | 'updated' | 'deleted'
@@ -1121,6 +1257,8 @@ export interface Database {
       sms_status: 'queued' | 'sent' | 'delivered' | 'failed' | 'undelivered' | 'received'
       client_status: 'lead' | 'prospect' | 'pending_contract' | 'active' | 'inactive' | 'churned'
       lead_activity_type: 'lead_discovered' | 'form_sent' | 'form_completed' | 'call_scheduled' | 'call_completed' | 'contract_sent' | 'contract_signed' | 'portal_accessed' | 'status_changed' | 'note_added'
+      tenant_capability: 'sms_outbound' | 'sms_two_way' | 'client_chats' | 'payroll' | 'attendance' | 'scene_library' | 'voice_profiles' | 'advanced_sales' | 'b2b_partners' | 'leads_tracker' | 'automation_rules' | 'api_access'
+      platform_admin_role: 'platform_owner' | 'platform_admin' | 'platform_support'
     }
   }
   attendance_records: {
