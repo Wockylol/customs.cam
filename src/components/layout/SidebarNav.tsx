@@ -63,9 +63,9 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
   // Ref for the scrollable nav container
   const navRef = useRef<HTMLElement>(null);
   
-  // Check if user has manager or admin role
-  const hasManagerAccess = teamMember?.role === 'manager' || teamMember?.role === 'admin';
-  const hasAdminAccess = teamMember?.role === 'admin';
+  // Check if user has manager or admin role (owner has full access)
+  const hasManagerAccess = teamMember?.role === 'manager' || teamMember?.role === 'admin' || teamMember?.role === 'owner';
+  const hasAdminAccess = teamMember?.role === 'admin' || teamMember?.role === 'owner';
   const isChatter = teamMember?.role === 'chatter';
   
   // Save scroll position when scrolling
