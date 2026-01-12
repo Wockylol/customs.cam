@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -45,6 +45,7 @@ import DebugLogsPage from './pages/DebugLogsPage';
 import VibeCheckPage from './pages/VibeCheckPage';
 import PlatformAdminPage from './pages/PlatformAdminPage';
 import RoleManagement from './pages/RoleManagement';
+import TenantRedirect from './components/auth/TenantRedirect';
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -52,7 +53,7 @@ function AnimatedRoutes() {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<TenantRedirect />} />
             <Route 
               path="/dashboard" 
               element={
