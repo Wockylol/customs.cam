@@ -67,7 +67,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
     location.pathname.startsWith('/sales-management') || location.pathname === '/payroll'
   );
   const [isSettingsExpanded, setIsSettingsExpanded] = useState(
-    location.pathname === '/role-management' || location.pathname === '/shifts'
+    location.pathname === '/role-management' || location.pathname === '/shifts' || location.pathname === '/agency-settings'
   );
   
   // Ref for the scrollable nav container
@@ -141,7 +141,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
     if (location.pathname === '/attendance' || location.pathname === '/assignments' || location.pathname === '/user-approvals') {
       setIsTeamManagementExpanded(true);
     }
-    if (location.pathname === '/role-management' || location.pathname === '/shifts') {
+    if (location.pathname === '/role-management' || location.pathname === '/shifts' || location.pathname === '/agency-settings') {
       setIsSettingsExpanded(true);
     }
   }, [location.pathname]);
@@ -1087,6 +1087,26 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
                 
                 {isSettingsExpanded && (
                   <ul className="mt-2 mb-2 space-y-1 ml-4 border-l-2 border-gray-200 dark:border-gray-700">
+                    {isAdminOrAbove && (
+                      <li>
+                        <Link
+                          to="/agency-settings"
+                          className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                            location.pathname === '/agency-settings'
+                              ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                          }`}
+                          onClick={() => {
+                            if (window.innerWidth < 1024) {
+                              onToggle();
+                            }
+                          }}
+                        >
+                          <Building2 className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                          <span className="flex-1 truncate">Agency Settings</span>
+                        </Link>
+                      </li>
+                    )}
                     {hasPermission('settings.roles') && (
                       <li>
                         <Link
