@@ -6,7 +6,7 @@ import TopbarHeader from './TopbarHeader';
 
 interface LayoutProps {
   children: React.ReactNode;
-  title: string;
+  title?: string;
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, title }) => {
@@ -38,14 +38,18 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                       !location.pathname.startsWith('/scene-library') &&
                       !location.pathname.startsWith('/scene-assignments') &&
                       !location.pathname.startsWith('/notifications') &&
-                      !location.pathname.startsWith('/calls');
+                      !location.pathname.startsWith('/calls') &&
+                      !location.pathname.startsWith('/role-management') &&
+                      !location.pathname.startsWith('/platform-admin');
 
   if (isPublicPage) {
     return (
       <div className="h-screen bg-gray-50 flex flex-col dark:bg-gray-950">
-        <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0 dark:bg-gray-900 dark:border-gray-800">
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{title}</h1>
-        </div>
+        {title && (
+          <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0 dark:bg-gray-900 dark:border-gray-800">
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{title}</h1>
+          </div>
+        )}
         <main className="flex-1 py-8 overflow-y-auto">
           <AnimatePresence mode="wait">
             <motion.div
