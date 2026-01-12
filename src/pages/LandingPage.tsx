@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, useInView, useScroll, useTransform } from 'framer-motion';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Sparkles,
   Users,
@@ -83,6 +84,8 @@ const RevealSection: React.FC<{ children: React.ReactNode; className?: string; d
 };
 
 const LandingPage: React.FC = () => {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -91,6 +94,37 @@ const LandingPage: React.FC = () => {
   
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
   const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 0.95]);
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user, loading, navigate]);
+
+  // Show loading while checking auth state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600 mx-auto"></div>
+          <p className="mt-4 text-slate-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If user is authenticated, don't render (navigate will redirect)
+  if (user) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600 mx-auto"></div>
+          <p className="mt-4 text-slate-400">Redirecting to dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   const features = [
     {
