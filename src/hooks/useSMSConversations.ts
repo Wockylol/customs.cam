@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { sendSMS } from '../lib/smsMessaging';
+import { useAuth } from '../contexts/AuthContext';
 
 export interface SMSConversation {
   id: string;
@@ -39,22 +40,30 @@ export interface SMSMessage {
 }
 
 export const useSMSConversations = () => {
+  const { teamMember } = useAuth();
   const [conversations, setConversations] = useState<SMSConversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchConversations = useCallback(async () => {
+    // Don't fetch until we have tenant context
+    if (!teamMember?.tenant_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch conversations with client info
+      // Fetch conversations with client info filtered by tenant
       const { data: convosData, error: convosError } = await supabase
         .from('sms_conversations')
         .select(`
           *,
-          client:clients(id, username, avatar_url)
+          client:clients!inner(id, username, avatar_url, tenant_id)
         `)
+        .eq('client.tenant_id', teamMember.tenant_id)
         .order('last_message_at', { ascending: false });
 
       if (convosError) throw convosError;
@@ -87,7 +96,7 @@ export const useSMSConversations = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [teamMember?.tenant_id]);
 
   useEffect(() => {
     fetchConversations();
