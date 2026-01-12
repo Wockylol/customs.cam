@@ -142,7 +142,8 @@ const UserApprovals: React.FC = () => {
   const handleEditUser = async (userId: string, userData: {
     fullName: string;
     email: string;
-    role: 'admin' | 'manager' | 'chatter' | 'pending';
+    role: string;
+    roleId?: string | null;
     shift?: string;
     shiftId?: string | null;
   }) => {
@@ -150,6 +151,7 @@ const UserApprovals: React.FC = () => {
       fullName: userData.fullName,
       email: userData.email,
       role: userData.role,
+      roleId: userData.roleId,
       shift: userData.shift,
       shiftId: userData.shiftId
     });
