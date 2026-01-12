@@ -45,7 +45,8 @@ import DebugLogsPage from './pages/DebugLogsPage';
 import VibeCheckPage from './pages/VibeCheckPage';
 import PlatformAdminPage from './pages/PlatformAdminPage';
 import RoleManagement from './pages/RoleManagement';
-import TenantRedirect from './components/auth/TenantRedirect';
+import LandingPage from './pages/LandingPage';
+import AuthContainer from './components/auth/AuthContainer';
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -53,7 +54,8 @@ function AnimatedRoutes() {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<TenantRedirect />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<AuthContainer />} />
             <Route 
               path="/dashboard" 
               element={
