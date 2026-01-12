@@ -1,1414 +1,156 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
+-- ============================================================================
+-- Dynamic Shift Schedules for Multi-Tenant Support
+-- ============================================================================
+-- This migration creates the tenant_shifts table to allow each tenant/agency
+-- to define their own shift schedules instead of using hardcoded values.
+-- ============================================================================
 
-// Voice Analysis Types for Idiolect
-export interface VoiceAnalysis {
-  writingMechanics: {
-    capitalization: {
-      sentenceStart: 'always' | 'often' | 'sometimes' | 'rarely' | 'never'
-      examples: string[]
-    }
-    punctuation: {
-      periods: 'always' | 'often' | 'sometimes' | 'rarely' | 'never'
-      commas: 'often' | 'sometimes' | 'rarely'
-      ellipsis: 'heavy' | 'moderate' | 'light' | 'never'
-      exclamationMarks: 'heavy' | 'moderate' | 'light' | 'never'
-      questionMarks: 'normal' | 'light' | 'never'
-      overall: 'high' | 'medium' | 'low'
-    }
-    emoji: {
-      frequency: 'none' | 'minimal' | 'moderate' | 'heavy'
-      position: 'end' | 'mid' | 'start' | 'standalone' | 'mixed'
-      style: 'single' | 'clusters' | 'none'
-      favorites: string[]
-      mirrors_fan: boolean
-    }
-    abbreviations: {
-      uses: string[]
-      avoids: string[]
-      textSpeak: 'heavy' | 'moderate' | 'light' | 'none'
-      examples: string[]
-    }
-    formality: {
-      pronouns: 'u' | 'you' | 'mixed'
-      contractions: 'always' | 'sometimes' | 'never'
-      profanity: 'none' | 'light' | 'moderate' | 'heavy'
-      softeners: 'heavy' | 'moderate' | 'light' | 'none'
-      examples: string[]
-    }
-    messageStructure: {
-      typicalLength: 'very-short' | 'short' | 'medium' | 'long'
-      multipleMessages: boolean
-      lineBreaks: boolean
-      letterStretching: 'heavy' | 'moderate' | 'light' | 'none'
-      examples: string[]
-    }
-  }
-  signaturePatterns: {
-    greetings: string[]
-    petNames: string[]
-    closings: string[]
-    fillerWords: string[]
-    uniquePhrases: string[]
-  }
-  neverDoes: {
-    behaviors: string[]
-    critical: boolean
-  }
-  voiceModes: {
-    casualChat: { tone: string; example: string }
-    flirting: { tone: string; example: string }
-    customRequests: { tone: string; example: string }
-    complimentResponse: { tone: string; example: string }
-  }
-  chatterPlaybook: {
-    quickRules: string[]
-    doNot: string[]
-    copyTheseExactly: string[]
-    replyTemplates: {
-      smallTalk: string
-      compliment: string
-      customRequest: string
-      boundary: string
-    }
-    confidence: 'high' | 'medium' | 'low'
-  }
-}
+-- Create tenant_shifts table
+CREATE TABLE IF NOT EXISTS tenant_shifts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenant_agencies(id) ON DELETE CASCADE,
+  name VARCHAR(100) NOT NULL,           -- Display name: "Day Shift", "Evening Shift"
+  slug VARCHAR(50) NOT NULL,            -- Unique identifier: "day", "evening", "10-6"
+  start_time TIME NOT NULL,             -- Shift start time: "10:00:00"
+  end_time TIME NOT NULL,               -- Shift end time: "18:00:00"
+  color VARCHAR(20) DEFAULT 'blue',     -- UI color: "blue", "purple", "indigo"
+  display_order INT DEFAULT 0,          -- Sort order for UI
+  is_active BOOLEAN DEFAULT true,       -- Soft delete flag
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(tenant_id, slug)
+);
 
-export interface Database {
-  public: {
-    Tables: {
-      // Renamed from 'agencies' to 'managed_agencies' - B2B partners, not tenant agencies
-      managed_agencies: {
-        Row: {
-          id: string
-          name: string
-          slug: string
-          description: string | null
-          contact_email: string | null
-          contact_phone: string | null
-          is_active: boolean
-          tenant_id: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          slug: string
-          description?: string | null
-          contact_email?: string | null
-          contact_phone?: string | null
-          is_active?: boolean
-          tenant_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          slug?: string
-          description?: string | null
-          contact_email?: string | null
-          contact_phone?: string | null
-          is_active?: boolean
-          tenant_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      // Multi-tenant core tables
-      tenant_agencies: {
-        Row: {
-          id: string
-          name: string
-          slug: string
-          owner_user_id: string | null
-          is_active: boolean
-          settings: Json
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          slug: string
-          owner_user_id?: string | null
-          is_active?: boolean
-          settings?: Json
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          slug?: string
-          owner_user_id?: string | null
-          is_active?: boolean
-          settings?: Json
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      tenant_capabilities: {
-        Row: {
-          id: string
-          tenant_id: string
-          capability: 'sms_outbound' | 'sms_two_way' | 'client_chats' | 'payroll' | 'attendance' | 'scene_library' | 'voice_profiles' | 'advanced_sales' | 'b2b_partners' | 'leads_tracker' | 'automation_rules' | 'api_access'
-          enabled: boolean
-          granted_at: string
-          granted_by: string | null
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          capability: 'sms_outbound' | 'sms_two_way' | 'client_chats' | 'payroll' | 'attendance' | 'scene_library' | 'voice_profiles' | 'advanced_sales' | 'b2b_partners' | 'leads_tracker' | 'automation_rules' | 'api_access'
-          enabled?: boolean
-          granted_at?: string
-          granted_by?: string | null
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          capability?: 'sms_outbound' | 'sms_two_way' | 'client_chats' | 'payroll' | 'attendance' | 'scene_library' | 'voice_profiles' | 'advanced_sales' | 'b2b_partners' | 'leads_tracker' | 'automation_rules' | 'api_access'
-          enabled?: boolean
-          granted_at?: string
-          granted_by?: string | null
-        }
-      }
-      tenant_invites: {
-        Row: {
-          id: string
-          tenant_id: string
-          email: string
-          token: string
-          role: string
-          invited_by: string
-          expires_at: string
-          accepted_at: string | null
-          accepted_by_user_id: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          email: string
-          token?: string
-          role?: string
-          invited_by: string
-          expires_at?: string
-          accepted_at?: string | null
-          accepted_by_user_id?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          email?: string
-          token?: string
-          role?: string
-          invited_by?: string
-          expires_at?: string
-          accepted_at?: string | null
-          accepted_by_user_id?: string | null
-          created_at?: string
-        }
-      }
-      platform_admins: {
-        Row: {
-          id: string
-          user_id: string
-          role: 'platform_owner' | 'platform_admin' | 'platform_support'
-          is_active: boolean
-          created_at: string
-          updated_at: string
-          last_login_at: string | null
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          role?: 'platform_owner' | 'platform_admin' | 'platform_support'
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-          last_login_at?: string | null
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          role?: 'platform_owner' | 'platform_admin' | 'platform_support'
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-          last_login_at?: string | null
-        }
-      }
-      team_members: {
-        Row: {
-          id: string
-          email: string
-          full_name: string
-          role: 'owner' | 'admin' | 'manager' | 'chatter' | 'pending'
-          role_id: string | null
-          is_active: boolean
-          tenant_id: string | null
-          created_at: string
-          updated_at: string
-          approved_by: string | null
-          approved_at: string | null
-          shift: string | null
-        }
-        Insert: {
-          id: string
-          email: string
-          full_name: string
-          role?: 'owner' | 'admin' | 'manager' | 'chatter' | 'pending'
-          role_id?: string | null
-          is_active?: boolean
-          tenant_id?: string | null
-          created_at?: string
-          updated_at?: string
-          approved_by?: string | null
-          approved_at?: string | null
-          shift?: string | null
-        }
-        Update: {
-          id?: string
-          email?: string
-          full_name?: string
-          role?: 'owner' | 'admin' | 'manager' | 'chatter' | 'pending'
-          role_id?: string | null
-          is_active?: boolean
-          tenant_id?: string | null
-          created_at?: string
-          updated_at?: string
-          approved_by?: string | null
-          approved_at?: string | null
-          shift?: string | null
-        }
-      }
-      // Dynamic roles and permissions
-      permissions_catalog: {
-        Row: {
-          id: string
-          code: string
-          name: string
-          description: string | null
-          category: string
-          type: 'page_access' | 'action'
-          display_order: number
-          is_active: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          code: string
-          name: string
-          description?: string | null
-          category: string
-          type: 'page_access' | 'action'
-          display_order?: number
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          code?: string
-          name?: string
-          description?: string | null
-          category?: string
-          type?: 'page_access' | 'action'
-          display_order?: number
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      tenant_roles: {
-        Row: {
-          id: string
-          tenant_id: string
-          name: string
-          slug: string
-          description: string | null
-          color: string
-          hierarchy_level: number
-          is_system_default: boolean
-          is_immutable: boolean
-          settings: Record<string, unknown>
-          created_at: string
-          updated_at: string
-          created_by: string | null
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          name: string
-          slug: string
-          description?: string | null
-          color?: string
-          hierarchy_level?: number
-          is_system_default?: boolean
-          is_immutable?: boolean
-          settings?: Record<string, unknown>
-          created_at?: string
-          updated_at?: string
-          created_by?: string | null
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          name?: string
-          slug?: string
-          description?: string | null
-          color?: string
-          hierarchy_level?: number
-          is_system_default?: boolean
-          is_immutable?: boolean
-          settings?: Record<string, unknown>
-          created_at?: string
-          updated_at?: string
-          created_by?: string | null
-        }
-      }
-      tenant_role_permissions: {
-        Row: {
-          id: string
-          role_id: string
-          permission_id: string
-          granted_at: string
-          granted_by: string | null
-        }
-        Insert: {
-          id?: string
-          role_id: string
-          permission_id: string
-          granted_at?: string
-          granted_by?: string | null
-        }
-        Update: {
-          id?: string
-          role_id?: string
-          permission_id?: string
-          granted_at?: string
-          granted_by?: string | null
-        }
-      }
-      clients: {
-        Row: {
-          id: string
-          username: string
-          phone: string | null
-          agency_id: string | null
-          tenant_id: string | null
-          assigned_chatter_id: string | null
-          assigned_manager_id: string | null
-          is_active: boolean
-          created_at: string
-          updated_at: string
-          avatar_url: string | null
-          status: 'lead' | 'prospect' | 'pending_contract' | 'active' | 'inactive' | 'churned'
-          first_name: string | null
-          last_name: string | null
-          email: string | null
-          lead_source: string | null
-          intake_token: string | null
-          intake_completed_at: string | null
-        }
-        Insert: {
-          id?: string
-          username: string
-          phone?: string | null
-          agency_id?: string | null
-          tenant_id?: string | null
-          assigned_chatter_id?: string | null
-          assigned_manager_id?: string | null
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-          avatar_url?: string | null
-          status?: 'lead' | 'prospect' | 'pending_contract' | 'active' | 'inactive' | 'churned'
-          first_name?: string | null
-          last_name?: string | null
-          email?: string | null
-          lead_source?: string | null
-          intake_token?: string | null
-          intake_completed_at?: string | null
-        }
-        Update: {
-          id?: string
-          username?: string
-          phone?: string | null
-          agency_id?: string | null
-          tenant_id?: string | null
-          assigned_chatter_id?: string | null
-          assigned_manager_id?: string | null
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-          avatar_url?: string | null
-          status?: 'lead' | 'prospect' | 'pending_contract' | 'active' | 'inactive' | 'churned'
-          first_name?: string | null
-          last_name?: string | null
-          email?: string | null
-          lead_source?: string | null
-          intake_token?: string | null
-          intake_completed_at?: string | null
-        }
-      }
-      platforms: {
-        Row: {
-          id: string
-          name: string
-          slug: string
-          description: string | null
-          color: string
-          icon: string | null
-          is_active: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          slug: string
-          description?: string | null
-          color?: string
-          icon?: string | null
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          slug?: string
-          description?: string | null
-          color?: string
-          icon?: string | null
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      client_platforms: {
-        Row: {
-          id: string
-          client_id: string
-          platform_id: string
-          account_name: string | null
-          username_on_platform: string | null
-          profile_url: string | null
-          is_active: boolean
-          notes: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          client_id: string
-          platform_id: string
-          account_name?: string | null
-          username_on_platform?: string | null
-          profile_url?: string | null
-          is_active?: boolean
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          client_id?: string
-          platform_id?: string
-          account_name?: string | null
-          username_on_platform?: string | null
-          profile_url?: string | null
-          is_active?: boolean
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      chatter_assignments: {
-        Row: {
-          id: string
-          chatter_id: string
-          client_id: string
-          client_platform_id: string | null
-          assigned_by: string
-          assigned_at: string
-          is_active: boolean
-          notes: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          chatter_id: string
-          client_id: string
-          client_platform_id?: string | null
-          assigned_by: string
-          assigned_at?: string
-          is_active?: boolean
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          chatter_id?: string
-          client_id?: string
-          client_platform_id?: string | null
-          assigned_by?: string
-          assigned_at?: string
-          is_active?: boolean
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      client_preferences: {
-        Row: {
-          id: string
-          client_id: string
-          minimum_pricing: number
-          video_call: boolean
-          audio_call: boolean
-          dick_rates: boolean
-          fan_signs: boolean
-          using_fans_name: boolean
-          saying_specific_things: boolean
-          roleplaying: boolean
-          using_toys_props: boolean
-          specific_outfits: boolean
-          full_nudity_censored: boolean
-          full_nudity_uncensored: boolean
-          masturbation: boolean
-          anal_content: boolean
-          feet_content: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          client_id: string
-          minimum_pricing?: number
-          video_call?: boolean
-          audio_call?: boolean
-          dick_rates?: boolean
-          fan_signs?: boolean
-          using_fans_name?: boolean
-          saying_specific_things?: boolean
-          roleplaying?: boolean
-          using_toys_props?: boolean
-          specific_outfits?: boolean
-          full_nudity_censored?: boolean
-          full_nudity_uncensored?: boolean
-          masturbation?: boolean
-          anal_content?: boolean
-          feet_content?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          client_id?: string
-          minimum_pricing?: number
-          video_call?: boolean
-          audio_call?: boolean
-          dick_rates?: boolean
-          fan_signs?: boolean
-          using_fans_name?: boolean
-          saying_specific_things?: boolean
-          roleplaying?: boolean
-          using_toys_props?: boolean
-          specific_outfits?: boolean
-          full_nudity_censored?: boolean
-          full_nudity_uncensored?: boolean
-          masturbation?: boolean
-          anal_content?: boolean
-          feet_content?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      custom_requests: {
-        Row: {
-          id: string
-          client_id: string
-          fan_name: string
-          fan_email: string | null
-          description: string
-          fan_lifetime_spend: number | null
-          proposed_amount: number
-          amount_paid: number | null
-          length_duration: string | null
-          status: 'pending' | 'pending_team_approval' | 'pending_client_approval' | 'in_progress' | 'completed' | 'delivered' | 'cancelled'
-          priority: 'low' | 'medium' | 'high' | 'urgent'
-          notes: string | null
-          chat_link: string | null
-          date_submitted: string
-          date_due: string | null
-          date_completed: string | null
-          estimated_delivery_date: string | null
-          assigned_to: string | null
-          created_by: string | null
-          team_approved_by: string | null
-          team_approved_at: string | null
-          client_approved_at: string | null
-          is_voice_video_call: boolean
-          call_scheduled_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          client_id: string
-          fan_name: string
-          fan_email?: string | null
-          description: string
-          fan_lifetime_spend?: number | null
-          proposed_amount?: number
-          amount_paid?: number | null
-          length_duration?: string | null
-          status?: 'pending_team_approval' | 'pending_client_approval' | 'in_progress' | 'completed' | 'delivered' | 'cancelled'
-          priority?: 'low' | 'medium' | 'high' | 'urgent'
-          notes?: string | null
-          chat_link?: string | null
-          date_submitted?: string
-          date_due?: string | null
-          date_completed?: string | null
-          estimated_delivery_date?: string | null
-          assigned_to?: string | null
-          created_by?: string | null
-          team_approved_by?: string | null
-          team_approved_at?: string | null
-          client_approved_at?: string | null
-          is_voice_video_call?: boolean
-          call_scheduled_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          client_id?: string
-          fan_name?: string
-          fan_email?: string | null
-          description?: string
-          fan_lifetime_spend?: number | null
-          proposed_amount?: number
-          amount_paid?: number | null
-          length_duration?: string | null
-          status?: 'pending_team_approval' | 'pending_client_approval' | 'in_progress' | 'completed' | 'delivered' | 'cancelled'
-          priority?: 'low' | 'medium' | 'high' | 'urgent'
-          notes?: string | null
-          chat_link?: string | null
-          date_submitted?: string
-          date_due?: string | null
-          date_completed?: string | null
-          estimated_delivery_date?: string | null
-          assigned_to?: string | null
-          created_by?: string | null
-          team_approved_by?: string | null
-          team_approved_at?: string | null
-          client_approved_at?: string | null
-          is_voice_video_call?: boolean
-          call_scheduled_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      content_uploads: {
-        Row: {
-          id: string
-          custom_request_id: string
-          file_name: string
-          file_path: string
-          file_size: number
-          file_type: string
-          uploaded_by: string
-          upload_date: string
-        }
-        Insert: {
-          id?: string
-          custom_request_id: string
-          file_name: string
-          file_path: string
-          file_size: number
-          file_type: string
-          uploaded_by?: string
-          upload_date?: string
-        }
-        Update: {
-          id?: string
-          custom_request_id?: string
-          file_name?: string
-          file_path?: string
-          file_size?: number
-          file_type?: string
-          uploaded_by?: string
-          upload_date?: string
-        }
-      }
-      activity_logs: {
-        Row: {
-          id: string
-          table_name: string
-          record_id: string
-          action: 'created' | 'updated' | 'deleted'
-          old_values: Json | null
-          new_values: Json | null
-          performed_by: string | null
-          performed_at: string
-        }
-        Insert: {
-          id?: string
-          table_name: string
-          record_id: string
-          action: 'created' | 'updated' | 'deleted'
-          old_values?: Json | null
-          new_values?: Json | null
-          performed_by?: string | null
-          performed_at?: string
-        }
-        Update: {
-          id?: string
-          table_name?: string
-          record_id?: string
-          action?: 'created' | 'updated' | 'deleted'
-          old_values?: Json | null
-          new_values?: Json | null
-          performed_by?: string | null
-          performed_at?: string
-        }
-      }
-      custom_notes: {
-        Row: {
-          id: string
-          custom_request_id: string
-          content: string
-          created_by: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          custom_request_id: string
-          content: string
-          created_by: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          custom_request_id?: string
-          content?: string
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      client_personal_info: {
-        Row: {
-          id: string
-          client_id: string
-          legal_name: string | null
-          email: string | null
-          phone: string | null
-          date_of_birth: string | null
-          address: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          client_id: string
-          legal_name?: string | null
-          email?: string | null
-          phone?: string | null
-          date_of_birth?: string | null
-          address?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          client_id?: string
-          legal_name?: string | null
-          email?: string | null
-          phone?: string | null
-          date_of_birth?: string | null
-          address?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      content_scenes: {
-        Row: {
-          id: string
-          title: string
-          location: string | null
-          props: string | null
-          instructions: Json
-          is_template: boolean
-          is_default_for_new_clients: boolean
-          created_by: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          title: string
-          location?: string | null
-          props?: string | null
-          instructions?: Json
-          is_template?: boolean
-          is_default_for_new_clients?: boolean
-          created_by?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          title?: string
-          location?: string | null
-          props?: string | null
-          instructions?: Json
-          is_template?: boolean
-          is_default_for_new_clients?: boolean
-          created_by?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      client_scene_assignments: {
-        Row: {
-          id: string
-          client_id: string
-          scene_id: string
-          status: 'pending' | 'completed' | 'archived'
-          assigned_by: string | null
-          assigned_at: string
-          completed_at: string | null
-          archived_at: string | null
-          notes: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          client_id: string
-          scene_id: string
-          status?: 'pending' | 'completed' | 'archived'
-          assigned_by?: string | null
-          assigned_at?: string
-          completed_at?: string | null
-          archived_at?: string | null
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          client_id?: string
-          scene_id?: string
-          status?: 'pending' | 'completed' | 'archived'
-          assigned_by?: string | null
-          assigned_at?: string
-          completed_at?: string | null
-          archived_at?: string | null
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      scene_content_uploads: {
-        Row: {
-          id: string
-          assignment_id: string
-          step_index: number
-          file_name: string
-          file_path: string
-          file_size: number
-          file_type: string
-          uploaded_by: string
-          upload_date: string
-          uploaded_at: string
-          public_url: string | null
-        }
-        Insert: {
-          id?: string
-          assignment_id: string
-          step_index: number
-          file_name: string
-          file_path: string
-          file_size: number
-          file_type: string
-          uploaded_by: string
-          upload_date?: string
-          uploaded_at?: string
-          public_url?: string | null
-        }
-        Update: {
-          id?: string
-          assignment_id?: string
-          step_index?: number
-          file_name?: string
-          file_path?: string
-          file_size?: number
-          file_type?: string
-          uploaded_by?: string
-          upload_date?: string
-          uploaded_at?: string
-          public_url?: string | null
-        }
-      }
-      scene_example_media: {
-        Row: {
-          id: string
-          scene_id: string
-          file_name: string
-          file_path: string
-          file_type: string
-          display_order: number
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          scene_id: string
-          file_name: string
-          file_path: string
-          file_type: string
-          display_order?: number
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          scene_id?: string
-          file_name?: string
-          file_path?: string
-          file_type?: string
-          display_order?: number
-          created_at?: string
-        }
-      }
-      chatter_sales: {
-        Row: {
-          id: string
-          chatter_id: string
-          client_id: string
-          sale_date: string
-          sale_time: string | null
-          gross_amount: number
-          screenshot_url: string | null
-          notes: string | null
-          status: 'pending' | 'valid' | 'invalid'
-          approved_by: string | null
-          approved_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          chatter_id: string
-          client_id: string
-          sale_date?: string
-          sale_time?: string | null
-          gross_amount: number
-          screenshot_url?: string | null
-          notes?: string | null
-          status?: 'pending' | 'valid' | 'invalid'
-          approved_by?: string | null
-          approved_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          chatter_id?: string
-          client_id?: string
-          sale_date?: string
-          sale_time?: string | null
-          gross_amount?: number
-          screenshot_url?: string | null
-          notes?: string | null
-          status?: 'pending' | 'valid' | 'invalid'
-          approved_by?: string | null
-          approved_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      notifications: {
-        Row: {
-          id: string
-          type: string
-          title: string
-          message: string
-          link: string | null
-          is_read: boolean
-          created_at: string
-          updated_at: string
-          related_entity_type: string | null
-          related_entity_id: string | null
-          created_by: string | null
-        }
-        Insert: {
-          id?: string
-          type: string
-          title: string
-          message: string
-          link?: string | null
-          is_read?: boolean
-          created_at?: string
-          updated_at?: string
-          related_entity_type?: string | null
-          related_entity_id?: string | null
-          created_by?: string | null
-        }
-        Update: {
-          id?: string
-          type?: string
-          title?: string
-          message?: string
-          link?: string | null
-          is_read?: boolean
-          created_at?: string
-          updated_at?: string
-          related_entity_type?: string | null
-          related_entity_id?: string | null
-          created_by?: string | null
-        }
-      }
-      notification_recipients: {
-        Row: {
-          id: string
-          notification_id: string
-          team_member_id: string
-          is_read: boolean
-          read_at: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          notification_id: string
-          team_member_id: string
-          is_read?: boolean
-          read_at?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          notification_id?: string
-          team_member_id?: string
-          is_read?: boolean
-          read_at?: string | null
-          created_at?: string
-        }
-      }
-      client_notes: {
-        Row: {
-          id: string
-          client_id: string
-          content: string
-          created_by: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          client_id: string
-          content: string
-          created_by: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          client_id?: string
-          content?: string
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      sms_conversations: {
-        Row: {
-          id: string
-          phone_number: string
-          client_id: string | null
-          last_message_at: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          phone_number: string
-          client_id?: string | null
-          last_message_at?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          phone_number?: string
-          client_id?: string | null
-          last_message_at?: string
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      sms_messages: {
-        Row: {
-          id: string
-          conversation_id: string
-          direction: 'inbound' | 'outbound'
-          body: string
-          twilio_sid: string | null
-          status: 'queued' | 'sent' | 'delivered' | 'failed' | 'undelivered' | 'received'
-          sent_by: string | null
-          error_code: string | null
-          error_message: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          conversation_id: string
-          direction: 'inbound' | 'outbound'
-          body: string
-          twilio_sid?: string | null
-          status?: 'queued' | 'sent' | 'delivered' | 'failed' | 'undelivered' | 'received'
-          sent_by?: string | null
-          error_code?: string | null
-          error_message?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          conversation_id?: string
-          direction?: 'inbound' | 'outbound'
-          body?: string
-          twilio_sid?: string | null
-          status?: 'queued' | 'sent' | 'delivered' | 'failed' | 'undelivered' | 'received'
-          sent_by?: string | null
-          error_code?: string | null
-          error_message?: string | null
-          created_at?: string
-        }
-      }
-      client_idiolect_analysis: {
-        Row: {
-          id: string
-          client_id: string
-          conversation_transcript: any[]
-          voice_analysis: VoiceAnalysis | null
-          // Legacy fields (kept for backwards compatibility)
-          trait_dominant_submissive: number
-          trait_playful_serious: number
-          trait_confident_shy: number
-          trait_warmth_level: number
-          avg_response_length: 'brief' | 'moderate' | 'detailed' | null
-          emoji_usage: 'none' | 'minimal' | 'moderate' | 'heavy' | null
-          capitalization_style: 'lowercase' | 'normal' | 'expressive' | null
-          punctuation_style: string | null
-          sentence_structure: string | null
-          greetings: string[]
-          pet_names: string[]
-          closings: string[]
-          filler_words: string[]
-          unique_phrases: string[]
-          flirtation_approach: string | null
-          love_language_indicators: string[]
-          chatter_guidelines: string | null
-          status: 'incomplete' | 'in_progress' | 'completed'
-          current_step: number
-          started_at: string | null
-          completed_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          client_id: string
-          conversation_transcript?: any[]
-          voice_analysis?: VoiceAnalysis | null
-          trait_dominant_submissive?: number
-          trait_playful_serious?: number
-          trait_confident_shy?: number
-          trait_warmth_level?: number
-          avg_response_length?: 'brief' | 'moderate' | 'detailed' | null
-          emoji_usage?: 'none' | 'minimal' | 'moderate' | 'heavy' | null
-          capitalization_style?: 'lowercase' | 'normal' | 'expressive' | null
-          punctuation_style?: string | null
-          sentence_structure?: string | null
-          greetings?: string[]
-          pet_names?: string[]
-          closings?: string[]
-          filler_words?: string[]
-          unique_phrases?: string[]
-          flirtation_approach?: string | null
-          love_language_indicators?: string[]
-          chatter_guidelines?: string | null
-          status?: 'incomplete' | 'in_progress' | 'completed'
-          current_step?: number
-          started_at?: string | null
-          completed_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          client_id?: string
-          conversation_transcript?: any[]
-          voice_analysis?: VoiceAnalysis | null
-          trait_dominant_submissive?: number
-          trait_playful_serious?: number
-          trait_confident_shy?: number
-          trait_warmth_level?: number
-          avg_response_length?: 'brief' | 'moderate' | 'detailed' | null
-          emoji_usage?: 'none' | 'minimal' | 'moderate' | 'heavy' | null
-          capitalization_style?: 'lowercase' | 'normal' | 'expressive' | null
-          punctuation_style?: string | null
-          sentence_structure?: string | null
-          greetings?: string[]
-          pet_names?: string[]
-          closings?: string[]
-          filler_words?: string[]
-          unique_phrases?: string[]
-          flirtation_approach?: string | null
-          love_language_indicators?: string[]
-          chatter_guidelines?: string | null
-          status?: 'incomplete' | 'in_progress' | 'completed'
-          current_step?: number
-          started_at?: string | null
-          completed_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      lead_activities: {
-        Row: {
-          id: string
-          client_id: string
-          activity_type: 'lead_discovered' | 'form_sent' | 'form_completed' | 'call_scheduled' | 'call_completed' | 'contract_sent' | 'contract_signed' | 'portal_accessed' | 'status_changed' | 'note_added'
-          notes: string | null
-          scheduled_at: string | null
-          completed_at: string | null
-          metadata: Json
-          created_by: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          client_id: string
-          activity_type: 'lead_discovered' | 'form_sent' | 'form_completed' | 'call_scheduled' | 'call_completed' | 'contract_sent' | 'contract_signed' | 'portal_accessed' | 'status_changed' | 'note_added'
-          notes?: string | null
-          scheduled_at?: string | null
-          completed_at?: string | null
-          metadata?: Json
-          created_by?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          client_id?: string
-          activity_type?: 'lead_discovered' | 'form_sent' | 'form_completed' | 'call_scheduled' | 'call_completed' | 'contract_sent' | 'contract_signed' | 'portal_accessed' | 'status_changed' | 'note_added'
-          notes?: string | null
-          scheduled_at?: string | null
-          completed_at?: string | null
-          metadata?: Json
-          created_by?: string | null
-          created_at?: string
-        }
-      }
-      platform_interests: {
-        Row: {
-          id: string
-          client_id: string
-          platform_id: string
-          notes: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          client_id: string
-          platform_id: string
-          notes?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          client_id?: string
-          platform_id?: string
-          notes?: string | null
-          created_at?: string
-        }
-      }
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      [_ in never]: never
-    }
-    Enums: {
-      team_role: 'owner' | 'admin' | 'manager' | 'chatter' | 'pending'
-      request_status: 'pending_team_approval' | 'pending_client_approval' | 'in_progress' | 'completed' | 'delivered' | 'cancelled' | 'pending'
-      request_priority: 'low' | 'medium' | 'high' | 'urgent'
-      activity_action: 'created' | 'updated' | 'deleted'
-      attendance_status: 'on_time' | 'late' | 'no_show' | 'day_off' | 'left_early' | 'late_and_left_early'
-      scene_status: 'pending' | 'completed'
-      sms_direction: 'inbound' | 'outbound'
-      sms_status: 'queued' | 'sent' | 'delivered' | 'failed' | 'undelivered' | 'received'
-      client_status: 'lead' | 'prospect' | 'pending_contract' | 'active' | 'inactive' | 'churned'
-      lead_activity_type: 'lead_discovered' | 'form_sent' | 'form_completed' | 'call_scheduled' | 'call_completed' | 'contract_sent' | 'contract_signed' | 'portal_accessed' | 'status_changed' | 'note_added'
-      tenant_capability: 'sms_outbound' | 'sms_two_way' | 'client_chats' | 'payroll' | 'attendance' | 'scene_library' | 'voice_profiles' | 'advanced_sales' | 'b2b_partners' | 'leads_tracker' | 'automation_rules' | 'api_access'
-      platform_admin_role: 'platform_owner' | 'platform_admin' | 'platform_support'
-    }
-  }
-  attendance_records: {
-    Row: {
-      id: string
-      team_member_id: string
-      date: string
-      status: 'on_time' | 'late' | 'no_show' | 'day_off' | 'left_early' | 'late_and_left_early'
-      clock_in_time: string | null
-      clock_out_time: string | null
-      notes: string | null
-      recorded_by: string
-      created_at: string
-      updated_at: string
-    }
-    Insert: {
-      id?: string
-      team_member_id: string
-      date?: string
-      status: 'on_time' | 'late' | 'no_show' | 'day_off' | 'left_early' | 'late_and_left_early'
-      clock_in_time?: string | null
-      clock_out_time?: string | null
-      notes?: string | null
-      recorded_by: string
-      created_at?: string
-      updated_at?: string
-    }
-    Update: {
-      id?: string
-      team_member_id?: string
-      date?: string
-      status?: 'on_time' | 'late' | 'no_show' | 'day_off' | 'left_early' | 'late_and_left_early'
-      clock_in_time?: string | null
-      clock_out_time?: string | null
-      notes?: string | null
-      recorded_by?: string
-      created_at?: string
-      updated_at?: string
-    }
-  }
-}
+-- Add index for faster lookups
+CREATE INDEX IF NOT EXISTS idx_tenant_shifts_tenant_id ON tenant_shifts(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_shifts_active ON tenant_shifts(tenant_id, is_active);
+
+-- Add shift_id column to team_members (nullable for backward compatibility)
+ALTER TABLE team_members 
+ADD COLUMN IF NOT EXISTS shift_id UUID REFERENCES tenant_shifts(id) ON DELETE SET NULL;
+
+-- Create index for the new FK
+CREATE INDEX IF NOT EXISTS idx_team_members_shift_id ON team_members(shift_id);
+
+-- ============================================================================
+-- Row Level Security (RLS) for tenant_shifts
+-- ============================================================================
+
+ALTER TABLE tenant_shifts ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Users can view shifts for their own tenant
+CREATE POLICY "tenant_shifts_select_policy" ON tenant_shifts
+  FOR SELECT
+  USING (
+    tenant_id IN (
+      SELECT tenant_id FROM team_members WHERE id = auth.uid()
+    )
+    OR
+    EXISTS (
+      SELECT 1 FROM platform_admins WHERE user_id = auth.uid() AND is_active = true
+    )
+  );
+
+-- Policy: Admins and owners can insert shifts for their tenant
+CREATE POLICY "tenant_shifts_insert_policy" ON tenant_shifts
+  FOR INSERT
+  WITH CHECK (
+    tenant_id IN (
+      SELECT tenant_id FROM team_members 
+      WHERE id = auth.uid() 
+      AND role IN ('owner', 'admin')
+    )
+    OR
+    EXISTS (
+      SELECT 1 FROM platform_admins WHERE user_id = auth.uid() AND is_active = true
+    )
+  );
+
+-- Policy: Admins and owners can update shifts for their tenant
+CREATE POLICY "tenant_shifts_update_policy" ON tenant_shifts
+  FOR UPDATE
+  USING (
+    tenant_id IN (
+      SELECT tenant_id FROM team_members 
+      WHERE id = auth.uid() 
+      AND role IN ('owner', 'admin')
+    )
+    OR
+    EXISTS (
+      SELECT 1 FROM platform_admins WHERE user_id = auth.uid() AND is_active = true
+    )
+  );
+
+-- Policy: Admins and owners can delete shifts for their tenant
+CREATE POLICY "tenant_shifts_delete_policy" ON tenant_shifts
+  FOR DELETE
+  USING (
+    tenant_id IN (
+      SELECT tenant_id FROM team_members 
+      WHERE id = auth.uid() 
+      AND role IN ('owner', 'admin')
+    )
+    OR
+    EXISTS (
+      SELECT 1 FROM platform_admins WHERE user_id = auth.uid() AND is_active = true
+    )
+  );
+
+-- ============================================================================
+-- Helper function to migrate existing shift text values to shift_id
+-- ============================================================================
+-- This function can be called to migrate a tenant's existing shift values
+-- after they have created their shift definitions.
+
+CREATE OR REPLACE FUNCTION migrate_team_member_shifts(p_tenant_id UUID)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  migrated_count INTEGER := 0;
+BEGIN
+  -- Update team members with matching shift slugs
+  UPDATE team_members tm
+  SET shift_id = ts.id
+  FROM tenant_shifts ts
+  WHERE tm.tenant_id = p_tenant_id
+    AND ts.tenant_id = p_tenant_id
+    AND tm.shift IS NOT NULL
+    AND tm.shift = ts.slug
+    AND tm.shift_id IS NULL;
+  
+  GET DIAGNOSTICS migrated_count = ROW_COUNT;
+  
+  RETURN migrated_count;
+END;
+$$;
+
+-- ============================================================================
+-- Trigger for updated_at
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION update_tenant_shifts_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tenant_shifts_updated_at
+  BEFORE UPDATE ON tenant_shifts
+  FOR EACH ROW
+  EXECUTE FUNCTION update_tenant_shifts_updated_at();
+
+-- ============================================================================
+-- Enable Realtime for tenant_shifts (optional, for live updates)
+-- ============================================================================
+
+ALTER PUBLICATION supabase_realtime ADD TABLE tenant_shifts;
+
+COMMENT ON TABLE tenant_shifts IS 'Stores configurable shift schedules per tenant. Each tenant can define their own shifts with custom times.';
+COMMENT ON COLUMN tenant_shifts.slug IS 'Unique identifier within tenant. Used for filtering and stored in team_members.shift for backward compatibility.';
+COMMENT ON COLUMN tenant_shifts.start_time IS 'Shift start time in 24-hour format. For overnight shifts, end_time will be less than start_time.';
+COMMENT ON COLUMN tenant_shifts.end_time IS 'Shift end time in 24-hour format. For overnight shifts (e.g., 6pm-2am), this will be less than start_time.';
+
