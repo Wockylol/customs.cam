@@ -4,11 +4,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import NotificationDropdown from '../ui/NotificationDropdown';
 
 interface TopbarHeaderProps {
-  title: string;
+  title?: string;
   onMenuClick: () => void;
 }
 
-const TopbarHeader: React.FC<TopbarHeaderProps> = ({ title, onMenuClick }) => {
+const TopbarHeader: React.FC<TopbarHeaderProps> = ({ title = '', onMenuClick }) => {
   const { teamMember, signOut } = useAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -49,7 +49,7 @@ const TopbarHeader: React.FC<TopbarHeaderProps> = ({ title, onMenuClick }) => {
           >
             <Menu className="w-5 h-5 dark:text-gray-300" />
           </button>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{title}</h1>
+          {title && <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{title}</h1>}
         </div>
         
         <div className="flex items-center space-x-4">
