@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -44,7 +44,13 @@ export const usePayroll = () => {
   const [error, setError] = useState<string | null>(null);
   const { teamMember } = useAuth();
 
-  const fetchPayrollData = async (month?: number, year?: number) => {
+  const fetchPayrollData = useCallback(async (month?: number, year?: number) => {
+    // Don't fetch until we have tenant context
+    if (!teamMember?.tenant_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -54,10 +60,11 @@ export const usePayroll = () => {
       const targetMonth = month ?? now.getMonth() + 1;
       const targetYear = year ?? now.getFullYear();
 
-      // Fetch all team members
+      // Fetch all team members filtered by tenant
       const { data: teamMembers, error: teamError } = await supabase
         .from('team_members')
         .select('*')
+        .eq('tenant_id', teamMember.tenant_id)
         .order('full_name', { ascending: true });
 
       if (teamError) throw teamError;
@@ -142,7 +149,7 @@ export const usePayroll = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [teamMember?.tenant_id]);
 
   const updatePayrollSettings = async (
     teamMemberId: string,
@@ -284,7 +291,7 @@ export const usePayroll = () => {
     if (teamMember?.role === 'admin' || teamMember?.role === 'owner') {
       fetchPayrollData();
     }
-  }, [teamMember]);
+  }, [teamMember?.role, fetchPayrollData]);
 
   return {
     payrollData,
