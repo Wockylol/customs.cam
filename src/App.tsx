@@ -45,6 +45,7 @@ import DebugLogsPage from './pages/DebugLogsPage';
 import VibeCheckPage from './pages/VibeCheckPage';
 import PlatformAdminPage from './pages/PlatformAdminPage';
 import RoleManagement from './pages/RoleManagement';
+import ShiftManagement from './pages/ShiftManagement';
 import LandingPage from './pages/LandingPage';
 import AuthContainer from './components/auth/AuthContainer';
 
@@ -295,6 +296,14 @@ function AnimatedRoutes() {
               element={
                 <ProtectedRoute requiredPermission="settings.roles">
                   <RoleManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route 
+              path="/shifts" 
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <ShiftManagement />
                 </ProtectedRoute>
               }
             />
