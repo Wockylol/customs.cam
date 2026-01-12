@@ -5,6 +5,52 @@
 -- ============================================================================
 
 -- ============================================================================
+-- 0. ENSURE HELPER FUNCTIONS EXIST
+-- ============================================================================
+
+-- Auto-fill tenant_id from team_members (for authenticated users)
+CREATE OR REPLACE FUNCTION public.auto_set_tenant_id()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  IF NEW.tenant_id IS NULL THEN
+    SELECT tenant_id INTO NEW.tenant_id
+    FROM public.team_members
+    WHERE id = auth.uid()
+    AND tenant_id IS NOT NULL
+    LIMIT 1;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- Auto-fill tenant_id from clients table (for client-related tables)
+CREATE OR REPLACE FUNCTION public.auto_set_tenant_id_from_client()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  IF NEW.tenant_id IS NULL AND NEW.client_id IS NOT NULL THEN
+    SELECT tenant_id INTO NEW.tenant_id
+    FROM public.clients
+    WHERE id = NEW.client_id
+    LIMIT 1;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.auto_set_tenant_id() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.auto_set_tenant_id() TO service_role;
+GRANT EXECUTE ON FUNCTION public.auto_set_tenant_id_from_client() TO anon;
+GRANT EXECUTE ON FUNCTION public.auto_set_tenant_id_from_client() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.auto_set_tenant_id_from_client() TO service_role;
+
+
+-- ============================================================================
 -- 1. FIX MESSAGES TABLE (chat messages)
 -- ============================================================================
 
