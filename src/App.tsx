@@ -295,7 +295,14 @@ function AnimatedRoutes() {
                 </ProtectedRoute>
               }
             />
-            <Route path="/platform-admin" element={<PlatformAdminPage />} />
+            <Route 
+              path="/platform-admin" 
+              element={
+                <ProtectedRoute>
+                  <PlatformAdminPage />
+                </ProtectedRoute>
+              }
+            />
       </Routes>
     </AnimatePresence>
   );
