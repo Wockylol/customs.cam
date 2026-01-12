@@ -1,16 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
+import { useAuth } from '../contexts/AuthContext';
 
 type TeamMember = Database['public']['Tables']['team_members']['Row'];
 type TeamMemberUpdate = Database['public']['Tables']['team_members']['Update'];
 
 export const useTeamMembers = () => {
+  const { teamMember: currentUser } = useAuth();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTeamMembers = async () => {
+  const fetchTeamMembers = useCallback(async () => {
+    // Don't fetch until we have tenant context
+    if (!currentUser?.tenant_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       // Don't clear existing data during refetch to prevent UI flicker
       setLoading(true);
@@ -19,6 +27,7 @@ export const useTeamMembers = () => {
       const { data, error } = await supabase
         .from('team_members')
         .select('*')
+        .eq('tenant_id', currentUser.tenant_id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -35,7 +44,7 @@ export const useTeamMembers = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser?.tenant_id]);
 
   const updateTeamMember = async (memberId: string, updateData: {
     role?: 'admin' | 'manager' | 'chatter' | 'pending';
@@ -100,7 +109,7 @@ export const useTeamMembers = () => {
 
   useEffect(() => {
     fetchTeamMembers();
-  }, []);
+  }, [fetchTeamMembers]);
 
   return {
     teamMembers,
