@@ -1,12 +1,25 @@
-import React, { useState } from 'react';
-import { Clock, CheckCircle, XCircle, User, Mail, Calendar, AlertCircle, Loader2, Search, Edit, Trash2, MoreVertical, UserPlus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Clock, CheckCircle, XCircle, User, Mail, Calendar, AlertCircle, Loader2, Search, Edit, Trash2, MoreVertical, UserPlus, ChevronDown, Check } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import EditUserModal from '../components/modals/EditUserModal';
 import DeleteUserModal from '../components/modals/DeleteUserModal';
 import InviteTeamMemberModal from '../components/modals/InviteTeamMemberModal';
 import { useTeamMembers } from '../hooks/useTeamMembers';
 import { useAuth } from '../contexts/AuthContext';
+import { useTenant } from '../contexts/TenantContext';
 import { StaggerContainer } from '../components/ui/StaggerContainer';
+import { supabase } from '../lib/supabase';
+
+interface TenantRole {
+  id: string;
+  tenant_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  color: string;
+  hierarchy_level: number;
+  is_system_default: boolean;
+}
 
 const UserApprovals: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -17,8 +30,37 @@ const UserApprovals: React.FC = () => {
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
+  const [tenantRoles, setTenantRoles] = useState<TenantRole[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<Record<string, string>>({});
+  const [roleDropdownOpen, setRoleDropdownOpen] = useState<string | null>(null);
   const { teamMembers, loading: membersLoading, error: membersError, updateTeamMember, deleteTeamMember } = useTeamMembers();
   const { teamMember } = useAuth();
+  const { tenant } = useTenant();
+
+  // Fetch tenant roles
+  useEffect(() => {
+    if (!tenant?.id) return;
+
+    const fetchRoles = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('tenant_roles')
+          .select('*')
+          .eq('tenant_id', tenant.id)
+          .neq('slug', 'pending')
+          .neq('slug', 'owner')
+          .neq('slug', 'denied')
+          .order('hierarchy_level', { ascending: false });
+
+        if (error) throw error;
+        setTenantRoles(data || []);
+      } catch (err) {
+        console.error('Error fetching roles:', err);
+      }
+    };
+
+    fetchRoles();
+  }, [tenant?.id]);
 
   // Filter for pending users
   const pendingUsers = teamMembers.filter(member => 
@@ -31,16 +73,29 @@ const UserApprovals: React.FC = () => {
      member.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleApproveUser = async (userId: string, newRole: 'admin' | 'manager' | 'chatter') => {
+  const handleApproveUser = async (userId: string, role: TenantRole) => {
     setLoading(true);
     setError(null);
 
+    // Map the role slug to the legacy role field
+    const legacyRole = (['admin', 'manager', 'chatter'].includes(role.slug) 
+      ? role.slug 
+      : 'chatter') as 'admin' | 'manager' | 'chatter';
+
     const { error } = await updateTeamMember(userId, {
-      role: newRole
+      role: legacyRole,
+      roleId: role.id
     });
 
     if (error) {
       setError(error);
+    } else {
+      // Clear the selected role for this user
+      setSelectedRoles(prev => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
     }
 
     setLoading(false);
@@ -50,16 +105,25 @@ const UserApprovals: React.FC = () => {
     setLoading(true);
     setError(null);
 
-    // For now, we'll just deactivate the user instead of deleting
-    const { error } = await updateTeamMember(userId, {
-      isActive: false
-    });
+    // Delete the user's pending request
+    const { error } = await deleteTeamMember(userId);
 
     if (error) {
       setError(error);
     }
 
     setLoading(false);
+  };
+
+  const getSelectedRole = (userId: string): TenantRole | null => {
+    const roleId = selectedRoles[userId];
+    if (!roleId) return null;
+    return tenantRoles.find(r => r.id === roleId) || null;
+  };
+
+  const handleSelectRole = (userId: string, roleId: string) => {
+    setSelectedRoles(prev => ({ ...prev, [userId]: roleId }));
+    setRoleDropdownOpen(null);
   };
 
   const handleEditUser = async (userId: string, userData: {
@@ -107,16 +171,17 @@ const UserApprovals: React.FC = () => {
   };
 
   // Close dropdown when clicking outside
-  React.useEffect(() => {
+  useEffect(() => {
     const handleClickOutside = () => {
       setDropdownOpen(null);
+      setRoleDropdownOpen(null);
     };
 
-    if (dropdownOpen) {
+    if (dropdownOpen || roleDropdownOpen) {
       document.addEventListener('click', handleClickOutside);
       return () => document.removeEventListener('click', handleClickOutside);
     }
-  }, [dropdownOpen]);
+  }, [dropdownOpen, roleDropdownOpen]);
 
   const formatDate = (dateString: string) => {
     try {
@@ -238,73 +303,127 @@ const UserApprovals: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {pendingUsers.map((member) => (
-                  <div key={member.id} className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mr-4">
-                          <User className="w-5 h-5 text-orange-600" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{member.full_name}</h3>
-                          <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                            <Mail className="w-4 h-4 mr-1" />
-                            {member.email}
+                {pendingUsers.map((member) => {
+                  const selectedRole = getSelectedRole(member.id);
+                  const availableRoles = teamMember?.role === 'manager' 
+                    ? tenantRoles.filter(r => r.slug === 'chatter' || (!r.is_system_default && r.hierarchy_level < 50))
+                    : tenantRoles;
+
+                  return (
+                    <div key={member.id} className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                      <div className="flex items-center justify-between flex-wrap gap-4">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mr-4">
+                            <User className="w-5 h-5 text-orange-600" />
                           </div>
-                          <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            <Calendar className="w-3 h-3 mr-1" />
-                            Registered {formatDate(member.created_at)}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        {/* Role Selection Buttons */}
-                        <div className="flex flex-col gap-2">
-                          <button
-                            onClick={() => handleApproveUser(member.id, 'chatter')}
-                            disabled={loading}
-                            className="px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                          >
-                            Approve as Chatter
-                          </button>
-                          {(teamMember?.role === 'admin' || teamMember?.role === 'owner') && (
-                            <>
-                              <button
-                                onClick={() => handleApproveUser(member.id, 'manager')}
-                                disabled={loading}
-                                className="px-3 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
-                              >
-                                Approve as Manager
-                              </button>
-                              <button
-                                onClick={() => handleApproveUser(member.id, 'admin')}
-                                disabled={loading}
-                                className="px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                              >
-                                Approve as Admin
-                              </button>
-                            </>
-                          )}
-                          {teamMember?.role === 'manager' && (
-                            <div className="text-xs text-gray-500 mt-2 p-2 bg-blue-50 rounded-md">
-                              <p className="text-center">As a manager, you can only approve users as chatters. Contact an admin to assign manager or admin roles.</p>
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{member.full_name}</h3>
+                            <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                              <Mail className="w-4 h-4 mr-1" />
+                              {member.email}
                             </div>
-                          )}
+                            <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              <Calendar className="w-3 h-3 mr-1" />
+                              Registered {formatDate(member.created_at)}
+                            </div>
+                          </div>
                         </div>
                         
-                        <button
-                          onClick={() => handleDenyUser(member.id)}
-                          disabled={loading}
-                          className="px-3 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center"
-                        >
-                          <XCircle className="w-4 h-4 mr-1" />
-                          Deny
-                        </button>
+                        <div className="flex items-center gap-3">
+                          {/* Role Selection Dropdown */}
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRoleDropdownOpen(roleDropdownOpen === member.id ? null : member.id);
+                              }}
+                              className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors min-w-[180px]"
+                            >
+                              {selectedRole ? (
+                                <>
+                                  <div 
+                                    className="w-3 h-3 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: selectedRole.color }}
+                                  />
+                                  <span className="text-gray-900 dark:text-white font-medium">
+                                    {selectedRole.name}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="text-gray-500 dark:text-gray-400">
+                                  Select role...
+                                </span>
+                              )}
+                              <ChevronDown className="w-4 h-4 ml-auto text-gray-400" />
+                            </button>
+
+                            {roleDropdownOpen === member.id && (
+                              <div className="absolute top-full left-0 mt-1 w-full min-w-[220px] bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 z-50 py-1 max-h-64 overflow-y-auto">
+                                {availableRoles.length === 0 ? (
+                                  <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                    No roles available
+                                  </div>
+                                ) : (
+                                  availableRoles.map((role) => (
+                                    <button
+                                      key={role.id}
+                                      onClick={() => handleSelectRole(member.id, role.id)}
+                                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-left"
+                                    >
+                                      <div 
+                                        className="w-3 h-3 rounded-full flex-shrink-0"
+                                        style={{ backgroundColor: role.color }}
+                                      />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                          {role.name}
+                                        </div>
+                                        {role.description && (
+                                          <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                            {role.description}
+                                          </div>
+                                        )}
+                                      </div>
+                                      {selectedRoles[member.id] === role.id && (
+                                        <Check className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                      )}
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Approve Button */}
+                          <button
+                            onClick={() => selectedRole && handleApproveUser(member.id, selectedRole)}
+                            disabled={loading || !selectedRole}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            Approve
+                          </button>
+                          
+                          {/* Deny Button */}
+                          <button
+                            onClick={() => handleDenyUser(member.id)}
+                            disabled={loading}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                          >
+                            <XCircle className="w-4 h-4" />
+                            Deny
+                          </button>
+                        </div>
                       </div>
+
+                      {teamMember?.role === 'manager' && (
+                        <div className="mt-3 text-xs text-gray-500 dark:text-gray-400 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                          <p>As a manager, you can approve users for lower-hierarchy roles. Contact an admin to assign higher-level roles.</p>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
