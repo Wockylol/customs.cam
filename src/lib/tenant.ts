@@ -70,6 +70,9 @@ export interface PlatformAdmin {
 // Extended team member role to include 'owner'
 export type TenantRole = 'owner' | 'admin' | 'manager' | 'chatter' | 'pending';
 
+// Permission code type (re-exported from usePermissions for convenience)
+export type { PermissionCode } from '../hooks/usePermissions';
+
 // ============================================================================
 // SUBDOMAIN DETECTION
 // ============================================================================
