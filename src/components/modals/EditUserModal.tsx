@@ -239,8 +239,8 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                   </button>
 
                   {roleDropdownOpen && (
-                    <div className="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden">
-                      <div className="max-h-60 overflow-y-auto py-1">
+                    <div className="absolute z-50 w-full bottom-full mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden">
+                      <div className="max-h-48 overflow-y-auto py-1">
                         {roles.map((role) => (
                           <button
                             key={role.id}
@@ -342,8 +342,8 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                   </button>
 
                   {shiftDropdownOpen && (
-                    <div className="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden">
-                      <div className="max-h-60 overflow-y-auto py-1">
+                    <div className="absolute z-50 w-full bottom-full mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden">
+                      <div className="max-h-48 overflow-y-auto py-1">
                         {/* No Shift Option */}
                         <button
                           type="button"
