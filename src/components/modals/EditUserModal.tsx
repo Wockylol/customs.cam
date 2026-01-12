@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, AlertCircle, User } from 'lucide-react';
+import { X, AlertCircle, User, Settings } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Database } from '../../lib/database.types';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTenantShifts, formatTimeRange } from '../../hooks/useTenantShifts';
 
 type TeamMember = Database['public']['Tables']['team_members']['Row'];
 
@@ -13,30 +15,45 @@ interface EditUserModalProps {
     fullName: string;
     email: string;
     role: 'admin' | 'manager' | 'chatter' | 'pending';
+    shift?: string;
+    shiftId?: string | null;
   }) => Promise<{ error: string | null }>;
 }
 
 const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, onSubmit }) => {
-  const { teamMember } = useAuth();
+  const { teamMember, isOwner, hasPermission } = useAuth();
+  const { shifts, hasShifts, getShiftById, getShiftBySlug } = useTenantShifts();
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     role: 'chatter' as 'admin' | 'manager' | 'chatter' | 'pending',
-    shift: '',
+    shiftId: '' as string,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Check if user can manage shifts
+  const canManageShifts = isOwner || hasPermission('settings.manage_roles') || teamMember?.role === 'admin';
+
   useEffect(() => {
     if (user) {
+      // Determine the shift ID - prefer shift_id, fallback to finding by slug
+      let shiftId = user.shift_id || '';
+      if (!shiftId && user.shift) {
+        const matchingShift = getShiftBySlug(user.shift);
+        if (matchingShift) {
+          shiftId = matchingShift.id;
+        }
+      }
+      
       setFormData({
         fullName: user.full_name,
         email: user.email,
         role: user.role,
-        shift: user.shift || '',
+        shiftId: shiftId,
       });
     }
-  }, [user]);
+  }, [user, getShiftBySlug]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,11 +63,15 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
     setError(null);
     
     if (formData.fullName.trim() && formData.email.trim()) {
+      // Get the shift slug for backward compatibility
+      const selectedShift = formData.shiftId ? getShiftById(formData.shiftId) : null;
+      
       const { error } = await onSubmit(user.id, {
         fullName: formData.fullName.trim(),
         email: formData.email.trim(),
         role: formData.role,
-        shift: formData.shift || undefined,
+        shift: selectedShift?.slug || undefined,
+        shiftId: formData.shiftId || null,
       });
       
       if (error) {
@@ -183,32 +204,64 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Shift Schedule
               </label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: '', label: 'No Shift', time: 'Unassigned' },
-                  { value: '10-6', label: 'Day Shift', time: '10am - 6pm' },
-                  { value: '6-2', label: 'Evening Shift', time: '6pm - 2am' },
-                  { value: '2-10', label: 'Night Shift', time: '2am - 10am' }
-                ].map((shift) => (
-                  <button
-                    key={shift.value}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, shift: shift.value })}
-                    disabled={loading}
-                    className={`px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200 border-2 text-center ${
-                      formData.shift === shift.value
-                        ? 'bg-indigo-100 border-indigo-500 text-indigo-700 shadow-md'
-                        : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
-                    }`}
-                  >
-                    <div className="font-semibold">{shift.label}</div>
-                    <div className="text-xs opacity-75">{shift.time}</div>
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Assign a work shift schedule for this team member
-              </p>
+              {hasShifts ? (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* No Shift Option */}
+                    <button
+                      key="no-shift"
+                      type="button"
+                      onClick={() => setFormData({ ...formData, shiftId: '' })}
+                      disabled={loading}
+                      className={`px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200 border-2 text-center ${
+                        formData.shiftId === ''
+                          ? 'bg-gray-100 dark:bg-gray-600 border-gray-500 text-gray-700 dark:text-gray-200 shadow-md'
+                          : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
+                      }`}
+                    >
+                      <div className="font-semibold">No Shift</div>
+                      <div className="text-xs opacity-75">Unassigned</div>
+                    </button>
+                    
+                    {/* Dynamic Shift Options */}
+                    {shifts.map((shift) => (
+                      <button
+                        key={shift.id}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, shiftId: shift.id })}
+                        disabled={loading}
+                        className={`px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200 border-2 text-center ${
+                          formData.shiftId === shift.id
+                            ? 'bg-indigo-100 border-indigo-500 text-indigo-700 shadow-md'
+                            : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
+                        }`}
+                      >
+                        <div className="font-semibold">{shift.name}</div>
+                        <div className="text-xs opacity-75">{formatTimeRange(shift.start_time, shift.end_time)}</div>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Assign a work shift schedule for this team member
+                  </p>
+                </>
+              ) : (
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                    No shifts have been configured yet.
+                  </p>
+                  {canManageShifts && (
+                    <Link
+                      to="/shifts"
+                      onClick={onClose}
+                      className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700"
+                    >
+                      <Settings className="w-4 h-4 mr-1" />
+                      Configure Shifts
+                    </Link>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end space-x-3 pt-4">
