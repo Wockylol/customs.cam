@@ -1,12 +1,14 @@
-import React, { useState, useRef } from 'react';
-import { Clock, Users, CheckCircle, AlertCircle, XCircle, Calendar, Filter, Grid, List, Search } from 'lucide-react';
+import React, { useState, useRef, useMemo } from 'react';
+import { Clock, Users, CheckCircle, AlertCircle, XCircle, Calendar, Filter, Grid, List, Search, Settings } from 'lucide-react';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
+import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { useTeamMembers } from '../hooks/useTeamMembers';
 import { useAttendance } from '../hooks/useAttendance';
 import { useAuth } from '../contexts/AuthContext';
 import { StaggerContainer } from '../components/ui/StaggerContainer';
+import { useTenantShifts, formatTimeRange, TenantShift } from '../hooks/useTenantShifts';
 
 const EDT_TIMEZONE = 'America/New_York';
 
@@ -41,7 +43,32 @@ const Attendance: React.FC = () => {
     viewMode === 'monthly' ? selectedMonth : undefined, 
     viewMode
   );
-  const { teamMember } = useAuth();
+  const { teamMember, isOwner, hasPermission } = useAuth();
+  const { shifts, hasShifts, getShiftById, getShiftBySlug, calculateMissedHours, loading: shiftsLoading } = useTenantShifts();
+
+  // Build shift filter options from dynamic shifts
+  const shiftFilterOptions = useMemo(() => {
+    const options = [{ value: 'all', label: 'All Shifts', slug: '' }];
+    shifts.forEach(shift => {
+      options.push({
+        value: shift.id,
+        label: `${shift.name} (${formatTimeRange(shift.start_time, shift.end_time)})`,
+        slug: shift.slug
+      });
+    });
+    return options;
+  }, [shifts]);
+
+  // Helper to get shift for a team member (supports both shift_id and legacy shift slug)
+  const getTeamMemberShift = (member: typeof teamMembers[0]): TenantShift | undefined => {
+    if (member.shift_id) {
+      return getShiftById(member.shift_id);
+    }
+    if (member.shift) {
+      return getShiftBySlug(member.shift);
+    }
+    return undefined;
+  };
 
   // Filter team members by role, shift, and search query
   const teamMembersForAttendance = teamMembers.filter(member => {
@@ -50,12 +77,22 @@ const Attendance: React.FC = () => {
       (selectedRole === 'manager' && member.role === 'manager') ||
       (selectedRole === 'staff' && (member.role === 'chatter' || member.role === 'manager'));
     const isActive = member.is_active;
-    const matchesShift = selectedShift === 'all' || member.shift === selectedShift;
+    
+    // Match shift by ID or legacy slug
+    let matchesShift = selectedShift === 'all';
+    if (!matchesShift) {
+      const memberShift = getTeamMemberShift(member);
+      matchesShift = memberShift?.id === selectedShift || member.shift === shiftFilterOptions.find(o => o.value === selectedShift)?.slug;
+    }
+    
     const matchesSearch = searchQuery === '' || 
       member.full_name.toLowerCase().includes(searchQuery.toLowerCase());
     
     return matchesRole && isActive && matchesShift && matchesSearch;
   });
+
+  // Check if user can manage shifts
+  const canManageShifts = isOwner || hasPermission('settings.manage_roles') || teamMember?.role === 'admin';
 
   // Debug logging for team member filtering
   if (viewMode === 'monthly') {
@@ -382,12 +419,7 @@ const Attendance: React.FC = () => {
     }
   };
 
-  const shifts = [
-    { value: 'all', label: 'All Shifts' },
-    { value: '10-6', label: 'Day Shift (10am-6pm)' },
-    { value: '6-2', label: 'Evening Shift (6pm-2am)' },
-    { value: '2-10', label: 'Night Shift (2am-10am)' }
-  ];
+  // Shift filter options are now built from dynamic shifts above
 
   // Helper functions for monthly view
   const getDaysInMonth = () => {
@@ -617,21 +649,33 @@ const Attendance: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Shift Filter
                 </label>
-                <div className="flex flex-wrap gap-2">
-                  {shifts.map((shift) => (
-                    <button
-                      key={shift.value}
-                      onClick={() => setSelectedShift(shift.value)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                        selectedShift === shift.value
-                          ? 'bg-blue-600 text-white shadow-lg transform scale-105'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md'
-                      }`}
-                    >
-                      {shift.label}
-                    </button>
-                  ))}
-                </div>
+                {hasShifts ? (
+                  <div className="flex flex-wrap gap-2">
+                    {shiftFilterOptions.map((shift) => (
+                      <button
+                        key={shift.value}
+                        onClick={() => setSelectedShift(shift.value)}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                          selectedShift === shift.value
+                            ? 'bg-blue-600 text-white shadow-lg transform scale-105'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md'
+                        }`}
+                      >
+                        {shift.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <span>No shifts configured.</span>
+                    {canManageShifts && (
+                      <Link to="/shifts" className="text-blue-600 hover:text-blue-700 flex items-center">
+                        <Settings className="w-4 h-4 mr-1" />
+                        Configure Shifts
+                      </Link>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -690,11 +734,11 @@ const Attendance: React.FC = () => {
                   {searchQuery 
                     ? `No team members found matching "${searchQuery}".`
                     : selectedRole !== 'all' && selectedShift !== 'all'
-                      ? `No ${selectedRole === 'staff' ? 'staff members' : selectedRole + 's'} assigned to the ${shifts.find(s => s.value === selectedShift)?.label.toLowerCase()}.`
+                      ? `No ${selectedRole === 'staff' ? 'staff members' : selectedRole + 's'} assigned to the ${shiftFilterOptions.find(s => s.value === selectedShift)?.label.toLowerCase() || 'selected shift'}.`
                       : selectedRole !== 'all'
                         ? `No active ${selectedRole === 'staff' ? 'staff members' : selectedRole + 's'} in the system.`
                         : selectedShift !== 'all'
-                          ? `No team members assigned to the ${shifts.find(s => s.value === selectedShift)?.label.toLowerCase()}.`
+                          ? `No team members assigned to the ${shiftFilterOptions.find(s => s.value === selectedShift)?.label.toLowerCase() || 'selected shift'}.`
                           : 'No active team members in the system.'}
                 </p>
               </div>
@@ -714,11 +758,13 @@ const Attendance: React.FC = () => {
                             <h3 className="text-sm font-semibold text-gray-900">{teamMemberItem.full_name}</h3>
                             <div className="flex items-center text-xs text-gray-500">
                               <Clock className="w-3 h-3 mr-1" />
-                              {teamMemberItem.shift ? (
-                                shifts.find(s => s.value === teamMemberItem.shift)?.label || teamMemberItem.shift
-                              ) : (
-                                'No shift assigned'
-                              )}
+                              {(() => {
+                                const memberShift = getTeamMemberShift(teamMemberItem);
+                                if (memberShift) {
+                                  return `${memberShift.name} (${formatTimeRange(memberShift.start_time, memberShift.end_time)})`;
+                                }
+                                return hasShifts ? 'No shift assigned' : 'Shifts not configured';
+                              })()}
                             </div>
                           </div>
                         </div>
@@ -958,11 +1004,11 @@ const Attendance: React.FC = () => {
                   {searchQuery 
                     ? `No team members found matching "${searchQuery}".`
                     : selectedRole !== 'all' && selectedShift !== 'all'
-                      ? `No ${selectedRole === 'staff' ? 'staff members' : selectedRole + 's'} assigned to the ${shifts.find(s => s.value === selectedShift)?.label.toLowerCase()}.`
+                      ? `No ${selectedRole === 'staff' ? 'staff members' : selectedRole + 's'} assigned to the ${shiftFilterOptions.find(s => s.value === selectedShift)?.label.toLowerCase() || 'selected shift'}.`
                       : selectedRole !== 'all'
                         ? `No active ${selectedRole === 'staff' ? 'staff members' : selectedRole + 's'} in the system.`
                         : selectedShift !== 'all'
-                          ? `No team members assigned to the ${shifts.find(s => s.value === selectedShift)?.label.toLowerCase()}.`
+                          ? `No team members assigned to the ${shiftFilterOptions.find(s => s.value === selectedShift)?.label.toLowerCase() || 'selected shift'}.`
                           : 'No active team members in the system.'}
                 </p>
               </div>
@@ -1001,11 +1047,13 @@ const Attendance: React.FC = () => {
                             <div>
                               <div className="text-sm font-medium text-gray-900">{teamMemberItem.full_name}</div>
                               <div className="text-xs text-gray-500">
-                                {teamMemberItem.shift ? (
-                                  shifts.find(s => s.value === teamMemberItem.shift)?.label.split(' ')[0] || teamMemberItem.shift
-                                ) : (
-                                  'No shift'
-                                )}
+                                {(() => {
+                                  const memberShift = getTeamMemberShift(teamMemberItem);
+                                  if (memberShift) {
+                                    return memberShift.name;
+                                  }
+                                  return hasShifts ? 'No shift' : '-';
+                                })()}
                               </div>
                             </div>
                           </div>
@@ -1025,86 +1073,23 @@ const Attendance: React.FC = () => {
                         <td className="px-2 py-2 text-center border-r border-gray-200">
                           <div className="text-sm font-semibold text-red-600">
                             {(() => {
+                              const memberShift = getTeamMemberShift(teamMemberItem);
+                              if (!memberShift) return '-';
+                              
                               const chatterRecords = attendanceRecords.filter(record => 
                                 record.team_member_id === teamMemberItem.id && (record.status === 'late' || record.status === 'left_early' || record.status === 'late_and_left_early')
                               );
                               
-                              
                               let totalMissedHours = 0;
                               
-                              chatterRecords.forEach((record, index) => {
-                                let lateHours = 0;
-                                let earlyHours = 0;
-                                
-                                
-                                // Calculate late hours
-                                if (record.clock_in_time && teamMemberItem.shift) {
-                                  const shiftStartTimes = {
-                                    '10-6': '10:00',
-                                    '6-2': '18:00', 
-                                    '2-10': '02:00'
-                                  };
-                                  
-                                  const shiftStart = shiftStartTimes[teamMemberItem.shift as keyof typeof shiftStartTimes];
-                                  if (shiftStart) {
-                                    const [startHour, startMinute] = shiftStart.split(':').map(Number);
-                                    const [clockHour, clockMinute] = record.clock_in_time.split(':').map(Number);
-                                    
-                                    const shiftStartMinutes = startHour * 60 + startMinute;
-                                    const clockInMinutes = clockHour * 60 + clockMinute;
-                                    
-                                    
-                                    // Handle overnight shifts
-                                    let actualClockInMinutes = clockInMinutes;
-                                    if (teamMemberItem.shift === '2-10' && clockHour >= 2 && clockHour < 10) {
-                                      // Normal case for 2-10 shift
-                                    } else if (teamMemberItem.shift === '6-2' && clockHour >= 18) {
-                                      // Normal case for 6-2 shift (same day)
-                                    } else if (teamMemberItem.shift === '6-2' && clockHour < 6) {
-                                      // Next day for 6-2 shift
-                                      actualClockInMinutes = clockInMinutes + (24 * 60);
-                                    }
-                                    
-                                    if (actualClockInMinutes > shiftStartMinutes) {
-                                      const missedMinutes = actualClockInMinutes - shiftStartMinutes;
-                                      lateHours = missedMinutes / 60;
-                                    }
-                                  }
-                                }
-                                
-                                // Calculate early departure hours
-                                if (record.clock_out_time && teamMemberItem.shift && (record.status === 'left_early' || record.status === 'late_and_left_early')) {
-                                  const shiftEndTimes = {
-                                    '10-6': '18:00',
-                                    '6-2': '02:00', 
-                                    '2-10': '10:00'
-                                  };
-                                  
-                                  const shiftEnd = shiftEndTimes[teamMemberItem.shift as keyof typeof shiftEndTimes];
-                                  if (shiftEnd) {
-                                    const [endHour, endMinute] = shiftEnd.split(':').map(Number);
-                                    const [clockHour, clockMinute] = record.clock_out_time.split(':').map(Number);
-                                    
-                                    const shiftEndMinutes = endHour * 60 + endMinute;
-                                    const clockOutMinutes = clockHour * 60 + clockMinute;
-                                    
-                                    
-                                    // Handle overnight shifts
-                                    let actualShiftEndMinutes = shiftEndMinutes;
-                                    if (teamMemberItem.shift === '6-2' && endHour < 6) {
-                                      // Next day for 6-2 shift end
-                                      actualShiftEndMinutes = shiftEndMinutes + (24 * 60);
-                                    }
-                                    
-                                    if (clockOutMinutes < actualShiftEndMinutes) {
-                                      const missedMinutes = actualShiftEndMinutes - clockOutMinutes;
-                                      earlyHours = missedMinutes / 60;
-                                    }
-                                  }
-                                }
-                                
-                                const recordMissedHours = lateHours + earlyHours;
-                                totalMissedHours += recordMissedHours;
+                              chatterRecords.forEach((record) => {
+                                const missed = calculateMissedHours(
+                                  memberShift,
+                                  record.clock_in_time,
+                                  record.clock_out_time,
+                                  record.status
+                                );
+                                totalMissedHours += missed;
                               });
                               
                               return totalMissedHours > 0 ? totalMissedHours.toFixed(1) : '0';
