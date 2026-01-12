@@ -237,13 +237,13 @@ const LandingPage: React.FC = () => {
             <div className="flex items-center gap-4">
               <Link 
                 to="/login" 
-                className="text-slate-300 hover:text-white transition-colors text-sm font-medium hidden sm:block"
+                className="text-slate-300 hover:text-white transition-colors text-sm font-medium"
               >
                 Sign In
               </Link>
               <Link
                 to="/login"
-                className="btn-shimmer px-5 py-2.5 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold text-sm hover:shadow-lg hover:shadow-violet-500/25 transition-all duration-300"
+                className="btn-shimmer px-5 py-2.5 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold text-sm hover:shadow-lg hover:shadow-violet-500/25 transition-all duration-300 hidden sm:block"
               >
                 Get Started
               </Link>
