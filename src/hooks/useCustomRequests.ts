@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,12 +7,18 @@ type CustomRequest = Database['public']['Tables']['custom_requests']['Row'];
 type CustomRequestInsert = Database['public']['Tables']['custom_requests']['Insert'];
 
 export const useCustomRequests = () => {
-  const { user } = useAuth();
+  const { user, teamMember } = useAuth();
   const [customRequests, setCustomRequests] = useState<CustomRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCustomRequests = async () => {
+  const fetchCustomRequests = useCallback(async () => {
+    // Don't fetch until we have tenant context
+    if (!teamMember?.tenant_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       // Don't clear existing data during refetch to prevent UI flicker
       setLoading(true);
@@ -22,10 +28,11 @@ export const useCustomRequests = () => {
         .from('custom_requests')
         .select(`
           *,
-          clients!inner(username),
+          clients!inner(username, tenant_id),
           team_members!created_by(full_name),
           team_approved_member:team_members!team_approved_by(full_name)
         `)
+        .eq('clients.tenant_id', teamMember.tenant_id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -42,7 +49,7 @@ export const useCustomRequests = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [teamMember?.tenant_id]);
 
   const addCustomRequest = async (customData: {
     clientUsername: string;
@@ -378,7 +385,7 @@ export const useCustomRequests = () => {
 
   useEffect(() => {
     fetchCustomRequests();
-  }, []);
+  }, [fetchCustomRequests]);
 
   return {
     customRequests,
