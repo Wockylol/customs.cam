@@ -48,6 +48,7 @@ export const useTeamMembers = () => {
 
   const updateTeamMember = async (memberId: string, updateData: {
     role?: 'admin' | 'manager' | 'chatter' | 'pending';
+    roleId?: string | null;
     isActive?: boolean;
     fullName?: string;
     email?: string;
@@ -57,6 +58,7 @@ export const useTeamMembers = () => {
       const updatePayload: TeamMemberUpdate = {};
       
       if (updateData.role !== undefined) updatePayload.role = updateData.role;
+      if (updateData.roleId !== undefined) updatePayload.role_id = updateData.roleId;
       if (updateData.isActive !== undefined) updatePayload.is_active = updateData.isActive;
       if (updateData.fullName !== undefined) updatePayload.full_name = updateData.fullName;
       if (updateData.email !== undefined) updatePayload.email = updateData.email;
