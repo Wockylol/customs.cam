@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Thread {
   id: number;
@@ -10,6 +11,7 @@ interface Thread {
   created_at: string;
   updated_at: string;
   last_read_at: string | null;
+  tenant_id?: string;
   latest_message?: {
     text: string;
     created_at: string;
@@ -19,20 +21,28 @@ interface Thread {
 }
 
 export const useThreads = () => {
+  const { teamMember } = useAuth();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchThreads = async () => {
+  const fetchThreads = useCallback(async () => {
+    // Don't fetch until we have tenant context for multi-tenant isolation
+    if (!teamMember?.tenant_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       // Don't clear existing data during refetch to prevent UI flicker
       setLoading(true);
       setError(null);
 
-      // Get all threads
+      // Get threads filtered by tenant_id
       const { data: threadsData, error: threadsError } = await supabase
         .from('threads')
         .select('*')
+        .eq('tenant_id', teamMember.tenant_id)
         .order('updated_at', { ascending: false });
 
       if (threadsError) throw threadsError;
@@ -83,7 +93,7 @@ export const useThreads = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [teamMember?.tenant_id]);
 
   const getUnreadCount = useCallback(() => {
     return threads.filter(thread => {
@@ -137,7 +147,7 @@ export const useThreads = () => {
         supabase.removeChannel(threadsSubscription);
       }
     };
-  }, []);
+  }, [teamMember?.tenant_id, fetchThreads]);
 
   const deleteThread = async (threadId: number) => {
     try {
