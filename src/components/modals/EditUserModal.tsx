@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, AlertCircle, User, Settings, Shield, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, AlertCircle, User, Settings, Shield, ChevronDown, Check, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Database } from '../../lib/database.types';
 import { useAuth } from '../../contexts/AuthContext';
@@ -41,6 +41,25 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  const [shiftDropdownOpen, setShiftDropdownOpen] = useState(false);
+  const roleDropdownRef = useRef<HTMLDivElement>(null);
+  const shiftDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (roleDropdownRef.current && !roleDropdownRef.current.contains(event.target as Node)) {
+        setRoleDropdownOpen(false);
+      }
+      if (shiftDropdownRef.current && !shiftDropdownRef.current.contains(event.target as Node)) {
+        setShiftDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Check if user can manage shifts and roles
   const canManageShifts = isOwner || hasPermission('settings.manage_roles') || teamMember?.role === 'admin';
@@ -120,7 +139,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-75" onClick={handleClose} />
 
-        <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white dark:bg-gray-800 shadow-xl rounded-lg">
+        <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white dark:bg-gray-800 shadow-xl rounded-2xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
               <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mr-3">
@@ -160,7 +179,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                 id="fullName"
                 value={formData.fullName}
                 onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500"
                 placeholder="Enter full name"
                 disabled={loading}
                 required
@@ -176,7 +195,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                 id="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500"
                 placeholder="Enter email address"
                 disabled={loading}
                 required
@@ -184,51 +203,83 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
             </div>
 
             <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Role * {!canManageRoles && <span className="text-xs text-gray-500">(Admin only)</span>}
               </label>
               {hasRoles ? (
-                <>
-                  <div className="relative">
-                    <select
-                      id="role"
-                      value={formData.roleId}
-                      onChange={(e) => {
-                        const selectedRole = roles.find(r => r.id === e.target.value);
-                        setFormData({ 
-                          ...formData, 
-                          roleId: e.target.value, 
-                          role: selectedRole?.slug || formData.role 
-                        });
-                      }}
-                      disabled={loading || !canManageRoles}
-                      className={`w-full px-3 py-2.5 pr-10 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none ${
-                        !canManageRoles ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                <div className="relative" ref={roleDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => !loading && canManageRoles && setRoleDropdownOpen(!roleDropdownOpen)}
+                    disabled={loading || !canManageRoles}
+                    className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-left text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm flex items-center justify-between gap-2 ${
+                      !canManageRoles || loading
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-md cursor-pointer'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {formData.roleId ? (
+                        <>
+                          <div 
+                            className="w-3 h-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: getRoleById(formData.roleId)?.color || '#6B7280' }}
+                          />
+                          <span className="truncate font-medium">{getRoleById(formData.roleId)?.name}</span>
+                        </>
+                      ) : (
+                        <span className="text-gray-400 dark:text-gray-500">Select a role...</span>
+                      )}
+                    </div>
+                    <ChevronDown
+                      className={`w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0 transition-transform duration-200 ${
+                        roleDropdownOpen ? 'rotate-180' : ''
                       }`}
-                    >
-                      <option value="">Select a role...</option>
-                      {roles.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.name}{role.description ? ` - ${role.description}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                  {formData.roleId && (
-                    <div className="mt-2 flex items-center">
-                      <div 
-                        className="w-3 h-3 rounded-full mr-2"
-                        style={{ backgroundColor: getRoleById(formData.roleId)?.color || '#6B7280' }}
-                      />
-                      <span className="text-sm text-gray-600 dark:text-gray-300">
-                        {getRoleById(formData.roleId)?.name}
-                      </span>
+                    />
+                  </button>
+
+                  {roleDropdownOpen && (
+                    <div className="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden">
+                      <div className="max-h-60 overflow-y-auto py-1">
+                        {roles.map((role) => (
+                          <button
+                            key={role.id}
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, roleId: role.id, role: role.slug });
+                              setRoleDropdownOpen(false);
+                            }}
+                            className={`w-full px-4 py-2.5 text-left text-sm flex items-center justify-between gap-2 transition-colors ${
+                              formData.roleId === role.id
+                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div 
+                                className="w-3 h-3 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: role.color }}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium truncate block">{role.name}</span>
+                                {role.description && (
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 truncate block">
+                                    {role.description}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {formData.roleId === role.id && (
+                              <Check className="w-4 h-4 flex-shrink-0 text-blue-600" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
-                </>
+                </div>
               ) : (
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 text-center">
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                     No custom roles have been configured yet.
                   </p>
@@ -244,7 +295,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                   )}
                 </div>
               )}
-              {!canManageRoles && (
+              {!canManageRoles && hasRoles && (
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                   Only administrators can change user roles. You can edit other details.
                 </p>
@@ -252,39 +303,107 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
             </div>
 
             <div>
-              <label htmlFor="shift" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Shift Schedule
               </label>
               {hasShifts ? (
-                <>
-                  <div className="relative">
-                    <select
-                      id="shift"
-                      value={formData.shiftId}
-                      onChange={(e) => setFormData({ ...formData, shiftId: e.target.value })}
-                      disabled={loading}
-                      className="w-full px-3 py-2.5 pr-10 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none cursor-pointer"
-                    >
-                      <option value="">No Shift (Unassigned)</option>
-                      {shifts.map((shift) => (
-                        <option key={shift.id} value={shift.id}>
-                          {shift.name} ({formatTimeRange(shift.start_time, shift.end_time)})
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                  {formData.shiftId && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {formatTimeRange(
-                        getShiftById(formData.shiftId)?.start_time || '',
-                        getShiftById(formData.shiftId)?.end_time || ''
+                <div className="relative" ref={shiftDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => !loading && setShiftDropdownOpen(!shiftDropdownOpen)}
+                    disabled={loading}
+                    className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-left text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm flex items-center justify-between gap-2 ${
+                      loading
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-md cursor-pointer'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      {formData.shiftId ? (
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium truncate block">{getShiftById(formData.shiftId)?.name}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 truncate block">
+                            {formatTimeRange(
+                              getShiftById(formData.shiftId)?.start_time || '',
+                              getShiftById(formData.shiftId)?.end_time || ''
+                            )}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 dark:text-gray-500">No Shift (Unassigned)</span>
                       )}
-                    </p>
+                    </div>
+                    <ChevronDown
+                      className={`w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0 transition-transform duration-200 ${
+                        shiftDropdownOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {shiftDropdownOpen && (
+                    <div className="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden">
+                      <div className="max-h-60 overflow-y-auto py-1">
+                        {/* No Shift Option */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, shiftId: '' });
+                            setShiftDropdownOpen(false);
+                          }}
+                          className={`w-full px-4 py-2.5 text-left text-sm flex items-center justify-between gap-2 transition-colors ${
+                            formData.shiftId === ''
+                              ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="w-3 h-3 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0" />
+                            <span className="font-medium">No Shift (Unassigned)</span>
+                          </div>
+                          {formData.shiftId === '' && (
+                            <Check className="w-4 h-4 flex-shrink-0 text-blue-600" />
+                          )}
+                        </button>
+
+                        {/* Shift Options */}
+                        {shifts.map((shift) => (
+                          <button
+                            key={shift.id}
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, shiftId: shift.id });
+                              setShiftDropdownOpen(false);
+                            }}
+                            className={`w-full px-4 py-2.5 text-left text-sm flex items-center justify-between gap-2 transition-colors ${
+                              formData.shiftId === shift.id
+                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div 
+                                className="w-3 h-3 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: shift.color || '#6366f1' }}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium truncate block">{shift.name}</span>
+                                <span className="text-xs text-gray-500 dark:text-gray-400 truncate block">
+                                  {formatTimeRange(shift.start_time, shift.end_time)}
+                                </span>
+                              </div>
+                            </div>
+                            {formData.shiftId === shift.id && (
+                              <Check className="w-4 h-4 flex-shrink-0 text-blue-600" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   )}
-                </>
+                </div>
               ) : (
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 text-center">
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                     No shifts have been configured yet.
                   </p>
@@ -306,14 +425,14 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600"
+                className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200 shadow-sm hover:shadow-md"
                 disabled={loading}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
                 disabled={loading}
               >
                 {loading ? (
