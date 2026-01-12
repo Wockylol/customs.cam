@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Clock, CheckCircle, XCircle, User, Mail, Calendar, AlertCircle, Loader2, Search, Edit, Trash2, MoreVertical, UserPlus, ChevronDown, Check } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import EditUserModal from '../components/modals/EditUserModal';
@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTenant } from '../contexts/TenantContext';
 import { StaggerContainer } from '../components/ui/StaggerContainer';
 import { supabase } from '../lib/supabase';
+import { useTenantShifts, formatTimeRange, TenantShift } from '../hooks/useTenantShifts';
 
 interface TenantRole {
   id: string;
@@ -36,6 +37,18 @@ const UserApprovals: React.FC = () => {
   const { teamMembers, loading: membersLoading, error: membersError, updateTeamMember, deleteTeamMember } = useTeamMembers();
   const { teamMember } = useAuth();
   const { tenant } = useTenant();
+  const { hasShifts, getShiftById, getShiftBySlug } = useTenantShifts();
+
+  // Helper to get shift for a team member
+  const getTeamMemberShift = useCallback((member: typeof teamMembers[0]): TenantShift | undefined => {
+    if (member.shift_id) {
+      return getShiftById(member.shift_id);
+    }
+    if (member.shift) {
+      return getShiftBySlug(member.shift);
+    }
+    return undefined;
+  }, [getShiftById, getShiftBySlug]);
 
   // Fetch tenant roles
   useEffect(() => {
@@ -131,12 +144,14 @@ const UserApprovals: React.FC = () => {
     email: string;
     role: 'admin' | 'manager' | 'chatter' | 'pending';
     shift?: string;
+    shiftId?: string | null;
   }) => {
     const { error } = await updateTeamMember(userId, {
       fullName: userData.fullName,
       email: userData.email,
       role: userData.role,
-      shift: userData.shift
+      shift: userData.shift,
+      shiftId: userData.shiftId
     });
     if (!error) {
       setEditModalOpen(false);
@@ -532,16 +547,21 @@ const UserApprovals: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          {member.shift ? (
-                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
-                              {member.shift === '10-6' ? '10am - 6pm' :
-                               member.shift === '6-2' ? '6pm - 2am' :
-                               member.shift === '2-10' ? '2am - 10am' :
-                               member.shift}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400 dark:text-gray-500">No shift</span>
-                          )}
+                          {(() => {
+                            const memberShift = getTeamMemberShift(member);
+                            if (memberShift) {
+                              return (
+                                <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                                  {memberShift.name} ({formatTimeRange(memberShift.start_time, memberShift.end_time)})
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="text-gray-400 dark:text-gray-500">
+                                {hasShifts ? 'No shift' : '-'}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
