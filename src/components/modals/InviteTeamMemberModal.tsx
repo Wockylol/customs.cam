@@ -12,7 +12,6 @@ type TabType = 'invite' | 'code';
 
 interface RegistrationCodeInfo {
   code: string | null;
-  role: string | null;
   enabled: boolean;
   updated_at: string | null;
 }
@@ -32,7 +31,6 @@ const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({ isOpen, o
 
   // Registration code state
   const [codeInfo, setCodeInfo] = useState<RegistrationCodeInfo | null>(null);
-  const [codeRole, setCodeRole] = useState<'chatter' | 'manager' | 'admin'>('chatter');
   const [codeLoading, setCodeLoading] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
@@ -47,16 +45,16 @@ const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({ isOpen, o
 
   const fetchCodeInfo = async () => {
     try {
-      const { data, error } = await supabase.rpc('get_registration_code_info');
+      const { data, error } = await supabase.rpc('get_registration_code_info') as { 
+        data: RegistrationCodeInfo[] | null, 
+        error: any 
+      };
       if (error) {
         console.error('Error fetching code info:', error);
         return;
       }
       if (data && data.length > 0) {
         setCodeInfo(data[0]);
-        if (data[0].role) {
-          setCodeRole(data[0].role as 'chatter' | 'manager' | 'admin');
-        }
       } else {
         setCodeInfo(null);
       }
@@ -72,7 +70,7 @@ const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({ isOpen, o
     setInviteLink(null);
 
     try {
-      const { data: token, error: inviteError } = await supabase.rpc('create_tenant_invite', {
+      const { data: token, error: inviteError } = await (supabase.rpc as any)('create_tenant_invite', {
         p_email: email || '',
         p_role: role,
         p_expires_in_days: expiresInDays
@@ -100,9 +98,7 @@ const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({ isOpen, o
     setCodeError(null);
 
     try {
-      const { data: code, error } = await supabase.rpc('generate_registration_code', {
-        p_role: codeRole
-      });
+      const { error } = await (supabase.rpc as any)('generate_registration_code');
 
       if (error) {
         setCodeError(error.message);
@@ -444,7 +440,7 @@ const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({ isOpen, o
 
               <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-800">
                 <p className="text-sm text-indigo-800 dark:text-indigo-300">
-                  <strong>Unlimited use:</strong> This code can be used by multiple people to sign up. Regenerating creates a new code and invalidates the old one.
+                  <strong>Unlimited use:</strong> This code can be used by multiple people to sign up. Users will be set to <strong>pending</strong> status until approved.
                 </p>
               </div>
 
@@ -465,8 +461,8 @@ const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({ isOpen, o
                       }`}>
                         {codeInfo.enabled ? '● Active' : '○ Disabled'}
                       </span>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getRoleColor(codeInfo.role || 'chatter', true)}`}>
-                        {codeInfo.role}
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                        Users join as pending
                       </span>
                     </div>
                     
@@ -559,23 +555,10 @@ const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({ isOpen, o
                     </p>
                   </div>
 
-                  {/* Role Selection */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Role for signups
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['chatter', 'manager', 'admin'] as const).map((r) => (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => setCodeRole(r)}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${getRoleColor(r, codeRole === r)}`}
-                        >
-                          {r}
-                        </button>
-                      ))}
-                    </div>
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <p className="text-sm text-amber-800 dark:text-amber-300 text-center">
+                      Users who sign up with this code will be <strong>pending</strong> until you approve them and assign a role.
+                    </p>
                   </div>
 
                   <button
