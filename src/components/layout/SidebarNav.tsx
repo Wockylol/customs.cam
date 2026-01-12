@@ -67,7 +67,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
     location.pathname.startsWith('/sales-management') || location.pathname === '/payroll'
   );
   const [isSettingsExpanded, setIsSettingsExpanded] = useState(
-    location.pathname === '/role-management'
+    location.pathname === '/role-management' || location.pathname === '/shifts'
   );
   
   // Ref for the scrollable nav container
@@ -141,7 +141,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
     if (location.pathname === '/attendance' || location.pathname === '/assignments' || location.pathname === '/user-approvals') {
       setIsTeamManagementExpanded(true);
     }
-    if (location.pathname === '/role-management') {
+    if (location.pathname === '/role-management' || location.pathname === '/shifts') {
       setIsSettingsExpanded(true);
     }
   }, [location.pathname]);
@@ -1070,7 +1070,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
             )}
 
             {/* Settings - Permission based */}
-            {canViewRoles && !isCollapsed && (
+            {(canViewRoles || isAdminOrAbove) && !isCollapsed && (
               <li className="pt-2">
                 <button
                   onClick={() => setIsSettingsExpanded(!isSettingsExpanded)}
@@ -1104,6 +1104,26 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
                         >
                           <Shield className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
                           <span className="flex-1 truncate">Role Management</span>
+                        </Link>
+                      </li>
+                    )}
+                    {isAdminOrAbove && (
+                      <li>
+                        <Link
+                          to="/shifts"
+                          className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
+                            location.pathname === '/shifts'
+                              ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                          }`}
+                          onClick={() => {
+                            if (window.innerWidth < 1024) {
+                              onToggle();
+                            }
+                          }}
+                        >
+                          <Clock className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
+                          <span className="flex-1 truncate">Shift Management</span>
                         </Link>
                       </li>
                     )}
