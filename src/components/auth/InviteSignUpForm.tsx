@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { UserPlus, Eye, EyeOff, AlertCircle, CheckCircle, Building2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -28,6 +29,7 @@ const InviteSignUpForm: React.FC<InviteSignUpFormProps> = ({
   onSwitchToLogin,
   onInvalidInvite 
 }) => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<SignUpFormData>({
     email: '',
     password: '',
@@ -119,7 +121,9 @@ const InviteSignUpForm: React.FC<InviteSignUpFormProps> = ({
           return;
         }
 
-        setSuccess(true);
+        // Redirect to dashboard - ProtectedRoute will show pending approval screen
+        navigate('/dashboard');
+        return;
       }
     } catch (error: any) {
       setError('An unexpected error occurred: ' + error.message);
