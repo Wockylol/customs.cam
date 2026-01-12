@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Users, UserPlus, Search, Filter, Grid, List, Clock, CheckCircle, XCircle, Plus, Trash2, Edit, MessageSquare, History } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Users, UserPlus, Search, Filter, Grid, List, Clock, CheckCircle, XCircle, Plus, Trash2, Edit, MessageSquare, History, Settings } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import ClientAvatar from '../components/ui/ClientAvatar';
 import AssignChatterModal from '../components/modals/AssignChatterModal';
@@ -9,6 +10,8 @@ import { useChatterAssignments } from '../hooks/useChatterAssignments';
 import { useTeamMembers } from '../hooks/useTeamMembers';
 import { useClients } from '../hooks/useClients';
 import { StaggerContainer } from '../components/ui/StaggerContainer';
+import { useTenantShifts, formatTimeRange, TenantShift } from '../hooks/useTenantShifts';
+import { useAuth } from '../contexts/AuthContext';
 
 const Assignments: React.FC = () => {
   const [viewMode, setViewMode] = useState<'chatters' | 'clients'>('chatters');
@@ -24,6 +27,35 @@ const Assignments: React.FC = () => {
   const { assignments, loading, error, assignChatterToClient, removeAssignment } = useChatterAssignments();
   const { teamMembers } = useTeamMembers();
   const { clients } = useClients();
+  const { shifts, hasShifts, getShiftById, getShiftBySlug } = useTenantShifts();
+  const { teamMember, isOwner, hasPermission } = useAuth();
+
+  // Check if user can manage shifts
+  const canManageShifts = isOwner || hasPermission('settings.manage_roles') || teamMember?.role === 'admin';
+
+  // Build shift filter options from dynamic shifts
+  const shiftFilterOptions = useMemo(() => {
+    const options = [{ value: 'all', label: 'All Shifts', slug: '' }];
+    shifts.forEach(shift => {
+      options.push({
+        value: shift.id,
+        label: `${shift.name} (${formatTimeRange(shift.start_time, shift.end_time)})`,
+        slug: shift.slug
+      });
+    });
+    return options;
+  }, [shifts]);
+
+  // Helper to get shift for a team member
+  const getTeamMemberShift = (member: typeof teamMembers[0]): TenantShift | undefined => {
+    if (member.shift_id) {
+      return getShiftById(member.shift_id);
+    }
+    if (member.shift) {
+      return getShiftBySlug(member.shift);
+    }
+    return undefined;
+  };
 
   // Get active chatters
   const chatters = teamMembers.filter(member => 
@@ -36,7 +68,12 @@ const Assignments: React.FC = () => {
       chatter.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       chatter.email.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesShift = shiftFilter === 'all' || chatter.shift === shiftFilter;
+    // Match shift by ID or legacy slug
+    let matchesShift = shiftFilter === 'all';
+    if (!matchesShift) {
+      const memberShift = getTeamMemberShift(chatter);
+      matchesShift = memberShift?.id === shiftFilter || chatter.shift === shiftFilterOptions.find(o => o.value === shiftFilter)?.slug;
+    }
     
     return matchesSearch && matchesShift;
   }).sort((a, b) => a.full_name.localeCompare(b.full_name));
@@ -102,12 +139,7 @@ const Assignments: React.FC = () => {
     setIsHistoryModalOpen(true);
   };
 
-  const shifts = [
-    { value: 'all', label: 'All Shifts' },
-    { value: '10-6', label: 'Day Shift (10am-6pm)' },
-    { value: '6-2', label: 'Evening Shift (6pm-2am)' },
-    { value: '2-10', label: 'Night Shift (2am-10am)' }
-  ];
+  // Shift filter options are now built from dynamic shifts above
 
   if (loading) {
     return (
@@ -219,27 +251,33 @@ const Assignments: React.FC = () => {
 
             {/* Shift Filter (only for chatters view) */}
             {viewMode === 'chatters' && (
-              <div className="flex flex-wrap gap-2 flex-1">
-                {shifts.map((shift) => (
-                  <button
-                    key={shift.value}
-                    onClick={() => setShiftFilter(shift.value)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                      shiftFilter === shift.value
-                        ? shift.value === 'all' ? 'bg-gray-600 text-white shadow-md' :
-                          shift.value === '10-6' ? 'bg-blue-600 text-white shadow-md' :
-                          shift.value === '6-2' ? 'bg-purple-600 text-white shadow-md' :
-                          'bg-indigo-600 text-white shadow-md'
-                        : shift.value === 'all' ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' :
-                          shift.value === '10-6' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' :
-                          shift.value === '6-2' ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' :
-                          'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
-                    }`}
-                  >
-                    {shift.label}
-                  </button>
-                ))}
-              </div>
+              hasShifts ? (
+                <div className="flex flex-wrap gap-2 flex-1">
+                  {shiftFilterOptions.map((shift) => (
+                    <button
+                      key={shift.value}
+                      onClick={() => setShiftFilter(shift.value)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                        shiftFilter === shift.value
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {shift.label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <span>No shifts configured.</span>
+                  {canManageShifts && (
+                    <Link to="/shifts" className="text-blue-600 hover:text-blue-700 flex items-center">
+                      <Settings className="w-4 h-4 mr-1" />
+                      Configure
+                    </Link>
+                  )}
+                </div>
+              )
             )}
           </div>
         </div>
@@ -281,11 +319,13 @@ const Assignments: React.FC = () => {
                             <h3 className="text-lg font-semibold text-gray-900">{chatter.full_name}</h3>
                             <div className="flex items-center text-sm text-gray-500">
                               <Clock className="w-4 h-4 mr-1" />
-                              {chatter.shift ? (
-                                shifts.find(s => s.value === chatter.shift)?.label || chatter.shift
-                              ) : (
-                                'No shift assigned'
-                              )}
+                              {(() => {
+                                const memberShift = getTeamMemberShift(chatter);
+                                if (memberShift) {
+                                  return `${memberShift.name} (${formatTimeRange(memberShift.start_time, memberShift.end_time)})`;
+                                }
+                                return hasShifts ? 'No shift assigned' : 'Shifts not configured';
+                              })()}
                             </div>
                           </div>
                         </div>
@@ -454,11 +494,18 @@ const Assignments: React.FC = () => {
                                       )}
                                     </div>
                                     <div className="text-xs text-gray-500">
-                                      {(assignment as any).chatter.shift ? (
-                                        shifts.find(s => s.value === (assignment as any).chatter.shift)?.label || (assignment as any).chatter.shift
-                                      ) : (
-                                        'No shift'
-                                      )}
+                                      {(() => {
+                                        const chatterData = (assignment as any).chatter;
+                                        if (chatterData.shift_id) {
+                                          const memberShift = getShiftById(chatterData.shift_id);
+                                          if (memberShift) return memberShift.name;
+                                        }
+                                        if (chatterData.shift) {
+                                          const memberShift = getShiftBySlug(chatterData.shift);
+                                          if (memberShift) return memberShift.name;
+                                        }
+                                        return hasShifts ? 'No shift' : '-';
+                                      })()}
                                     </div>
                                   </div>
                                 </div>
