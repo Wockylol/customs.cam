@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
 import { ContentScene, SceneInstruction } from '../types';
 import { createSceneCompletedNotification } from '../lib/notificationHelpers';
+import { useAuth } from '../contexts/AuthContext';
 
 type ContentSceneRow = Database['public']['Tables']['content_scenes']['Row'];
 type ContentSceneInsert = Database['public']['Tables']['content_scenes']['Insert'];
@@ -15,32 +16,41 @@ interface SceneWithStats extends ContentSceneRow {
 }
 
 export const useContentScenes = () => {
+  const { teamMember } = useAuth();
   const [scenes, setScenes] = useState<SceneWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchScenes = async () => {
+  const fetchScenes = useCallback(async () => {
+    // Don't fetch until we have tenant context
+    if (!teamMember?.tenant_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch all scenes with assignment counts
+      // Fetch all scenes with assignment counts filtered by tenant clients
       const { data: scenesData, error: scenesError } = await supabase
         .from('content_scenes')
         .select(`
           *,
           client_scene_assignments (
             id,
-            status
+            status,
+            clients!inner (tenant_id)
           )
         `)
         .order('created_at', { ascending: false });
 
       if (scenesError) throw scenesError;
 
-      // Calculate stats for each scene
+      // Calculate stats for each scene (only counting assignments for our tenant's clients)
       const scenesWithStats = scenesData?.map(scene => {
-        const assignments = (scene as any).client_scene_assignments || [];
+        const assignments = ((scene as any).client_scene_assignments || [])
+          .filter((a: any) => a.clients?.tenant_id === teamMember.tenant_id);
         return {
           ...scene,
           assignments_count: assignments.length,
@@ -55,7 +65,7 @@ export const useContentScenes = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [teamMember?.tenant_id]);
 
   const fetchClientScenes = async (clientId: string) => {
     try {
@@ -353,7 +363,7 @@ export const useContentScenes = () => {
 
   useEffect(() => {
     fetchScenes();
-  }, []);
+  }, [fetchScenes]);
 
   return {
     scenes,
