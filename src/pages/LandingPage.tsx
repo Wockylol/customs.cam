@@ -223,7 +223,7 @@ const LandingPage: React.FC = () => {
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
-              <span className="font-display font-bold text-xl">CustomsHub</span>
+              <span className="font-display font-bold text-xl">AgencyLab</span>
             </div>
             
             <div className="hidden md:flex items-center gap-8">
@@ -775,7 +775,7 @@ const LandingPage: React.FC = () => {
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
-                <span className="font-display font-bold text-xl">CustomsHub</span>
+                <span className="font-display font-bold text-xl">AgencyLab</span>
               </div>
               <p className="text-slate-400 text-sm">
                 The all-in-one platform for modern content agencies.
@@ -814,7 +814,7 @@ const LandingPage: React.FC = () => {
           
           <div className="pt-8 border-t border-slate-800/50 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-slate-500 text-sm">
-              © 2026 CustomsHub. All rights reserved.
+              © 2026 AgencyLab. All rights reserved.
             </p>
             <div className="flex items-center gap-6">
               <a href="#" className="text-slate-400 hover:text-white transition-colors">
