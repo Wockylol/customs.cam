@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
 import { useAuth } from '../contexts/AuthContext';
+import { useTenant } from '../contexts/TenantContext';
 
 type AttendanceRecord = Database['public']['Tables']['attendance_records']['Row'];
 type AttendanceInsert = Database['public']['Tables']['attendance_records']['Insert'];
 type AttendanceUpdate = Database['public']['Tables']['attendance_records']['Update'];
 
 export const useAttendance = (date?: string, month?: string, viewMode?: 'daily' | 'monthly') => {
-  const { user } = useAuth();
+  const { user, teamMember } = useAuth();
+  const { tenant } = useTenant();
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -183,7 +185,7 @@ export const useAttendance = (date?: string, month?: string, viewMode?: 'daily' 
           `)
           .single();
       } else {
-        // Insert new record
+        // Insert new record - include tenant_id for RLS
         let insertData: AttendanceInsert = {
           team_member_id: attendanceData.teamMemberId,
           date: attendanceData.date,
@@ -191,7 +193,8 @@ export const useAttendance = (date?: string, month?: string, viewMode?: 'daily' 
           clock_in_time: (attendanceData.status === 'late' || attendanceData.status === 'late_and_left_early') ? (attendanceData.clockInTime || null) : null,
           clock_out_time: (attendanceData.status === 'left_early' || attendanceData.status === 'late_and_left_early') ? (attendanceData.clockOutTime || null) : null,
           notes: attendanceData.notes || null,
-          recorded_by: user.id
+          recorded_by: user.id,
+          tenant_id: tenant?.id || teamMember?.tenant_id || null
         };
         
         result = await supabase
