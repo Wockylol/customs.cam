@@ -41,6 +41,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                       !location.pathname.startsWith('/calls') &&
                       !location.pathname.startsWith('/role-management') &&
                       !location.pathname.startsWith('/shifts') &&
+                      !location.pathname.startsWith('/agency-settings') &&
                       !location.pathname.startsWith('/platform-admin');
 
   if (isPublicPage) {
