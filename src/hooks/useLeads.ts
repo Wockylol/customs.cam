@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
+import { useAuth } from '../contexts/AuthContext';
 
 type Client = Database['public']['Tables']['clients']['Row'];
 type ClientStatus = Database['public']['Enums']['client_status'];
@@ -14,16 +15,23 @@ export interface LeadWithDetails extends Client {
 }
 
 export const useLeads = () => {
+  const { teamMember } = useAuth();
   const [leads, setLeads] = useState<LeadWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchLeads = useCallback(async () => {
+    // Don't fetch until we have tenant context
+    if (!teamMember?.tenant_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch all clients (leads and prospects) with their platform interests and last activity
+      // Fetch all clients (leads and prospects) filtered by tenant
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
         .select(`
@@ -36,6 +44,7 @@ export const useLeads = () => {
             platform:platforms(id, name, icon, color)
           )
         `)
+        .eq('tenant_id', teamMember.tenant_id)
         .order('created_at', { ascending: false });
 
       if (clientsError) throw clientsError;
@@ -76,7 +85,7 @@ export const useLeads = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [teamMember?.tenant_id]);
 
   const createLead = async (leadData: {
     firstName?: string;
