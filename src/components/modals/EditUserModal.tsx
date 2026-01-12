@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, AlertCircle, User, Settings, Shield } from 'lucide-react';
+import { X, AlertCircle, User, Settings, Shield, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Database } from '../../lib/database.types';
 import { useAuth } from '../../contexts/AuthContext';
@@ -184,50 +184,48 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Role * {!canManageRoles && <span className="text-xs text-gray-500">(Admin only)</span>}
               </label>
               {hasRoles ? (
                 <>
-                  <div className="grid grid-cols-2 gap-2">
-                    {/* Dynamic Role Options */}
-                    {roles.map((role) => {
-                      const isSelected = formData.roleId === role.id;
-                      return (
-                        <button
-                          key={role.id}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, roleId: role.id, role: role.slug })}
-                          disabled={loading || !canManageRoles}
-                          className={`px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200 border-2 text-center ${
-                            !canManageRoles ? 'opacity-50 cursor-not-allowed' :
-                            isSelected
-                              ? 'shadow-md'
-                              : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
-                          }`}
-                          style={isSelected ? {
-                            backgroundColor: `${role.color}20`,
-                            borderColor: role.color,
-                            color: role.color,
-                          } : undefined}
-                        >
-                          <div className="flex items-center justify-center">
-                            <div 
-                              className="w-2.5 h-2.5 rounded-full mr-2"
-                              style={{ backgroundColor: role.color }}
-                            />
-                            <span className="font-semibold">{role.name}</span>
-                          </div>
-                          {role.description && (
-                            <div className="text-xs opacity-75 mt-0.5 truncate">{role.description}</div>
-                          )}
-                        </button>
-                      );
-                    })}
+                  <div className="relative">
+                    <select
+                      id="role"
+                      value={formData.roleId}
+                      onChange={(e) => {
+                        const selectedRole = roles.find(r => r.id === e.target.value);
+                        setFormData({ 
+                          ...formData, 
+                          roleId: e.target.value, 
+                          role: selectedRole?.slug || formData.role 
+                        });
+                      }}
+                      disabled={loading || !canManageRoles}
+                      className={`w-full px-3 py-2.5 pr-10 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none ${
+                        !canManageRoles ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                      }`}
+                    >
+                      <option value="">Select a role...</option>
+                      {roles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}{role.description ? ` - ${role.description}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Assign a role to define permissions for this team member
-                  </p>
+                  {formData.roleId && (
+                    <div className="mt-2 flex items-center">
+                      <div 
+                        className="w-3 h-3 rounded-full mr-2"
+                        style={{ backgroundColor: getRoleById(formData.roleId)?.color || '#6B7280' }}
+                      />
+                      <span className="text-sm text-gray-600 dark:text-gray-300">
+                        {getRoleById(formData.roleId)?.name}
+                      </span>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
@@ -254,49 +252,36 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="shift" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Shift Schedule
               </label>
               {hasShifts ? (
                 <>
-                  <div className="grid grid-cols-2 gap-2">
-                    {/* No Shift Option */}
-                    <button
-                      key="no-shift"
-                      type="button"
-                      onClick={() => setFormData({ ...formData, shiftId: '' })}
+                  <div className="relative">
+                    <select
+                      id="shift"
+                      value={formData.shiftId}
+                      onChange={(e) => setFormData({ ...formData, shiftId: e.target.value })}
                       disabled={loading}
-                      className={`px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200 border-2 text-center ${
-                        formData.shiftId === ''
-                          ? 'bg-gray-100 dark:bg-gray-600 border-gray-500 text-gray-700 dark:text-gray-200 shadow-md'
-                          : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
-                      }`}
+                      className="w-full px-3 py-2.5 pr-10 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none cursor-pointer"
                     >
-                      <div className="font-semibold">No Shift</div>
-                      <div className="text-xs opacity-75">Unassigned</div>
-                    </button>
-                    
-                    {/* Dynamic Shift Options */}
-                    {shifts.map((shift) => (
-                      <button
-                        key={shift.id}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, shiftId: shift.id })}
-                        disabled={loading}
-                        className={`px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200 border-2 text-center ${
-                          formData.shiftId === shift.id
-                            ? 'bg-indigo-100 border-indigo-500 text-indigo-700 shadow-md'
-                            : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
-                        }`}
-                      >
-                        <div className="font-semibold">{shift.name}</div>
-                        <div className="text-xs opacity-75">{formatTimeRange(shift.start_time, shift.end_time)}</div>
-                      </button>
-                    ))}
+                      <option value="">No Shift (Unassigned)</option>
+                      {shifts.map((shift) => (
+                        <option key={shift.id} value={shift.id}>
+                          {shift.name} ({formatTimeRange(shift.start_time, shift.end_time)})
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Assign a work shift schedule for this team member
-                  </p>
+                  {formData.shiftId && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {formatTimeRange(
+                        getShiftById(formData.shiftId)?.start_time || '',
+                        getShiftById(formData.shiftId)?.end_time || ''
+                      )}
+                    </p>
+                  )}
                 </>
               ) : (
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
