@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
 import { useAuth } from '../contexts/AuthContext';
@@ -36,12 +36,18 @@ interface ChatterAssignmentWithDetails extends ChatterAssignment {
 }
 
 export const useChatterAssignments = () => {
-  const { user } = useAuth();
+  const { user, teamMember } = useAuth();
   const [assignments, setAssignments] = useState<ChatterAssignmentWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async () => {
+    // Don't fetch until we have tenant context
+    if (!teamMember?.tenant_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       // Don't clear existing data during refetch to prevent UI flicker
       setLoading(true);
@@ -51,10 +57,11 @@ export const useChatterAssignments = () => {
         .from('chatter_assignments')
         .select(`
           *,
-          chatter:team_members!chatter_id(id, full_name, email, shift),
+          chatter:team_members!chatter_id(id, full_name, email, shift, tenant_id),
           client:clients!client_id(id, username, phone, avatar_url),
           assigned_by_member:team_members!assigned_by(full_name)
         `)
+        .eq('chatter.tenant_id', teamMember.tenant_id)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
@@ -96,7 +103,7 @@ export const useChatterAssignments = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [teamMember?.tenant_id]);
 
   const assignChatterToClient = async (
     chatterId: string, 
@@ -248,7 +255,7 @@ export const useChatterAssignments = () => {
 
   useEffect(() => {
     fetchAssignments();
-  }, []);
+  }, [fetchAssignments]);
 
   return {
     assignments,
