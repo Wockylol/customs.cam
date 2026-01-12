@@ -448,7 +448,8 @@ const ShiftManagement: React.FC = () => {
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle bg-white dark:bg-gray-800 shadow-xl rounded-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                  className="relative z-10 inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle bg-white dark:bg-gray-800 shadow-xl rounded-2xl"
                 >
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center">
