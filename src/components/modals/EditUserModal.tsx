@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, AlertCircle, User, Settings } from 'lucide-react';
+import { X, AlertCircle, User, Settings, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Database } from '../../lib/database.types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenantShifts, formatTimeRange } from '../../hooks/useTenantShifts';
+import { useTenantRoles } from '../../hooks/useTenantRoles';
 
 type TeamMember = Database['public']['Tables']['team_members']['Row'];
 
@@ -14,7 +15,8 @@ interface EditUserModalProps {
   onSubmit: (userId: string, userData: {
     fullName: string;
     email: string;
-    role: 'admin' | 'manager' | 'chatter' | 'pending';
+    role: string;
+    roleId?: string | null;
     shift?: string;
     shiftId?: string | null;
   }) => Promise<{ error: string | null }>;
@@ -23,17 +25,26 @@ interface EditUserModalProps {
 const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, onSubmit }) => {
   const { teamMember, isOwner, hasPermission } = useAuth();
   const { shifts, hasShifts, getShiftById, getShiftBySlug } = useTenantShifts();
-  const [formData, setFormData] = useState({
+  const { roles, hasRoles, getRoleById, getRoleBySlug } = useTenantRoles();
+  const [formData, setFormData] = useState<{
+    fullName: string;
+    email: string;
+    role: string;
+    roleId: string;
+    shiftId: string;
+  }>({
     fullName: '',
     email: '',
-    role: 'chatter' as 'admin' | 'manager' | 'chatter' | 'pending',
-    shiftId: '' as string,
+    role: 'chatter',
+    roleId: '',
+    shiftId: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Check if user can manage shifts
+  // Check if user can manage shifts and roles
   const canManageShifts = isOwner || hasPermission('settings.manage_roles') || teamMember?.role === 'admin';
+  const canManageRoles = isOwner || hasPermission('settings.manage_roles') || teamMember?.role === 'admin';
 
   useEffect(() => {
     if (user) {
@@ -45,15 +56,25 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
           shiftId = matchingShift.id;
         }
       }
+
+      // Determine the role ID - prefer role_id, fallback to finding by legacy role name
+      let roleId = user.role_id || '';
+      if (!roleId && user.role) {
+        const matchingRole = getRoleBySlug(user.role);
+        if (matchingRole) {
+          roleId = matchingRole.id;
+        }
+      }
       
       setFormData({
         fullName: user.full_name,
         email: user.email,
         role: user.role,
+        roleId: roleId,
         shiftId: shiftId,
       });
     }
-  }, [user, getShiftBySlug]);
+  }, [user, getShiftBySlug, getRoleBySlug]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,13 +84,15 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
     setError(null);
     
     if (formData.fullName.trim() && formData.email.trim()) {
-      // Get the shift slug for backward compatibility
+      // Get the shift and role for backward compatibility slugs
       const selectedShift = formData.shiftId ? getShiftById(formData.shiftId) : null;
+      const selectedRole = formData.roleId ? getRoleById(formData.roleId) : null;
       
       const { error } = await onSubmit(user.id, {
         fullName: formData.fullName.trim(),
         email: formData.email.trim(),
-        role: formData.role,
+        role: selectedRole?.slug || formData.role, // Use role slug for legacy column
+        roleId: formData.roleId || null,
         shift: selectedShift?.slug || undefined,
         shiftId: formData.shiftId || null,
       });
@@ -91,9 +114,6 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
   };
 
   if (!isOpen || !user) return null;
-
-  // Check if current user is manager (not admin)
-  const isManager = teamMember?.role === 'manager';
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -164,36 +184,69 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
             </div>
 
             <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Role * {isManager && <span className="text-xs text-gray-500">(Admin only)</span>}
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Role * {!canManageRoles && <span className="text-xs text-gray-500">(Admin only)</span>}
               </label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: 'chatter', label: 'Chatter', color: 'blue' },
-                  { value: 'manager', label: 'Manager', color: 'purple' },
-                  { value: 'admin', label: 'Admin', color: 'green' },
-                  { value: 'pending', label: 'Pending', color: 'orange' }
-                ].map((role) => (
-                  <button
-                    key={role.value}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, role: role.value as any })}
-                    disabled={loading || isManager}
-                    className={`px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 border-2 ${
-                      isManager ? 'opacity-50 cursor-not-allowed' :
-                      formData.role === role.value
-                        ? role.color === 'blue' ? 'bg-blue-100 border-blue-500 text-blue-700 shadow-md' :
-                          role.color === 'purple' ? 'bg-purple-100 border-purple-500 text-purple-700 shadow-md' :
-                          role.color === 'green' ? 'bg-green-100 border-green-500 text-green-700 shadow-md' :
-                          'bg-orange-100 border-orange-500 text-orange-700 shadow-md'
-                        : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
-                    }`}
-                  >
-                    {role.label}
-                  </button>
-                ))}
-              </div>
-              {isManager && (
+              {hasRoles ? (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Dynamic Role Options */}
+                    {roles.map((role) => {
+                      const isSelected = formData.roleId === role.id;
+                      return (
+                        <button
+                          key={role.id}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, roleId: role.id, role: role.slug })}
+                          disabled={loading || !canManageRoles}
+                          className={`px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200 border-2 text-center ${
+                            !canManageRoles ? 'opacity-50 cursor-not-allowed' :
+                            isSelected
+                              ? 'shadow-md'
+                              : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
+                          }`}
+                          style={isSelected ? {
+                            backgroundColor: `${role.color}20`,
+                            borderColor: role.color,
+                            color: role.color,
+                          } : undefined}
+                        >
+                          <div className="flex items-center justify-center">
+                            <div 
+                              className="w-2.5 h-2.5 rounded-full mr-2"
+                              style={{ backgroundColor: role.color }}
+                            />
+                            <span className="font-semibold">{role.name}</span>
+                          </div>
+                          {role.description && (
+                            <div className="text-xs opacity-75 mt-0.5 truncate">{role.description}</div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Assign a role to define permissions for this team member
+                  </p>
+                </>
+              ) : (
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                    No custom roles have been configured yet.
+                  </p>
+                  {canManageRoles && (
+                    <Link
+                      to="/roles"
+                      onClick={onClose}
+                      className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700"
+                    >
+                      <Shield className="w-4 h-4 mr-1" />
+                      Configure Roles
+                    </Link>
+                  )}
+                </div>
+              )}
+              {!canManageRoles && (
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                   Only administrators can change user roles. You can edit other details.
                 </p>
