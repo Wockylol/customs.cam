@@ -254,6 +254,7 @@ export interface Database {
           email: string
           full_name: string
           role: 'owner' | 'admin' | 'manager' | 'chatter' | 'pending'
+          role_id: string | null
           is_active: boolean
           tenant_id: string | null
           created_at: string
@@ -267,6 +268,7 @@ export interface Database {
           email: string
           full_name: string
           role?: 'owner' | 'admin' | 'manager' | 'chatter' | 'pending'
+          role_id?: string | null
           is_active?: boolean
           tenant_id?: string | null
           created_at?: string
@@ -280,6 +282,7 @@ export interface Database {
           email?: string
           full_name?: string
           role?: 'owner' | 'admin' | 'manager' | 'chatter' | 'pending'
+          role_id?: string | null
           is_active?: boolean
           tenant_id?: string | null
           created_at?: string
@@ -287,6 +290,115 @@ export interface Database {
           approved_by?: string | null
           approved_at?: string | null
           shift?: string | null
+        }
+      }
+      // Dynamic roles and permissions
+      permissions_catalog: {
+        Row: {
+          id: string
+          code: string
+          name: string
+          description: string | null
+          category: string
+          type: 'page_access' | 'action'
+          display_order: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          code: string
+          name: string
+          description?: string | null
+          category: string
+          type: 'page_access' | 'action'
+          display_order?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          code?: string
+          name?: string
+          description?: string | null
+          category?: string
+          type?: 'page_access' | 'action'
+          display_order?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      tenant_roles: {
+        Row: {
+          id: string
+          tenant_id: string
+          name: string
+          slug: string
+          description: string | null
+          color: string
+          hierarchy_level: number
+          is_system_default: boolean
+          is_immutable: boolean
+          settings: Record<string, unknown>
+          created_at: string
+          updated_at: string
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          name: string
+          slug: string
+          description?: string | null
+          color?: string
+          hierarchy_level?: number
+          is_system_default?: boolean
+          is_immutable?: boolean
+          settings?: Record<string, unknown>
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          name?: string
+          slug?: string
+          description?: string | null
+          color?: string
+          hierarchy_level?: number
+          is_system_default?: boolean
+          is_immutable?: boolean
+          settings?: Record<string, unknown>
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+      }
+      tenant_role_permissions: {
+        Row: {
+          id: string
+          role_id: string
+          permission_id: string
+          granted_at: string
+          granted_by: string | null
+        }
+        Insert: {
+          id?: string
+          role_id: string
+          permission_id: string
+          granted_at?: string
+          granted_by?: string | null
+        }
+        Update: {
+          id?: string
+          role_id?: string
+          permission_id?: string
+          granted_at?: string
+          granted_by?: string | null
         }
       }
       clients: {
