@@ -8,6 +8,15 @@
 -- ============================================================================
 
 -- ============================================================================
+-- 0. DROP EXISTING FUNCTIONS (required when changing return types)
+-- ============================================================================
+DROP FUNCTION IF EXISTS public.generate_registration_code(text);
+DROP FUNCTION IF EXISTS public.generate_registration_code();
+DROP FUNCTION IF EXISTS public.validate_registration_code(text);
+DROP FUNCTION IF EXISTS public.accept_registration_code(uuid, text, text, text);
+DROP FUNCTION IF EXISTS public.get_registration_code_info();
+
+-- ============================================================================
 -- 1. UPDATE GENERATE REGISTRATION CODE FUNCTION
 -- ============================================================================
 -- Simplified - no longer requires a role parameter
