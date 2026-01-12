@@ -87,20 +87,24 @@ const LandingPage: React.FC = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: heroRef,
-    offset: ["start start", "end start"]
-  });
   
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
-  const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 0.95]);
-
   // Redirect authenticated users to dashboard
   useEffect(() => {
     if (!loading && user) {
       navigate('/dashboard', { replace: true });
     }
   }, [user, loading, navigate]);
+
+  // Only use scroll effects when showing the full page (not loading/redirecting)
+  const shouldShowFullPage = !loading && !user;
+  
+  const { scrollYProgress } = useScroll({
+    target: shouldShowFullPage ? heroRef : undefined,
+    offset: ["start start", "end start"]
+  });
+  
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+  const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 0.95]);
 
   // Show loading while checking auth state
   if (loading) {
