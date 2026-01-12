@@ -53,6 +53,7 @@ export const useTeamMembers = () => {
     fullName?: string;
     email?: string;
     shift?: string;
+    shiftId?: string | null;
   }) => {
     try {
       const updatePayload: TeamMemberUpdate = {};
@@ -63,6 +64,7 @@ export const useTeamMembers = () => {
       if (updateData.fullName !== undefined) updatePayload.full_name = updateData.fullName;
       if (updateData.email !== undefined) updatePayload.email = updateData.email;
       if (updateData.shift !== undefined) updatePayload.shift = updateData.shift || null;
+      if (updateData.shiftId !== undefined) updatePayload.shift_id = updateData.shiftId || null;
 
       const { data, error } = await supabase
         .from('team_members')
