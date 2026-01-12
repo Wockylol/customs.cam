@@ -1,17 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
 import { createNewClientNotification } from '../lib/notificationHelpers';
+import { useAuth } from '../contexts/AuthContext';
 
 type Client = Database['public']['Tables']['clients']['Row'];
 type ClientInsert = Database['public']['Tables']['clients']['Insert'];
 
 export const useClients = () => {
+  const { teamMember } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
+    // Don't fetch until we have tenant context
+    if (!teamMember?.tenant_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       // Don't clear existing data during refetch to prevent UI flicker
       setLoading(true);
@@ -20,6 +28,7 @@ export const useClients = () => {
       const { data, error } = await supabase
         .from('clients')
         .select('*')
+        .eq('tenant_id', teamMember.tenant_id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -36,7 +45,7 @@ export const useClients = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [teamMember?.tenant_id]);
 
   const addClient = async (clientData: {
     username: string;
@@ -48,6 +57,7 @@ export const useClients = () => {
         username: clientData.username,
         phone: clientData.phone || null,
         agency_id: clientData.agencyId || null,
+        tenant_id: teamMember?.tenant_id || null,
         is_active: true
       };
 
@@ -145,7 +155,7 @@ export const useClients = () => {
   };
   useEffect(() => {
     fetchClients();
-  }, []);
+  }, [fetchClients]);
 
   // Preload avatar images in the background after initial fetch
   useEffect(() => {
