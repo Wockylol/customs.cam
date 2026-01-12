@@ -13,7 +13,6 @@ type TenantInfo = {
   tenant_id: string;
   tenant_name: string;
   tenant_slug: string;
-  role: string;
 };
 
 type SignUpFormData = {
@@ -165,24 +164,6 @@ const CodeSignUpForm: React.FC<CodeSignUpFormProps> = ({
     if (error) setError(null);
   };
 
-  const getRoleLabel = (role: string) => {
-    const labels: Record<string, string> = {
-      admin: 'Admin',
-      manager: 'Manager',
-      chatter: 'Chatter'
-    };
-    return labels[role] || role;
-  };
-
-  const getRoleColor = (role: string) => {
-    const colors: Record<string, string> = {
-      admin: 'bg-green-100 text-green-800',
-      manager: 'bg-purple-100 text-purple-800',
-      chatter: 'bg-blue-100 text-blue-800'
-    };
-    return colors[role] || 'bg-gray-100 text-gray-800';
-  };
-
   if (success) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -196,15 +177,18 @@ const CodeSignUpForm: React.FC<CodeSignUpFormProps> = ({
             Welcome to {tenantInfo?.tenant_name}!
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Please check your email to verify your account, then sign in.
+            Please check your email to verify your account.
           </p>
         </div>
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white py-8 px-4 shadow-xl sm:rounded-xl sm:px-10">
-            <div className="mb-6 p-4 bg-green-50 rounded-lg text-center">
-              <p className="text-sm text-green-800">
-                You've joined as a <strong>{getRoleLabel(tenantInfo?.role || '')}</strong>
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-center">
+              <p className="text-sm text-amber-800 font-medium mb-1">
+                Account Pending Approval
+              </p>
+              <p className="text-xs text-amber-700">
+                An administrator will review and approve your account. You'll be able to sign in once approved.
               </p>
             </div>
             <button
@@ -240,15 +224,13 @@ const CodeSignUpForm: React.FC<CodeSignUpFormProps> = ({
           {/* Tenant Info Banner (shows when code is validated) */}
           {codeValidated && tenantInfo && (
             <div className="mb-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Building2 className="w-5 h-5 text-indigo-600 mr-2" />
-                  <span className="font-medium text-gray-900">{tenantInfo.tenant_name}</span>
-                </div>
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(tenantInfo.role)}`}>
-                  {getRoleLabel(tenantInfo.role)}
-                </span>
+              <div className="flex items-center">
+                <Building2 className="w-5 h-5 text-indigo-600 mr-2" />
+                <span className="font-medium text-gray-900">{tenantInfo.tenant_name}</span>
               </div>
+              <p className="text-xs text-gray-500 mt-1 ml-7">
+                Your account will be pending approval after signup
+              </p>
             </div>
           )}
 
