@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 export interface ClientWithBirthday {
   id: string;
@@ -10,16 +11,23 @@ export interface ClientWithBirthday {
 }
 
 export const useUpcomingBirthdays = (daysAhead: number = 15) => {
+  const { teamMember } = useAuth();
   const [upcomingBirthdays, setUpcomingBirthdays] = useState<ClientWithBirthday[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchUpcomingBirthdays = async () => {
+  const fetchUpcomingBirthdays = useCallback(async () => {
+    // Don't fetch until we have tenant context
+    if (!teamMember?.tenant_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch all clients with their questionnaire and personal info
+      // Fetch all clients filtered by tenant with their questionnaire and personal info
       const { data, error } = await supabase
         .from('clients')
         .select(`
@@ -33,6 +41,7 @@ export const useUpcomingBirthdays = (daysAhead: number = 15) => {
             date_of_birth
           )
         `)
+        .eq('tenant_id', teamMember.tenant_id)
         .eq('is_active', true);
 
       if (error) {
@@ -110,11 +119,11 @@ export const useUpcomingBirthdays = (daysAhead: number = 15) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [teamMember?.tenant_id, daysAhead]);
 
   useEffect(() => {
     fetchUpcomingBirthdays();
-  }, [daysAhead]);
+  }, [fetchUpcomingBirthdays]);
 
   return {
     upcomingBirthdays,
