@@ -19,6 +19,7 @@ interface Thread {
   participants: string[];
   created_at: string;
   updated_at: string;
+  tenant_id?: string;
   latest_message?: {
     text: string;
     created_at: string;
@@ -894,6 +895,12 @@ The model's username is @${modelUsername}.`
   };
 
   const fetchThreads = async (page = 0, appendToExisting = false) => {
+    // Don't fetch until we have tenant context for multi-tenant isolation
+    if (!teamMember?.tenant_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       // Only use AbortController for non-initial loads to avoid React StrictMode issues
       let abortController: AbortController | null = null;
@@ -922,8 +929,9 @@ The model's username is @${modelUsername}.`
 
       // Use a more efficient approach with a lateral join to get threads with their latest messages
       // This eliminates the N+1 query problem by using a single query
-      let query = supabase
-        .rpc('get_threads_with_latest_messages')
+      // Filter by tenant_id for multi-tenant isolation
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let query = (supabase.rpc as any)('get_threads_with_latest_messages', { p_tenant_id: teamMember?.tenant_id || null })
         .range(from, to);
       
       // Only add abort signal if we have one
@@ -937,9 +945,11 @@ The model's username is @${modelUsername}.`
         console.error('Error with RPC call, falling back to basic thread fetch:', threadsError);
         
         // Fallback: Just get threads without latest messages for now
+        // Filter by tenant_id for multi-tenant isolation
         let fallbackQuery = supabase
           .from('threads')
-          .select('id, group_id, name, client_id, participants, created_at, updated_at, last_read_at')
+          .select('id, group_id, name, client_id, participants, created_at, updated_at, last_read_at, tenant_id')
+          .eq('tenant_id', teamMember?.tenant_id)
           .range(from, to)
           .order('updated_at', { ascending: false });
         
