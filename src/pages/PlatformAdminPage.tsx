@@ -20,6 +20,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { TenantCapability, CAPABILITY_LABELS, FIRST_PARTY_CAPABILITIES } from '../lib/tenant';
+import Layout from '../components/layout/Layout';
 
 interface Tenant {
   id: string;
@@ -174,43 +175,35 @@ const PlatformAdminPage: React.FC = () => {
 
   if (!isPlatformAdmin) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Denied</h2>
-          <p className="text-gray-600 dark:text-gray-400">You don't have permission to access the Platform Admin Console.</p>
+      <Layout>
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="text-center">
+            <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Denied</h2>
+            <p className="text-gray-600 dark:text-gray-400">You don't have permission to access the Platform Admin Console.</p>
+          </div>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-slate-900 to-slate-800 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <Layout>
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center mr-4">
                 <Shield className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold">Platform Admin Console</h1>
-                <p className="text-slate-400 text-sm">Manage all tenant agencies</p>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Platform Admin Console</h1>
+                <p className="text-gray-500 dark:text-gray-400 text-sm">Manage all tenant agencies</p>
               </div>
             </div>
-            <a 
-              href="/dashboard" 
-              className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Back to Dashboard
-            </a>
           </div>
         </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
@@ -411,8 +404,8 @@ const PlatformAdminPage: React.FC = () => {
             </div>
           )}
         </div>
-      </main>
-    </div>
+      </div>
+    </Layout>
   );
 };
 
