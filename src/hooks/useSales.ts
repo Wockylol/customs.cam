@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
 import { useAuth } from '../contexts/AuthContext';
@@ -28,7 +28,13 @@ export const useSales = () => {
   const [error, setError] = useState<string | null>(null);
   const { teamMember } = useAuth();
 
-  const fetchSales = async () => {
+  const fetchSales = useCallback(async () => {
+    // Don't fetch until we have tenant context
+    if (!teamMember?.tenant_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -43,10 +49,11 @@ export const useSales = () => {
           .from('chatter_sales')
           .select(`
             *,
-            clients (
+            clients!inner (
               id,
               username,
-              avatar_url
+              avatar_url,
+              tenant_id
             ),
             chatter:team_members!chatter_sales_chatter_id_fkey (
               id,
@@ -58,6 +65,7 @@ export const useSales = () => {
               full_name
             )
           `)
+          .eq('clients.tenant_id', teamMember.tenant_id)
           .order('sale_date', { ascending: false })
           .range(from, from + pageSize - 1);
 
@@ -89,7 +97,7 @@ export const useSales = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [teamMember?.tenant_id, teamMember?.role, teamMember?.id]);
 
   const addSale = async (saleData: {
     clientId: string;
@@ -289,7 +297,7 @@ export const useSales = () => {
 
   useEffect(() => {
     fetchSales();
-  }, [teamMember]);
+  }, [fetchSales]);
 
   return {
     sales,
