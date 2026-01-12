@@ -52,11 +52,11 @@ BEGIN
   -- Replace ambiguous characters (O->0, I->1)
   v_code := replace(replace(v_code, 'O', '0'), 'I', '1');
 
-  -- Update the tenant with the new code (set role to pending)
+  -- Update the tenant with the new code (role is no longer used, set to NULL)
   UPDATE tenant_agencies
   SET 
     registration_code = v_code,
-    registration_code_role = 'pending',
+    registration_code_role = NULL,
     registration_code_enabled = true,
     registration_code_updated_at = now()
   WHERE id = v_tenant_id;
@@ -188,11 +188,11 @@ $$;
 COMMENT ON FUNCTION public.get_registration_code_info IS 'Returns registration code info for admins. Role is no longer returned since all signups are pending.';
 
 -- ============================================================================
--- 5. UPDATE EXISTING CODES TO PENDING (optional cleanup)
+-- 5. CLEAR EXISTING CODE ROLES (optional cleanup)
 -- ============================================================================
--- Set all existing registration_code_role to 'pending' for consistency
+-- Set all existing registration_code_role to NULL since role is no longer used
 
 UPDATE tenant_agencies
-SET registration_code_role = 'pending'
+SET registration_code_role = NULL
 WHERE registration_code IS NOT NULL;
 
