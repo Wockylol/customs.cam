@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,7 +15,13 @@ export const useAttendance = (date?: string, month?: string, viewMode?: 'daily' 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAttendance = async (targetDate: string) => {
+  const fetchAttendance = useCallback(async (targetDate: string) => {
+    // Don't fetch until we have tenant context
+    if (!teamMember?.tenant_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -24,9 +30,10 @@ export const useAttendance = (date?: string, month?: string, viewMode?: 'daily' 
         .from('attendance_records')
         .select(`
           *,
-          team_member:team_members!team_member_id(id, full_name, shift),
+          team_member:team_members!team_member_id(id, full_name, shift, tenant_id),
           recorded_by_member:team_members!recorded_by(full_name)
         `)
+        .eq('team_member.tenant_id', teamMember.tenant_id)
         .eq('date', targetDate)
         .order('created_at', { ascending: false });
 
@@ -41,9 +48,15 @@ export const useAttendance = (date?: string, month?: string, viewMode?: 'daily' 
     } finally {
       setLoading(false);
     }
-  };
+  }, [teamMember?.tenant_id]);
 
-  const fetchMonthlyAttendance = async (targetMonth: string) => {
+  const fetchMonthlyAttendance = useCallback(async (targetMonth: string) => {
+    // Don't fetch until we have tenant context
+    if (!teamMember?.tenant_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -69,9 +82,10 @@ export const useAttendance = (date?: string, month?: string, viewMode?: 'daily' 
           .from('attendance_records')
           .select(`
             *,
-            team_member:team_members!team_member_id(id, full_name, shift),
+            team_member:team_members!team_member_id(id, full_name, shift, tenant_id),
             recorded_by_member:team_members!recorded_by(full_name)
           `)
+          .eq('team_member.tenant_id', teamMember.tenant_id)
           .gte('date', startDate)
           .lte('date', endDate)
           .range(start, start + pageSize - 1)
@@ -112,7 +126,7 @@ export const useAttendance = (date?: string, month?: string, viewMode?: 'daily' 
     } finally {
       setLoading(false);
     }
-  };
+  }, [teamMember?.tenant_id]);
 
   const markAttendance = async (attendanceData: {
     teamMemberId: string;
@@ -266,7 +280,7 @@ export const useAttendance = (date?: string, month?: string, viewMode?: 'daily' 
     } else if (viewMode === 'monthly' && month) {
       fetchMonthlyAttendance(month);
     }
-  }, [date, month, viewMode]);
+  }, [date, month, viewMode, fetchAttendance, fetchMonthlyAttendance]);
 
   return {
     attendanceRecords,
