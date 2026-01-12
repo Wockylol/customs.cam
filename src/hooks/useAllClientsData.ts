@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 export interface ClientFullData {
   // Client basic info
@@ -92,19 +93,27 @@ export interface ClientFullData {
 }
 
 export const useAllClientsData = () => {
+  const { teamMember } = useAuth();
   const [clients, setClients] = useState<ClientFullData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAllClientsData = async () => {
+  const fetchAllClientsData = useCallback(async () => {
+    // Don't fetch until we have tenant context
+    if (!teamMember?.tenant_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch all clients
+      // Fetch all clients filtered by tenant
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
         .select('*')
+        .eq('tenant_id', teamMember.tenant_id)
         .order('username');
 
       if (clientsError) throw clientsError;
@@ -193,11 +202,11 @@ export const useAllClientsData = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [teamMember?.tenant_id]);
 
   useEffect(() => {
     fetchAllClientsData();
-  }, []);
+  }, [fetchAllClientsData]);
 
   return {
     clients,
