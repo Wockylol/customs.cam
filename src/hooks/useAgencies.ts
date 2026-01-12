@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useTenant } from '../contexts/TenantContext';
+import { useAuth } from '../contexts/AuthContext';
 
 // Managed Agency type (B2B partners, not tenant agencies)
 interface ManagedAgency {
@@ -23,17 +24,24 @@ export const useAgencies = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { tenant } = useTenant();
+  const { teamMember } = useAuth();
 
-  const fetchAgencies = async () => {
+  const fetchAgencies = useCallback(async () => {
+    // Don't fetch until we have tenant context
+    if (!teamMember?.tenant_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       
-      // Fetch from managed_agencies (renamed from agencies)
-      // RLS will automatically filter by tenant
+      // Fetch from managed_agencies filtered by tenant
       const { data, error } = await supabase
         .from('managed_agencies')
         .select('*')
+        .eq('tenant_id', teamMember.tenant_id)
         .order('name', { ascending: true });
 
       if (error) {
@@ -47,7 +55,7 @@ export const useAgencies = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [teamMember?.tenant_id]);
 
   const addAgency = async (agencyData: {
     name: string;
@@ -153,7 +161,7 @@ export const useAgencies = () => {
 
   useEffect(() => {
     fetchAgencies();
-  }, []);
+  }, [fetchAgencies]);
 
   return {
     agencies,
