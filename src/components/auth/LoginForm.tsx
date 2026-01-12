@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -14,6 +15,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToSignUp }) => {
   const [error, setError] = useState<string | null>(null);
   
   const { signIn } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,9 +26,11 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToSignUp }) => {
     
     if (error) {
       setError(error.message);
+      setLoading(false);
+    } else {
+      // Successful login - navigate to dashboard
+      navigate('/dashboard');
     }
-    
-    setLoading(false);
   };
 
   return (
