@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Building2, Eye, EyeOff, AlertCircle, CheckCircle, Check, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -17,6 +18,7 @@ type SignUpFormData = {
 };
 
 const AgencySignUpForm: React.FC<AgencySignUpFormProps> = ({ onSwitchToLogin, onSwitchToJoin }) => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<SignUpFormData>({
     email: '',
     password: '',
@@ -126,7 +128,9 @@ const AgencySignUpForm: React.FC<AgencySignUpFormProps> = ({ onSwitchToLogin, on
           return;
         }
 
-        setSuccess(true);
+        // Redirect to dashboard - user is now logged in as agency owner
+        navigate('/dashboard');
+        return;
       }
     } catch (error: any) {
       setError('An unexpected error occurred: ' + error.message);
