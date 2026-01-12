@@ -47,7 +47,7 @@ export const useTeamMembers = () => {
   }, [currentUser?.tenant_id]);
 
   const updateTeamMember = async (memberId: string, updateData: {
-    role?: 'admin' | 'manager' | 'chatter' | 'pending';
+    role?: string;
     roleId?: string | null;
     isActive?: boolean;
     fullName?: string;
@@ -56,7 +56,9 @@ export const useTeamMembers = () => {
     shiftId?: string | null;
   }) => {
     try {
-      const updatePayload: TeamMemberUpdate = {};
+      // Build update payload - cast role to the enum type for TypeScript
+      // The actual role value is now dynamic based on tenant_roles.slug
+      const updatePayload: Record<string, unknown> = {};
       
       if (updateData.role !== undefined) updatePayload.role = updateData.role;
       if (updateData.roleId !== undefined) updatePayload.role_id = updateData.roleId;
@@ -68,7 +70,7 @@ export const useTeamMembers = () => {
 
       const { data, error } = await supabase
         .from('team_members')
-        .update(updatePayload)
+        .update(updatePayload as TeamMemberUpdate)
         .eq('id', memberId)
         .select()
         .single();
