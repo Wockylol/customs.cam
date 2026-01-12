@@ -368,7 +368,8 @@ const RoleManagement: React.FC = () => {
     if (!canManageRoles) return;
     
     const role = roles.find(r => r.id === roleId);
-    if (!role || role.is_immutable) return;
+    // Prevent deletion of immutable roles and system default roles
+    if (!role || role.is_immutable || role.is_system_default) return;
     
     setSaving(true);
     setError(null);
@@ -583,10 +584,20 @@ const RoleManagement: React.FC = () => {
                         {selectedRole.is_immutable && (
                           <Lock className="w-4 h-4 ml-2 text-gray-400" />
                         )}
+                        {selectedRole.is_system_default && (
+                          <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
+                            System Role
+                          </span>
+                        )}
                       </h2>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         {selectedRole.description || `Hierarchy Level ${selectedRole.hierarchy_level}`}
                       </p>
+                      {selectedRole.is_system_default && (
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                          System default roles cannot be deleted
+                        </p>
+                      )}
                     </div>
                   </div>
                   
@@ -600,22 +611,22 @@ const RoleManagement: React.FC = () => {
                         <Copy className="w-5 h-5" />
                       </button>
                       {!selectedRole.is_immutable && (
-                        <>
-                          <button
-                            onClick={() => setEditingRole(selectedRole)}
-                            className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                            title="Edit Role"
-                          >
-                            <Edit2 className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => setShowDeleteConfirm(selectedRole.id)}
-                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"
-                            title="Delete Role"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        </>
+                        <button
+                          onClick={() => setEditingRole(selectedRole)}
+                          className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                          title="Edit Role"
+                        >
+                          <Edit2 className="w-5 h-5" />
+                        </button>
+                      )}
+                      {!selectedRole.is_immutable && !selectedRole.is_system_default && (
+                        <button
+                          onClick={() => setShowDeleteConfirm(selectedRole.id)}
+                          className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"
+                          title="Delete Role"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
                       )}
                     </div>
                   )}
