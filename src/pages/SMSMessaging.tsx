@@ -7,7 +7,7 @@ import ClientAvatar from '../components/ui/ClientAvatar';
 import { useSMSTemplates } from '../hooks/useSMSTemplates';
 import { useSMSConversations, useSMSMessages, SMSConversation } from '../hooks/useSMSConversations';
 import { useAuth } from '../contexts/AuthContext';
-import { useCapability } from '../contexts/TenantContext';
+import { useTenant } from '../contexts/TenantContext';
 import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const EDT_TIMEZONE = 'America/New_York';
@@ -84,7 +84,16 @@ const SMSMessaging: React.FC = () => {
   const { conversations, loading: conversationsLoading, refetch: refetchConversations } = useSMSConversations();
   
   // Check if two-way SMS capability is enabled
-  const hasTwoWaySMS = useCapability('sms_two_way');
+  const { capabilities, loading: tenantLoading } = useTenant();
+  const hasTwoWaySMS = !tenantLoading && capabilities.includes('sms_two_way');
+  
+  // Debug: Log capability status
+  console.log('[SMSMessaging] Capability check:', { 
+    tenantLoading, 
+    capabilities, 
+    hasTwoWaySMS,
+    includesTwoWay: capabilities.includes('sms_two_way')
+  });
   
   // View state
   const [view, setView] = useState<'list' | 'compose' | 'thread'>('list');
