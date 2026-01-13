@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { MessageSquare, Send, Phone, User, AlertCircle, CheckCircle, Search, X, Save, FileText, Trash2, ArrowLeft, Plus, Inbox, Users, Loader2 } from 'lucide-react';
+import { MessageSquare, Send, Phone, User, AlertCircle, CheckCircle, Search, X, Save, FileText, Trash2, ArrowLeft, Plus, Inbox, Users, Loader2, Info } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { useClients } from '../hooks/useClients';
 import { sendSMS } from '../lib/smsMessaging';
@@ -7,6 +7,7 @@ import ClientAvatar from '../components/ui/ClientAvatar';
 import { useSMSTemplates } from '../hooks/useSMSTemplates';
 import { useSMSConversations, useSMSMessages, SMSConversation } from '../hooks/useSMSConversations';
 import { useAuth } from '../contexts/AuthContext';
+import { useCapability } from '../contexts/TenantContext';
 import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const EDT_TIMEZONE = 'America/New_York';
@@ -81,6 +82,9 @@ const SMSMessaging: React.FC = () => {
   const { clients, loading: clientsLoading } = useClients();
   const { templates, createTemplate, deleteTemplate, loading: templatesLoading } = useSMSTemplates();
   const { conversations, loading: conversationsLoading, refetch: refetchConversations } = useSMSConversations();
+  
+  // Check if two-way SMS capability is enabled
+  const hasTwoWaySMS = useCapability('sms_two_way');
   
   // View state
   const [view, setView] = useState<'list' | 'compose' | 'thread'>('list');
@@ -499,7 +503,7 @@ const SMSMessaging: React.FC = () => {
                 <div className="ml-4">
                   <h1 className="text-2xl font-bold text-gray-900 dark:text-white">SMS Messaging</h1>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    Two-way SMS conversations via Twilio
+                    {hasTwoWaySMS ? 'Two-way SMS conversations via Twilio' : 'Outbound SMS messaging via Twilio'}
                   </p>
                 </div>
               </div>
@@ -512,6 +516,16 @@ const SMSMessaging: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* Two-Way SMS Disabled Notice */}
+          {!hasTwoWaySMS && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
+              <div className="flex items-center text-amber-700 dark:text-amber-400 text-sm">
+                <Info className="w-4 h-4 mr-2 flex-shrink-0" />
+                <span>Two-Way SMS is not enabled for your agency. Inbound messages are hidden from conversation threads.</span>
+              </div>
+            </div>
+          )}
 
           {/* Search */}
           <div className="relative">
@@ -582,7 +596,7 @@ const SMSMessaging: React.FC = () => {
                           {formatPhoneForDisplay(convo.phone_number)}
                         </p>
                       )}
-                      {convo.latest_message && (
+                      {convo.latest_message && (hasTwoWaySMS || convo.latest_message.direction === 'outbound') && (
                         <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-1">
                           {convo.latest_message.direction === 'outbound' && (
                             <span className="text-gray-400 dark:text-gray-500">You: </span>
@@ -636,6 +650,16 @@ const SMSMessaging: React.FC = () => {
             </div>
           </div>
 
+          {/* Two-Way SMS Disabled Notice */}
+          {!hasTwoWaySMS && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border-x border-b border-amber-200 dark:border-amber-700 px-4 py-3">
+              <div className="flex items-center text-amber-700 dark:text-amber-400 text-sm">
+                <Info className="w-4 h-4 mr-2 flex-shrink-0" />
+                <span>Two-Way SMS is not enabled for your agency. Inbound messages are hidden.</span>
+              </div>
+            </div>
+          )}
+
           {/* Messages */}
           <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 border-x border-gray-200 dark:border-gray-700 p-4 space-y-4">
             {messagesLoading ? (
@@ -647,7 +671,10 @@ const SMSMessaging: React.FC = () => {
                 No messages yet. Send a message to start the conversation.
               </div>
             ) : (
-              messages.map((msg) => (
+              // Filter out inbound messages when two-way SMS is disabled
+              messages
+                .filter(msg => hasTwoWaySMS || msg.direction === 'outbound')
+                .map((msg) => (
                 <div
                   key={msg.id}
                   className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}
