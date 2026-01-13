@@ -103,18 +103,27 @@ Deno.serve(async (req) => {
       // Create new conversation
       console.log('📝 Creating new conversation for:', fromNumber);
 
-      // Try to find a client with this phone number
+      // Try to find a client with this phone number and get tenant_id
       const { data: clientMatch } = await supabase
         .from('clients')
-        .select('id')
+        .select('id, tenant_id')
         .eq('phone', fromNumber)
         .single();
+
+      const tenantId = clientMatch?.tenant_id || null;
+      
+      if (tenantId) {
+        console.log('✅ Found tenant_id from client:', tenantId);
+      } else {
+        console.warn('⚠️ No tenant_id found - conversation will not be tenant-isolated');
+      }
 
       const { data: newConvo, error: createError } = await supabase
         .from('sms_conversations')
         .insert({
           phone_number: fromNumber,
           client_id: clientMatch?.id || null,
+          tenant_id: tenantId,
         })
         .select('id')
         .single();
@@ -145,6 +154,26 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Get tenant_id from the conversation for the message
+    let tenantId: string | null = null;
+    if (existingConvo) {
+      // If using existing conversation, get its tenant_id
+      const { data: convoData } = await supabase
+        .from('sms_conversations')
+        .select('tenant_id')
+        .eq('id', conversationId)
+        .single();
+      tenantId = convoData?.tenant_id || null;
+    } else {
+      // We just created the conversation, get tenant from client
+      const { data: clientMatch } = await supabase
+        .from('clients')
+        .select('tenant_id')
+        .eq('phone', fromNumber)
+        .single();
+      tenantId = clientMatch?.tenant_id || null;
+    }
+
     // Insert the inbound message
     console.log('📝 Inserting inbound message...');
 
@@ -156,6 +185,7 @@ Deno.serve(async (req) => {
         body: messageBody,
         twilio_sid: messageSid,
         status: 'received',
+        tenant_id: tenantId,
       })
       .select('id')
       .single();
