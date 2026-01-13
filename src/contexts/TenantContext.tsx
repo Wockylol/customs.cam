@@ -80,18 +80,27 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
       teamMemberTenantId: teamMember?.tenant_id
     });
 
-    // Skip tenant fetch on main site or platform admin
-    if (isMainSite || isPlatformAdmin) {
-      console.log('[TenantContext] Skipping - main site or platform admin');
+    // Skip tenant fetch on platform admin pages
+    if (isPlatformAdmin) {
+      console.log('[TenantContext] Skipping - platform admin');
       setLoading(false);
       return;
     }
 
-    // If we have a slug from subdomain, fetch by slug
-    // If user is logged in, verify they belong to this tenant
+    // If we have a slug from subdomain, fetch by slug (handled below)
+    // If no slug but user is logged in with a tenant_id, use that
+    // If no slug and no user, it's the main site - skip
     if (!tenantSlug) {
       console.log('[TenantContext] No slug - checking for user tenant_id');
-      // In dev, if user is logged in and has a tenant_id, we can use that
+      
+      // If user is logged in but teamMember hasn't loaded yet, keep loading
+      if (user && !teamMember) {
+        console.log('[TenantContext] User logged in but teamMember not loaded yet - keeping loading state');
+        // Don't set loading to false - wait for teamMember to load
+        return;
+      }
+      
+      // In dev or without subdomains, if user is logged in and has a tenant_id, use that
       if (user && teamMember?.tenant_id) {
         console.log('[TenantContext] Fetching tenant by team_member.tenant_id:', teamMember.tenant_id);
         // Fetch tenant by user's tenant_id instead
@@ -130,7 +139,7 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
           console.error('[TenantContext] Exception auto-detecting tenant:', err);
         }
       } else {
-        console.log('[TenantContext] No user or team_member.tenant_id - skipping fetch');
+        console.log('[TenantContext] No user or team_member.tenant_id - skipping fetch (main site)');
       }
       setLoading(false);
       return;
