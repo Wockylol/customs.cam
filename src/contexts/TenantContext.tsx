@@ -71,8 +71,18 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
 
   // Fetch tenant data
   const fetchTenant = useCallback(async () => {
+    console.log('[TenantContext] fetchTenant called:', {
+      isMainSite,
+      isPlatformAdmin,
+      tenantSlug,
+      hasUser: !!user,
+      hasTeamMember: !!teamMember,
+      teamMemberTenantId: teamMember?.tenant_id
+    });
+
     // Skip tenant fetch on main site or platform admin
     if (isMainSite || isPlatformAdmin) {
+      console.log('[TenantContext] Skipping - main site or platform admin');
       setLoading(false);
       return;
     }
@@ -80,8 +90,10 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
     // If we have a slug from subdomain, fetch by slug
     // If user is logged in, verify they belong to this tenant
     if (!tenantSlug) {
+      console.log('[TenantContext] No slug - checking for user tenant_id');
       // In dev, if user is logged in and has a tenant_id, we can use that
       if (user && teamMember?.tenant_id) {
+        console.log('[TenantContext] Fetching tenant by team_member.tenant_id:', teamMember.tenant_id);
         // Fetch tenant by user's tenant_id instead
         try {
           const { data: tenantData, error: tenantError } = await supabase
@@ -91,6 +103,8 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
             .eq('is_active', true)
             .single();
 
+          console.log('[TenantContext] Tenant fetch result:', { tenantData, tenantError });
+
           if (!tenantError && tenantData) {
             const tenant = tenantData as unknown as TenantAgency;
             setTenant(tenant);
@@ -98,24 +112,32 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
             localStorage.setItem('dev_tenant_slug', tenant.slug);
             
             // Fetch capabilities
-            const { data: capsData } = await supabase
+            const { data: capsData, error: capsError } = await supabase
               .from('tenant_capabilities')
               .select('capability')
               .eq('tenant_id', tenant.id)
               .eq('enabled', true);
             
+            console.log('[TenantContext] Capabilities fetch result:', { capsData, capsError, tenantId: tenant.id });
+            
             if (capsData) {
               setCapabilities(capsData.map((c: { capability: TenantCapability }) => c.capability));
             }
+          } else if (tenantError) {
+            console.error('[TenantContext] Error fetching tenant:', tenantError);
           }
         } catch (err) {
-          console.error('Error auto-detecting tenant:', err);
+          console.error('[TenantContext] Exception auto-detecting tenant:', err);
         }
+      } else {
+        console.log('[TenantContext] No user or team_member.tenant_id - skipping fetch');
       }
       setLoading(false);
       return;
     }
 
+    console.log('[TenantContext] Fetching by slug:', tenantSlug);
+    
     try {
       setLoading(true);
       setError(null);
@@ -127,6 +149,8 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
         .eq('slug', tenantSlug)
         .eq('is_active', true)
         .single();
+
+      console.log('[TenantContext] Slug-based tenant fetch:', { tenantData, tenantError });
 
       if (tenantError) {
         if (tenantError.code === 'PGRST116') {
@@ -156,6 +180,8 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
         .select('capability')
         .eq('tenant_id', tenant.id)
         .eq('enabled', true);
+
+      console.log('[TenantContext] Slug-based capabilities fetch:', { capsData, capsError, tenantId: tenant.id });
 
       if (capsError) {
         console.error('Error fetching capabilities:', capsError);
