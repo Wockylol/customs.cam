@@ -9,6 +9,7 @@ import { useAttendance } from '../hooks/useAttendance';
 import { useAuth } from '../contexts/AuthContext';
 import { StaggerContainer } from '../components/ui/StaggerContainer';
 import { useTenantShifts, formatTimeRange, TenantShift } from '../hooks/useTenantShifts';
+import { useTenantRoles } from '../hooks/useTenantRoles';
 
 const EDT_TIMEZONE = 'America/New_York';
 
@@ -45,6 +46,7 @@ const Attendance: React.FC = () => {
   );
   const { teamMember, isOwner, hasPermission } = useAuth();
   const { shifts, hasShifts, getShiftById, getShiftBySlug, calculateMissedHours, loading: shiftsLoading } = useTenantShifts();
+  const { roleFilterOptions, getRoleById, getRoleBySlug } = useTenantRoles();
 
   // Build shift filter options from dynamic shifts
   const shiftFilterOptions = useMemo(() => {
@@ -72,10 +74,23 @@ const Attendance: React.FC = () => {
 
   // Filter team members by role, shift, and search query
   const teamMembersForAttendance = teamMembers.filter(member => {
-    const matchesRole = selectedRole === 'all' || 
-      (selectedRole === 'chatter' && member.role === 'chatter') ||
-      (selectedRole === 'manager' && member.role === 'manager') ||
-      (selectedRole === 'staff' && (member.role === 'chatter' || member.role === 'manager'));
+    // Exclude pending users from attendance tracking
+    if (member.role === 'pending') {
+      return false;
+    }
+    
+    // Match role by role_id (dynamic roles) or legacy role field
+    let matchesRole = selectedRole === 'all';
+    if (!matchesRole) {
+      if (member.role_id) {
+        matchesRole = member.role_id === selectedRole;
+      } else if (member.role) {
+        // Fallback to legacy role matching for backward compatibility
+        const memberRole = getRoleBySlug(member.role);
+        matchesRole = memberRole?.id === selectedRole;
+      }
+    }
+    
     const isActive = member.is_active;
     
     // Match shift by ID or legacy slug
@@ -686,12 +701,7 @@ const Attendance: React.FC = () => {
                   Role Filter
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {[
-                    { value: 'all', label: 'All Roles', description: 'Show all team members' },
-                    { value: 'chatter', label: 'Chatters', description: 'Operational staff' },
-                    { value: 'manager', label: 'Managers', description: 'Management team' },
-                    { value: 'staff', label: 'All Staff', description: 'Chatters + Managers' }
-                  ].map((role) => (
+                  {roleFilterOptions.map((role) => (
                     <button
                       key={role.value}
                       onClick={() => setSelectedRole(role.value)}
@@ -700,7 +710,6 @@ const Attendance: React.FC = () => {
                           ? 'bg-purple-600 text-white shadow-lg transform scale-105'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md'
                       }`}
-                      title={role.description}
                     >
                       {role.label}
                     </button>
@@ -734,9 +743,9 @@ const Attendance: React.FC = () => {
                   {searchQuery 
                     ? `No team members found matching "${searchQuery}".`
                     : selectedRole !== 'all' && selectedShift !== 'all'
-                      ? `No ${selectedRole === 'staff' ? 'staff members' : selectedRole + 's'} assigned to the ${shiftFilterOptions.find(s => s.value === selectedShift)?.label.toLowerCase() || 'selected shift'}.`
+                      ? `No ${roleFilterOptions.find(r => r.value === selectedRole)?.label.toLowerCase() || 'team members'} assigned to the ${shiftFilterOptions.find(s => s.value === selectedShift)?.label.toLowerCase() || 'selected shift'}.`
                       : selectedRole !== 'all'
-                        ? `No active ${selectedRole === 'staff' ? 'staff members' : selectedRole + 's'} in the system.`
+                        ? `No active ${roleFilterOptions.find(r => r.value === selectedRole)?.label.toLowerCase() || 'team members'} in the system.`
                         : selectedShift !== 'all'
                           ? `No team members assigned to the ${shiftFilterOptions.find(s => s.value === selectedShift)?.label.toLowerCase() || 'selected shift'}.`
                           : 'No active team members in the system.'}
@@ -1004,9 +1013,9 @@ const Attendance: React.FC = () => {
                   {searchQuery 
                     ? `No team members found matching "${searchQuery}".`
                     : selectedRole !== 'all' && selectedShift !== 'all'
-                      ? `No ${selectedRole === 'staff' ? 'staff members' : selectedRole + 's'} assigned to the ${shiftFilterOptions.find(s => s.value === selectedShift)?.label.toLowerCase() || 'selected shift'}.`
+                      ? `No ${roleFilterOptions.find(r => r.value === selectedRole)?.label.toLowerCase() || 'team members'} assigned to the ${shiftFilterOptions.find(s => s.value === selectedShift)?.label.toLowerCase() || 'selected shift'}.`
                       : selectedRole !== 'all'
-                        ? `No active ${selectedRole === 'staff' ? 'staff members' : selectedRole + 's'} in the system.`
+                        ? `No active ${roleFilterOptions.find(r => r.value === selectedRole)?.label.toLowerCase() || 'team members'} in the system.`
                         : selectedShift !== 'all'
                           ? `No team members assigned to the ${shiftFilterOptions.find(s => s.value === selectedShift)?.label.toLowerCase() || 'selected shift'}.`
                           : 'No active team members in the system.'}
