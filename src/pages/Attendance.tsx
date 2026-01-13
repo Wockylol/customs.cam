@@ -46,7 +46,20 @@ const Attendance: React.FC = () => {
   );
   const { teamMember, isOwner, hasPermission } = useAuth();
   const { shifts, hasShifts, getShiftById, getShiftBySlug, calculateMissedHours, loading: shiftsLoading } = useTenantShifts();
-  const { roleFilterOptions, getRoleById, getRoleBySlug } = useTenantRoles();
+  const { assignableRoles, getRoleById, getRoleBySlug } = useTenantRoles();
+
+  // Build role filter options from assignable roles (excludes pending)
+  const roleFilterOptions = useMemo(() => {
+    const options = [{ value: 'all', label: 'All Roles', slug: '' }];
+    assignableRoles.forEach(role => {
+      options.push({
+        value: role.id,
+        label: role.name,
+        slug: role.slug,
+      });
+    });
+    return options;
+  }, [assignableRoles]);
 
   // Build shift filter options from dynamic shifts
   const shiftFilterOptions = useMemo(() => {
