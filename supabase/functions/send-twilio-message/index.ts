@@ -105,6 +105,22 @@ Deno.serve(async (req) => {
             },
           });
 
+          // Get tenant_id from the team member who sent the message
+          let tenantId: string | null = null;
+          
+          if (sentBy) {
+            const { data: teamMember } = await supabase
+              .from('team_members')
+              .select('tenant_id')
+              .eq('id', sentBy)
+              .single();
+            
+            if (teamMember?.tenant_id) {
+              tenantId = teamMember.tenant_id;
+              console.log('✅ Found tenant_id from team member:', tenantId);
+            }
+          }
+
           // Find or create conversation for this phone number
           let conversationId: string;
 
@@ -128,15 +144,22 @@ Deno.serve(async (req) => {
             // Try to find a client with this phone number
             const { data: clientMatch } = await supabase
               .from('clients')
-              .select('id')
+              .select('id, tenant_id')
               .eq('phone', phoneNumber)
               .single();
+
+            // If we don't have tenant_id from team member, try from client
+            if (!tenantId && clientMatch?.tenant_id) {
+              tenantId = clientMatch.tenant_id;
+              console.log('✅ Found tenant_id from client:', tenantId);
+            }
 
             const { data: newConvo, error: createError } = await supabase
               .from('sms_conversations')
               .insert({
                 phone_number: phoneNumber,
                 client_id: clientMatch?.id || null,
+                tenant_id: tenantId,
               })
               .select('id')
               .single();
@@ -174,6 +197,7 @@ Deno.serve(async (req) => {
               twilio_sid: message.sid,
               status: message.status || 'sent',
               sent_by: sentBy || null,
+              tenant_id: tenantId,
             });
 
           if (insertError) {
