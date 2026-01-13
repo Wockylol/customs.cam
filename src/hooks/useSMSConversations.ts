@@ -57,13 +57,14 @@ export const useSMSConversations = () => {
       setError(null);
 
       // Fetch conversations with client info filtered by tenant
+      // Use LEFT JOIN to include conversations without clients
       const { data: convosData, error: convosError } = await supabase
         .from('sms_conversations')
         .select(`
           *,
-          client:clients!inner(id, username, avatar_url, tenant_id)
+          client:clients(id, username, avatar_url, tenant_id)
         `)
-        .eq('client.tenant_id', teamMember.tenant_id)
+        .eq('tenant_id', teamMember.tenant_id)
         .order('last_message_at', { ascending: false });
 
       if (convosError) throw convosError;
