@@ -84,15 +84,16 @@ const SMSMessaging: React.FC = () => {
   const { conversations, loading: conversationsLoading, refetch: refetchConversations } = useSMSConversations();
   
   // Check if two-way SMS capability is enabled
-  const { capabilities, loading: tenantLoading } = useTenant();
+  const { tenant, capabilities, loading: tenantLoading, refreshTenant } = useTenant();
   const hasTwoWaySMS = !tenantLoading && capabilities.includes('sms_two_way');
   
-  // Debug: Log capability status
-  console.log('[SMSMessaging] Capability check:', { 
+  // Debug: Log tenant and capability status
+  console.log('[SMSMessaging] Tenant check:', { 
+    tenantId: tenant?.id,
+    tenantName: tenant?.name,
     tenantLoading, 
     capabilities, 
     hasTwoWaySMS,
-    includesTwoWay: capabilities.includes('sms_two_way')
   });
   
   // View state
