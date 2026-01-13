@@ -106,6 +106,34 @@ const Attendance: React.FC = () => {
     return matchesRole && isActive && matchesShift && matchesSearch;
   });
 
+  // Sort team members for monthly view: users with logs first (by least on-time records), then users without logs
+  const sortedTeamMembersForMonthly = useMemo(() => {
+    if (viewMode !== 'monthly') return teamMembersForAttendance;
+
+    return [...teamMembersForAttendance].sort((a, b) => {
+      // Get attendance records for each member
+      const aRecords = attendanceRecords.filter(r => r.team_member_id === a.id);
+      const bRecords = attendanceRecords.filter(r => r.team_member_id === b.id);
+      
+      const hasARecords = aRecords.length > 0;
+      const hasBRecords = bRecords.length > 0;
+      
+      // Users with records come before users without records
+      if (hasARecords && !hasBRecords) return -1;
+      if (!hasARecords && hasBRecords) return 1;
+      
+      // If both have records, sort by on-time count (ascending - least first)
+      if (hasARecords && hasBRecords) {
+        const aOnTimeCount = aRecords.filter(r => r.status === 'on_time').length;
+        const bOnTimeCount = bRecords.filter(r => r.status === 'on_time').length;
+        return aOnTimeCount - bOnTimeCount;
+      }
+      
+      // If neither has records, maintain original order
+      return 0;
+    });
+  }, [teamMembersForAttendance, attendanceRecords, viewMode]);
+
   // Check if user can manage shifts
   const canManageShifts = isOwner || hasPermission('settings.manage_roles') || teamMember?.role === 'admin';
 
@@ -999,6 +1027,11 @@ const Attendance: React.FC = () => {
                 console.log(`👥 [MONTHLY VIEW] Team members to display: ${teamMembersForAttendance.length}`);
                 console.log(`📊 [MONTHLY VIEW] Total attendance records: ${attendanceRecords.length}`);
                 console.log(`🎯 [MONTHLY VIEW] Records for 2025-09-28:`, attendanceRecords.filter(r => r.date === '2025-09-28'));
+                console.log(`🔀 [MONTHLY VIEW] Sorted team members:`, sortedTeamMembersForMonthly.map(m => ({
+                  name: m.full_name,
+                  onTimeCount: attendanceRecords.filter(r => r.team_member_id === m.id && r.status === 'on_time').length,
+                  totalRecords: attendanceRecords.filter(r => r.team_member_id === m.id).length
+                })));
                 const days = getDaysInMonth();
                 console.log(`📆 [MONTHLY VIEW] Days in month: ${days.length}`, days.map(d => d.date));
                 return null;
@@ -1046,7 +1079,7 @@ const Attendance: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {teamMembersForAttendance.map((teamMemberItem) => (
+                    {sortedTeamMembersForMonthly.map((teamMemberItem) => (
                       <tr key={teamMemberItem.id} className="hover:bg-gray-50">
                         <td className="px-3 py-2 whitespace-nowrap sticky left-0 bg-white border-r border-gray-200">
                           <div className="flex items-center">
