@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { DollarSign, Calendar, Plus, Edit2, Users, Award, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { DollarSign, Calendar, Plus, Edit2, Users, Award, Filter, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import AddBonusModal from '../components/modals/AddBonusModal';
 import EditPayrollSettingsModal from '../components/modals/EditPayrollSettingsModal';
@@ -18,6 +18,8 @@ const PayrollSheet: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedRole, setSelectedRole] = useState<string>('all');
+  const [sortColumn, setSortColumn] = useState<'netSales' | 'totalPay' | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [addBonusModalOpen, setAddBonusModalOpen] = useState(false);
   const [editSettingsModalOpen, setEditSettingsModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
@@ -81,9 +83,76 @@ const PayrollSheet: React.FC = () => {
 
   // Filter payroll data by selected role
   const filteredPayrollData = useMemo(() => {
-    if (selectedRole === 'all') return payrollData;
-    return payrollData.filter(member => member.role === selectedRole);
-  }, [payrollData, selectedRole]);
+    let data = selectedRole === 'all' ? payrollData : payrollData.filter(member => member.role === selectedRole);
+    
+    // Apply sorting if a sort column is selected
+    if (sortColumn) {
+      data = [...data].sort((a, b) => {
+        let aValue: number;
+        let bValue: number;
+        
+        if (sortColumn === 'netSales') {
+          aValue = calculateNet(a.total_valid_sales);
+          bValue = calculateNet(b.total_valid_sales);
+        } else {
+          // totalPay
+          const aNetSales = calculateNet(a.total_valid_sales);
+          const bNetSales = calculateNet(b.total_valid_sales);
+          
+          let aBaseSalary = a.payroll_settings?.base_salary || 0;
+          if (aBaseSalary === 0 && a.role === 'chatter') {
+            aBaseSalary = aNetSales >= 8000 ? 450 : 250;
+          }
+          let bBaseSalary = b.payroll_settings?.base_salary || 0;
+          if (bBaseSalary === 0 && b.role === 'chatter') {
+            bBaseSalary = bNetSales >= 8000 ? 450 : 250;
+          }
+          
+          const aCommissionRate = (a.payroll_settings?.commission_percentage || 2.5) / 100;
+          const bCommissionRate = (b.payroll_settings?.commission_percentage || 2.5) / 100;
+          
+          const aCommission = aNetSales * aCommissionRate;
+          const bCommission = bNetSales * bCommissionRate;
+          
+          const aBonusTotal = a.bonuses.reduce((sum, bon) => sum + Number(bon.amount), 0);
+          const bBonusTotal = b.bonuses.reduce((sum, bon) => sum + Number(bon.amount), 0);
+          
+          aValue = aBaseSalary + aCommission + aBonusTotal;
+          bValue = bBaseSalary + bCommission + bBonusTotal;
+        }
+        
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      });
+    }
+    
+    return data;
+  }, [payrollData, selectedRole, sortColumn, sortDirection]);
+
+  // Handle sort column click
+  const handleSort = (column: 'netSales' | 'totalPay') => {
+    if (sortColumn === column) {
+      // Toggle direction or clear sort
+      if (sortDirection === 'desc') {
+        setSortDirection('asc');
+      } else {
+        setSortColumn(null);
+        setSortDirection('desc');
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('desc');
+    }
+  };
+
+  // Get sort icon for a column
+  const getSortIcon = (column: 'netSales' | 'totalPay') => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="w-3 h-3 ml-1 opacity-50" />;
+    }
+    return sortDirection === 'desc' 
+      ? <ArrowDown className="w-3 h-3 ml-1" />
+      : <ArrowUp className="w-3 h-3 ml-1" />;
+  };
 
   // Calculate totals based on filtered data (using NET sales)
   // NOTE: This must be called before any conditional returns to follow Rules of Hooks
@@ -323,7 +392,13 @@ const PayrollSheet: React.FC = () => {
                     Commission %
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Net Sales
+                    <button 
+                      onClick={() => handleSort('netSales')}
+                      className={`inline-flex items-center justify-end w-full hover:text-gray-700 dark:hover:text-gray-200 transition-colors ${sortColumn === 'netSales' ? 'text-green-600 dark:text-green-400' : ''}`}
+                    >
+                      Net Sales
+                      {getSortIcon('netSales')}
+                    </button>
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Commission
@@ -332,7 +407,13 @@ const PayrollSheet: React.FC = () => {
                     Bonuses
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Total Pay
+                    <button 
+                      onClick={() => handleSort('totalPay')}
+                      className={`inline-flex items-center justify-end w-full hover:text-gray-700 dark:hover:text-gray-200 transition-colors ${sortColumn === 'totalPay' ? 'text-green-600 dark:text-green-400' : ''}`}
+                    >
+                      Total Pay
+                      {getSortIcon('totalPay')}
+                    </button>
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Actions
