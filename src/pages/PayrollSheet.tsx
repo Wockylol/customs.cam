@@ -8,6 +8,9 @@ import { usePayroll } from '../hooks/usePayroll';
 import { usePermissions } from '../hooks/usePermissions';
 import { StaggerContainer } from '../components/ui/StaggerContainer';
 
+// Calculate net from gross (gross - 20% platform fee)
+const calculateNet = (gross: number) => gross * 0.8;
+
 const PayrollSheet: React.FC = () => {
   const { hasPermission } = usePermissions();
   const { payrollData, loading, error, fetchPayrollData, updatePayrollSettings, addBonus, deleteBonus } = usePayroll();
@@ -76,17 +79,21 @@ const PayrollSheet: React.FC = () => {
     );
   }
 
-  // Calculate totals based on filtered data
+  // Calculate totals based on filtered data (using NET sales)
   const totals = useMemo(() => {
     return filteredPayrollData.reduce((acc, member) => {
-      // Auto-calculate base salary for chatters if not set
+      // Calculate net sales (gross - 20%)
+      const netSales = calculateNet(member.total_valid_sales);
+      
+      // Auto-calculate base salary for chatters if not set (based on net sales)
       let baseSalary = member.payroll_settings?.base_salary || 0;
       if (baseSalary === 0 && member.role === 'chatter') {
-        baseSalary = member.total_valid_sales >= 10000 ? 450 : 250;
+        baseSalary = netSales >= 8000 ? 450 : 250; // Adjusted threshold for net (was 10000 gross)
       }
       
+      // Commission is calculated on NET sales
       const commissionRate = (member.payroll_settings?.commission_percentage || 2.5) / 100;
-      const commission = member.total_valid_sales * commissionRate;
+      const commission = netSales * commissionRate;
       const bonusTotal = member.bonuses.reduce((sum, b) => sum + Number(b.amount), 0);
       const total = baseSalary + commission + bonusTotal;
 
@@ -94,14 +101,14 @@ const PayrollSheet: React.FC = () => {
         baseSalary: acc.baseSalary + baseSalary,
         commission: acc.commission + commission,
         bonuses: acc.bonuses + bonusTotal,
-        totalSales: acc.totalSales + member.total_valid_sales,
+        netSales: acc.netSales + netSales,
         total: acc.total + total,
       };
     }, {
       baseSalary: 0,
       commission: 0,
       bonuses: 0,
-      totalSales: 0,
+      netSales: 0,
       total: 0,
     });
   }, [filteredPayrollData]);
@@ -217,8 +224,8 @@ const PayrollSheet: React.FC = () => {
               <div className="text-2xl font-bold">${totals.bonuses.toFixed(2)}</div>
             </div>
             <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
-              <div className="text-green-100 text-sm mb-1">Total Sales</div>
-              <div className="text-2xl font-bold">${totals.totalSales.toFixed(2)}</div>
+              <div className="text-green-100 text-sm mb-1">Net Sales</div>
+              <div className="text-2xl font-bold">${totals.netSales.toFixed(2)}</div>
             </div>
           </div>
         </div>
@@ -273,7 +280,7 @@ const PayrollSheet: React.FC = () => {
                     Commission %
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Valid Sales
+                    Net Sales
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Commission
@@ -299,14 +306,18 @@ const PayrollSheet: React.FC = () => {
                   </tr>
                 ) : (
                   filteredPayrollData.map((member) => {
-                    // Auto-calculate base salary for chatters if not set
+                    // Calculate net sales (gross - 20%)
+                    const netSales = calculateNet(member.total_valid_sales);
+                    
+                    // Auto-calculate base salary for chatters if not set (based on net sales)
                     let baseSalary = member.payroll_settings?.base_salary || 0;
                     if (baseSalary === 0 && member.role === 'chatter') {
-                      baseSalary = member.total_valid_sales >= 10000 ? 450 : 250;
+                      baseSalary = netSales >= 8000 ? 450 : 250; // Adjusted threshold for net
                     }
                     
+                    // Commission is calculated on NET sales
                     const commissionRate = (member.payroll_settings?.commission_percentage || 2.5) / 100;
-                    const commission = member.total_valid_sales * commissionRate;
+                    const commission = netSales * commissionRate;
                     const bonusTotal = member.bonuses.reduce((sum, b) => sum + Number(b.amount), 0);
                     const totalPay = baseSalary + commission + bonusTotal;
                     const isBonusExpanded = expandedBonuses.has(member.id);
@@ -351,7 +362,7 @@ const PayrollSheet: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900 dark:text-white">
-                            ${member.total_valid_sales.toFixed(2)}
+                            ${netSales.toFixed(2)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-green-600 dark:text-green-400">
                             ${commission.toFixed(2)}
@@ -437,7 +448,7 @@ const PayrollSheet: React.FC = () => {
                     </td>
                     <td className="px-6 py-4"></td>
                     <td className="px-6 py-4 text-right text-sm font-bold text-gray-900 dark:text-white">
-                      ${totals.totalSales.toFixed(2)}
+                      ${totals.netSales.toFixed(2)}
                     </td>
                     <td className="px-6 py-4 text-right text-sm font-bold text-green-600 dark:text-green-400">
                       ${totals.commission.toFixed(2)}
