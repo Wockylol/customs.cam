@@ -1,6 +1,34 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+
+// Helper function to fetch all records with pagination (bypasses 1000 row limit)
+async function fetchAllRecords<T>(
+  query: any,
+  pageSize: number = 1000
+): Promise<{ data: T[] | null; error: any }> {
+  let allData: T[] = [];
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error } = await query.range(from, from + pageSize - 1);
+    
+    if (error) {
+      return { data: null, error };
+    }
+
+    if (data && data.length > 0) {
+      allData = [...allData, ...data];
+      from += pageSize;
+      hasMore = data.length === pageSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return { data: allData, error: null };
+}
 
 type PayrollSettings = {
   id: string;
@@ -69,19 +97,23 @@ export const usePayroll = () => {
 
       if (teamError) throw teamError;
 
-      // Fetch all payroll settings
+      // Get team member IDs for this tenant to filter related data
+      const teamMemberIds = (teamMembers || []).map(m => m.id);
+
+      // Fetch payroll settings for this tenant's team members only
       const { data: settings, error: settingsError } = await supabase
         .from('payroll_settings')
-        .select('*');
+        .select('*')
+        .in('team_member_id', teamMemberIds);
 
       if (settingsError) throw settingsError;
 
-      // Fetch bonuses for the selected month
+      // Fetch bonuses for the selected month (with pagination)
       const startDate = `${targetYear}-${String(targetMonth).padStart(2, '0')}-01`;
       const endDate = new Date(targetYear, targetMonth, 0); // Last day of month
       const endDateStr = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
 
-      const { data: bonuses, error: bonusError } = await supabase
+      const bonusQuery = supabase
         .from('payroll_bonuses')
         .select(`
           *,
@@ -90,20 +122,29 @@ export const usePayroll = () => {
             full_name
           )
         `)
+        .in('team_member_id', teamMemberIds)
         .gte('bonus_date', startDate)
         .lte('bonus_date', endDateStr);
 
+      const { data: bonuses, error: bonusError } = await fetchAllRecords<PayrollBonus>(bonusQuery);
+
       if (bonusError) throw bonusError;
 
-      // Fetch sales for the selected month
-      const { data: sales, error: salesError } = await supabase
+      // Fetch ALL sales for the selected month (using pagination to bypass 1000 row limit)
+      // Filter by team member IDs to ensure we only get sales for this tenant
+      const salesQuery = supabase
         .from('chatter_sales')
         .select('chatter_id, gross_amount')
+        .in('chatter_id', teamMemberIds)
         .eq('status', 'valid')
         .gte('sale_date', startDate)
         .lte('sale_date', endDateStr);
 
+      const { data: sales, error: salesError } = await fetchAllRecords<{ chatter_id: string; gross_amount: number }>(salesQuery);
+
       if (salesError) throw salesError;
+      
+      console.log(`[Payroll] Fetched ${sales?.length || 0} valid sales records for ${targetMonth}/${targetYear}`);
 
       // Calculate total sales per chatter
       const salesByChatter = sales?.reduce((acc, sale) => {
@@ -287,11 +328,8 @@ export const usePayroll = () => {
     }
   };
 
-  useEffect(() => {
-    if (teamMember?.role === 'admin' || teamMember?.role === 'owner') {
-      fetchPayrollData();
-    }
-  }, [teamMember?.role, fetchPayrollData]);
+  // Note: fetchPayrollData is called by the PayrollSheet page when permission is granted
+  // No automatic fetch here - let the page control when to fetch based on permissions
 
   return {
     payrollData,
