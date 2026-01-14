@@ -6,10 +6,12 @@ import EditPayrollSettingsModal from '../components/modals/EditPayrollSettingsMo
 import ModernSelect from '../components/ui/ModernSelect';
 import { usePayroll } from '../hooks/usePayroll';
 import { useAuth } from '../contexts/AuthContext';
+import { usePermissions } from '../hooks/usePermissions';
 import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const PayrollSheet: React.FC = () => {
   const { teamMember } = useAuth();
+  const { hasPermission } = usePermissions();
   const { payrollData, loading, error, fetchPayrollData, updatePayrollSettings, addBonus, deleteBonus } = usePayroll();
   
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -19,11 +21,13 @@ const PayrollSheet: React.FC = () => {
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [expandedBonuses, setExpandedBonuses] = useState<Set<string>>(new Set());
 
+  const canViewPayroll = hasPermission('sales.payroll');
+
   useEffect(() => {
-    if (teamMember?.role === 'admin' || teamMember?.role === 'owner') {
+    if (canViewPayroll) {
       fetchPayrollData(selectedMonth, selectedYear);
     }
-  }, [selectedMonth, selectedYear, teamMember]);
+  }, [selectedMonth, selectedYear, canViewPayroll]);
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -42,13 +46,13 @@ const PayrollSheet: React.FC = () => {
     label: year.toString(),
   }));
 
-  // Only admins can view this page
-  if (teamMember?.role !== 'admin') {
+  // Check if user has permission to view payroll
+  if (!canViewPayroll) {
     return (
       <Layout title="Payroll Sheet">
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
           <p className="text-sm text-red-800 dark:text-red-200">
-            You don't have permission to access this page. Only admins can view payroll information.
+            You don't have permission to access this page. Contact your administrator to request payroll access.
           </p>
         </div>
       </Layout>
