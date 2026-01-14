@@ -167,28 +167,12 @@ const PayrollSheet: React.FC = () => {
     setExpandedBonuses(newExpanded);
   };
 
-  if (loading) {
-    return (
-      <Layout title="Payroll Sheet">
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Loading payroll data...</p>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (error) {
-    return (
-      <Layout title="Payroll Sheet">
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
-          <p className="text-sm text-red-800 dark:text-red-200">Error loading payroll: {error}</p>
-        </div>
-      </Layout>
-    );
-  }
+  // Helper component for displaying values with loading state
+  const DataValue: React.FC<{ value: string; className?: string }> = ({ value, className = '' }) => (
+    <span className={`transition-opacity duration-200 ${loading ? 'opacity-50' : 'opacity-100'} ${className}`}>
+      {value}
+    </span>
+  );
 
   return (
     <Layout title="Payroll Sheet">
@@ -247,27 +231,47 @@ const PayrollSheet: React.FC = () => {
           {/* Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
-              <div className="text-green-100 text-sm mb-1">Total Payroll</div>
-              <div className="text-2xl font-bold">${totals.total.toFixed(2)}</div>
+              <div className="text-green-100 text-sm mb-1 flex items-center">
+                Total Payroll
+                {loading && <span className="ml-2 w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+              </div>
+              <div className="text-2xl font-bold">
+                <DataValue value={`$${totals.total.toFixed(2)}`} />
+              </div>
             </div>
             <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
               <div className="text-green-100 text-sm mb-1">Base Salaries</div>
-              <div className="text-2xl font-bold">${totals.baseSalary.toFixed(2)}</div>
+              <div className="text-2xl font-bold">
+                <DataValue value={`$${totals.baseSalary.toFixed(2)}`} />
+              </div>
             </div>
             <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
               <div className="text-green-100 text-sm mb-1">Commissions</div>
-              <div className="text-2xl font-bold">${totals.commission.toFixed(2)}</div>
+              <div className="text-2xl font-bold">
+                <DataValue value={`$${totals.commission.toFixed(2)}`} />
+              </div>
             </div>
             <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
               <div className="text-green-100 text-sm mb-1">Bonuses</div>
-              <div className="text-2xl font-bold">${totals.bonuses.toFixed(2)}</div>
+              <div className="text-2xl font-bold">
+                <DataValue value={`$${totals.bonuses.toFixed(2)}`} />
+              </div>
             </div>
             <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
               <div className="text-green-100 text-sm mb-1">Net Sales</div>
-              <div className="text-2xl font-bold">${totals.netSales.toFixed(2)}</div>
+              <div className="text-2xl font-bold">
+                <DataValue value={`$${totals.netSales.toFixed(2)}`} />
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Error Display (inline, not replacing UI) */}
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
+            <p className="text-sm text-red-800 dark:text-red-200">Error loading payroll: {error}</p>
+          </div>
+        )}
 
         {/* Filters & Action Buttons */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-4 shadow-lg">
@@ -335,12 +339,19 @@ const PayrollSheet: React.FC = () => {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredPayrollData.length === 0 ? (
+              <tbody className={`bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700 transition-opacity duration-200 ${loading ? 'opacity-50' : 'opacity-100'}`}>
+                {filteredPayrollData.length === 0 && !loading ? (
                   <tr>
                     <td colSpan={9} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                       <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
                       <p>{selectedRole === 'all' ? 'No team members found' : `No ${selectedRole}s found`}</p>
+                    </td>
+                  </tr>
+                ) : filteredPayrollData.length === 0 && loading ? (
+                  <tr>
+                    <td colSpan={9} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
+                      <p>Loading data...</p>
                     </td>
                   </tr>
                 ) : (
