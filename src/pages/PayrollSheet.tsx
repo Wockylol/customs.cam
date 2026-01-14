@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { DollarSign, Calendar, Plus, Edit2, Users, Award, Filter } from 'lucide-react';
+import { DollarSign, Calendar, Plus, Edit2, Users, Award, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import AddBonusModal from '../components/modals/AddBonusModal';
 import EditPayrollSettingsModal from '../components/modals/EditPayrollSettingsModal';
@@ -47,6 +47,25 @@ const PayrollSheet: React.FC = () => {
     value: year,
     label: year.toString(),
   }));
+
+  // Navigation functions for month arrows
+  const goToPreviousMonth = () => {
+    if (selectedMonth === 1) {
+      setSelectedMonth(12);
+      setSelectedYear(selectedYear - 1);
+    } else {
+      setSelectedMonth(selectedMonth - 1);
+    }
+  };
+
+  const goToNextMonth = () => {
+    if (selectedMonth === 12) {
+      setSelectedMonth(1);
+      setSelectedYear(selectedYear + 1);
+    } else {
+      setSelectedMonth(selectedMonth + 1);
+    }
+  };
 
   // Get unique roles from payroll data for filter
   const roleOptions = useMemo(() => {
@@ -187,8 +206,17 @@ const PayrollSheet: React.FC = () => {
               </div>
             </div>
 
-            {/* Month/Year Selector */}
-            <div className="flex items-center space-x-3">
+            {/* Month/Year Selector with Navigation Arrows */}
+            <div className="flex items-center space-x-2">
+              {/* Previous Month Button */}
+              <button
+                onClick={goToPreviousMonth}
+                className="w-10 h-10 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center hover:bg-white/25 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/50"
+                title="Previous month"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+
               <div className="w-10 h-10 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center">
                 <Calendar className="w-5 h-5" />
               </div>
@@ -204,6 +232,15 @@ const PayrollSheet: React.FC = () => {
                 options={yearOptions}
                 className="w-28"
               />
+
+              {/* Next Month Button */}
+              <button
+                onClick={goToNextMonth}
+                className="w-10 h-10 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center hover:bg-white/25 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/50"
+                title="Next month"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
             </div>
           </div>
 
