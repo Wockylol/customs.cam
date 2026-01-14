@@ -54,6 +54,15 @@ type PayrollBonus = {
   };
 };
 
+type AttendanceStats = {
+  daysWorked: number;
+  missedHours: number;
+  noShowDays: number;
+  daysOff: number;
+  lateCount: number;
+  leftEarlyCount: number;
+};
+
 type TeamMemberPayroll = {
   id: string;
   full_name: string;
@@ -64,7 +73,20 @@ type TeamMemberPayroll = {
   payroll_settings: PayrollSettings | null;
   bonuses: PayrollBonus[];
   total_valid_sales: number;
+  attendance: AttendanceStats;
 };
+
+// Helper to parse time string (e.g., "2:30" or "02:30") to hours
+function parseTimeToHours(timeStr: string | null): number {
+  if (!timeStr) return 0;
+  const parts = timeStr.split(':');
+  if (parts.length >= 2) {
+    const hours = parseInt(parts[0]) || 0;
+    const minutes = parseInt(parts[1]) || 0;
+    return hours + (minutes / 60);
+  }
+  return 0;
+}
 
 export const usePayroll = () => {
   const [payrollData, setPayrollData] = useState<TeamMemberPayroll[]>([]);
@@ -146,6 +168,73 @@ export const usePayroll = () => {
       
       console.log(`[Payroll] Fetched ${sales?.length || 0} valid sales records for ${targetMonth}/${targetYear}`);
 
+      // Fetch attendance records for the month
+      const attendanceQuery = supabase
+        .from('attendance_records')
+        .select('team_member_id, date, status, clock_in_time, clock_out_time')
+        .in('team_member_id', teamMemberIds)
+        .gte('date', startDate)
+        .lte('date', endDateStr);
+
+      const { data: attendance, error: attendanceError } = await fetchAllRecords<{
+        team_member_id: string;
+        date: string;
+        status: string;
+        clock_in_time: string | null;
+        clock_out_time: string | null;
+      }>(attendanceQuery);
+
+      if (attendanceError) throw attendanceError;
+
+      console.log(`[Payroll] Fetched ${attendance?.length || 0} attendance records for ${targetMonth}/${targetYear}`);
+
+      // Calculate attendance stats per team member
+      const attendanceByMember = (attendance || []).reduce((acc, record) => {
+        if (!acc[record.team_member_id]) {
+          acc[record.team_member_id] = {
+            daysWorked: 0,
+            missedHours: 0,
+            noShowDays: 0,
+            daysOff: 0,
+            lateCount: 0,
+            leftEarlyCount: 0,
+          };
+        }
+
+        const stats = acc[record.team_member_id];
+
+        switch (record.status) {
+          case 'on_time':
+            stats.daysWorked += 1;
+            break;
+          case 'late':
+            stats.daysWorked += 1;
+            stats.lateCount += 1;
+            stats.missedHours += parseTimeToHours(record.clock_in_time);
+            break;
+          case 'left_early':
+            stats.daysWorked += 1;
+            stats.leftEarlyCount += 1;
+            stats.missedHours += parseTimeToHours(record.clock_out_time);
+            break;
+          case 'late_and_left_early':
+            stats.daysWorked += 1;
+            stats.lateCount += 1;
+            stats.leftEarlyCount += 1;
+            stats.missedHours += parseTimeToHours(record.clock_in_time) + parseTimeToHours(record.clock_out_time);
+            break;
+          case 'no_show':
+            stats.noShowDays += 1;
+            stats.missedHours += 8; // Full shift missed
+            break;
+          case 'day_off':
+            stats.daysOff += 1;
+            break;
+        }
+
+        return acc;
+      }, {} as Record<string, AttendanceStats>);
+
       // Calculate total sales per chatter
       const salesByChatter = sales?.reduce((acc, sale) => {
         if (!acc[sale.chatter_id]) {
@@ -169,6 +258,14 @@ export const usePayroll = () => {
         const memberSettings = settings?.find(s => s.team_member_id === member.id) || null;
         const memberBonuses = bonusesByMember[member.id] || [];
         const totalSales = salesByChatter[member.id] || 0;
+        const memberAttendance = attendanceByMember[member.id] || {
+          daysWorked: 0,
+          missedHours: 0,
+          noShowDays: 0,
+          daysOff: 0,
+          lateCount: 0,
+          leftEarlyCount: 0,
+        };
 
         return {
           id: member.id,
@@ -180,6 +277,7 @@ export const usePayroll = () => {
           payroll_settings: memberSettings as PayrollSettings | null,
           bonuses: memberBonuses,
           total_valid_sales: totalSales,
+          attendance: memberAttendance,
         };
       });
 
