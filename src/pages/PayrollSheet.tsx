@@ -66,20 +66,8 @@ const PayrollSheet: React.FC = () => {
     return payrollData.filter(member => member.role === selectedRole);
   }, [payrollData, selectedRole]);
 
-  // Check if user has permission to view payroll
-  if (!canViewPayroll) {
-    return (
-      <Layout title="Payroll Sheet">
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
-          <p className="text-sm text-red-800 dark:text-red-200">
-            You don't have permission to access this page. Contact your administrator to request payroll access.
-          </p>
-        </div>
-      </Layout>
-    );
-  }
-
   // Calculate totals based on filtered data (using NET sales)
+  // NOTE: This must be called before any conditional returns to follow Rules of Hooks
   const totals = useMemo(() => {
     return filteredPayrollData.reduce((acc, member) => {
       // Calculate net sales (gross - 20%)
@@ -112,6 +100,20 @@ const PayrollSheet: React.FC = () => {
       total: 0,
     });
   }, [filteredPayrollData]);
+
+  // Check if user has permission to view payroll
+  // NOTE: This must be AFTER all hooks are called
+  if (!canViewPayroll) {
+    return (
+      <Layout title="Payroll Sheet">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
+          <p className="text-sm text-red-800 dark:text-red-200">
+            You don't have permission to access this page. Contact your administrator to request payroll access.
+          </p>
+        </div>
+      </Layout>
+    );
+  }
 
   const handleEditSettings = (member: any) => {
     setSelectedMember(member);
