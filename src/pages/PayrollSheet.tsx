@@ -11,6 +11,29 @@ import { StaggerContainer } from '../components/ui/StaggerContainer';
 // Calculate net from gross (gross - 20% platform fee)
 const calculateNet = (gross: number) => gross * 0.8;
 
+// Constants for base pay calculation
+const STANDARD_WORK_DAYS = 28; // Full base pay is earned at 28 days
+const SHIFT_HOURS = 8; // Hours per shift
+
+// Calculate adjusted base pay based on attendance
+// Formula: (base_pay / 28) * (days_worked - missed_hours / 8)
+const calculateAdjustedBasePay = (
+  basePay: number, 
+  daysWorked: number, 
+  missedHours: number
+): { adjustedPay: number; dailyRate: number; effectiveDays: number } => {
+  const dailyRate = basePay / STANDARD_WORK_DAYS;
+  const daysDeducted = missedHours / SHIFT_HOURS;
+  const effectiveDays = daysWorked - daysDeducted;
+  const adjustedPay = dailyRate * effectiveDays;
+  
+  return {
+    adjustedPay: Math.max(0, adjustedPay), // Don't go negative
+    dailyRate,
+    effectiveDays,
+  };
+};
+
 const PayrollSheet: React.FC = () => {
   const { hasPermission } = usePermissions();
   const { payrollData, loading, error, fetchPayrollData, updatePayrollSettings, addBonus, deleteBonus } = usePayroll();
@@ -95,7 +118,7 @@ const PayrollSheet: React.FC = () => {
           aValue = calculateNet(a.total_valid_sales);
           bValue = calculateNet(b.total_valid_sales);
         } else {
-          // totalPay
+          // totalPay - uses attendance-adjusted base salary
           const aNetSales = calculateNet(a.total_valid_sales);
           const bNetSales = calculateNet(b.total_valid_sales);
           
@@ -108,6 +131,10 @@ const PayrollSheet: React.FC = () => {
             bBaseSalary = bNetSales >= 8000 ? 450 : 250;
           }
           
+          // Apply attendance adjustment
+          const { adjustedPay: aAdjustedBase } = calculateAdjustedBasePay(aBaseSalary, a.attendance.daysWorked, a.attendance.missedHours);
+          const { adjustedPay: bAdjustedBase } = calculateAdjustedBasePay(bBaseSalary, b.attendance.daysWorked, b.attendance.missedHours);
+          
           const aCommissionRate = (a.payroll_settings?.commission_percentage || 2.5) / 100;
           const bCommissionRate = (b.payroll_settings?.commission_percentage || 2.5) / 100;
           
@@ -117,8 +144,8 @@ const PayrollSheet: React.FC = () => {
           const aBonusTotal = a.bonuses.reduce((sum, bon) => sum + Number(bon.amount), 0);
           const bBonusTotal = b.bonuses.reduce((sum, bon) => sum + Number(bon.amount), 0);
           
-          aValue = aBaseSalary + aCommission + aBonusTotal;
-          bValue = bBaseSalary + bCommission + bBonusTotal;
+          aValue = aAdjustedBase + aCommission + aBonusTotal;
+          bValue = bAdjustedBase + bCommission + bBonusTotal;
         }
         
         return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
@@ -154,7 +181,7 @@ const PayrollSheet: React.FC = () => {
       : <ArrowUp className="w-3 h-3 ml-1" />;
   };
 
-  // Calculate totals based on filtered data (using NET sales)
+  // Calculate totals based on filtered data (using NET sales and attendance-adjusted base pay)
   // NOTE: This must be called before any conditional returns to follow Rules of Hooks
   const totals = useMemo(() => {
     return filteredPayrollData.reduce((acc, member) => {
@@ -167,14 +194,21 @@ const PayrollSheet: React.FC = () => {
         baseSalary = netSales >= 8000 ? 450 : 250; // Adjusted threshold for net (was 10000 gross)
       }
       
+      // Calculate attendance-adjusted base pay
+      const { adjustedPay: adjustedBaseSalary } = calculateAdjustedBasePay(
+        baseSalary,
+        member.attendance.daysWorked,
+        member.attendance.missedHours
+      );
+      
       // Commission is calculated on NET sales
       const commissionRate = (member.payroll_settings?.commission_percentage || 2.5) / 100;
       const commission = netSales * commissionRate;
       const bonusTotal = member.bonuses.reduce((sum, b) => sum + Number(b.amount), 0);
-      const total = baseSalary + commission + bonusTotal;
+      const total = adjustedBaseSalary + commission + bonusTotal;
 
       return {
-        baseSalary: acc.baseSalary + baseSalary,
+        baseSalary: acc.baseSalary + adjustedBaseSalary,
         commission: acc.commission + commission,
         bonuses: acc.bonuses + bonusTotal,
         netSales: acc.netSales + netSales,
@@ -446,11 +480,18 @@ const PayrollSheet: React.FC = () => {
                       baseSalary = netSales >= 8000 ? 450 : 250; // Adjusted threshold for net
                     }
                     
+                    // Calculate attendance-adjusted base pay
+                    const { adjustedPay: adjustedBaseSalary, effectiveDays } = calculateAdjustedBasePay(
+                      baseSalary,
+                      member.attendance.daysWorked,
+                      member.attendance.missedHours
+                    );
+                    
                     // Commission is calculated on NET sales
                     const commissionRate = (member.payroll_settings?.commission_percentage || 2.5) / 100;
                     const commission = netSales * commissionRate;
                     const bonusTotal = member.bonuses.reduce((sum, b) => sum + Number(b.amount), 0);
-                    const totalPay = baseSalary + commission + bonusTotal;
+                    const totalPay = adjustedBaseSalary + commission + bonusTotal;
                     const isBonusExpanded = expandedBonuses.has(member.id);
 
                     return (
@@ -477,8 +518,16 @@ const PayrollSheet: React.FC = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900 dark:text-white">
-                            <div className="flex flex-col items-end">
-                              <span>${baseSalary.toFixed(2)}</span>
+                            <div 
+                              className="flex flex-col items-end cursor-help"
+                              title={`Base: $${baseSalary.toFixed(2)} | Days: ${member.attendance.daysWorked}/${STANDARD_WORK_DAYS} | Missed: ${member.attendance.missedHours.toFixed(1)}hrs | Effective: ${effectiveDays.toFixed(1)} days`}
+                            >
+                              <span className={adjustedBaseSalary !== baseSalary ? 'text-amber-600 dark:text-amber-400' : ''}>
+                                ${adjustedBaseSalary.toFixed(2)}
+                              </span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {member.attendance.daysWorked}d / {member.attendance.missedHours > 0 ? `-${member.attendance.missedHours.toFixed(1)}h` : '0h'}
+                              </span>
                               {member.role === 'chatter' && !member.payroll_settings?.base_salary && (
                                 <span className="text-xs text-blue-600 dark:text-blue-400">auto</span>
                               )}
