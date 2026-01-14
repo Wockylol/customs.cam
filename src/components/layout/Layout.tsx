@@ -34,6 +34,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                       !location.pathname.startsWith('/attendance') &&
                       !location.pathname.startsWith('/assignments') &&
                       !location.pathname.startsWith('/chats') &&
+                      !location.pathname.startsWith('/operations') &&
                       !location.pathname.startsWith('/sms-messaging') &&
                       !location.pathname.startsWith('/scene-library') &&
                       !location.pathname.startsWith('/scene-assignments') &&
