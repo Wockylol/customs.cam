@@ -45,6 +45,7 @@ import DebugLogsPage from './pages/DebugLogsPage';
 import VibeCheckPage from './pages/VibeCheckPage';
 import PlatformAdminPage from './pages/PlatformAdminPage';
 import RoleManagement from './pages/RoleManagement';
+import OperationsAnalytics from './pages/OperationsAnalytics';
 import ShiftManagement from './pages/ShiftManagement';
 import AgencySettingsPage from './pages/AgencySettingsPage';
 import LandingPage from './pages/LandingPage';
@@ -151,6 +152,14 @@ function AnimatedRoutes() {
               element={
                 <ProtectedRoute requiredRole="admin">
                   <ClientChatsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route 
+              path="/operations" 
+              element={
+                <ProtectedRoute requiredRole="manager">
+                  <OperationsAnalytics />
                 </ProtectedRoute>
               }
             />
