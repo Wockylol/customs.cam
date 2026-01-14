@@ -224,22 +224,22 @@ const PayrollSheet: React.FC = () => {
         </div>
 
         {/* Filters & Action Buttons */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-4 shadow-lg">
           {/* Role Filter */}
           <div className="flex items-center space-x-3">
-            <div className="flex items-center text-sm font-medium text-gray-900 dark:text-white">
-              <Filter className="w-5 h-5 mr-2 text-green-600 dark:text-green-400" />
+            <div className="flex items-center text-sm font-medium text-white">
+              <Filter className="w-5 h-5 mr-2" />
               <span>Filter by Role:</span>
             </div>
             <ModernSelect
               value={selectedRole}
               onChange={(value) => setSelectedRole(String(value))}
               options={roleOptions}
-              className="w-40"
+              className="w-44"
             />
             {selectedRole !== 'all' && (
-              <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                ({filteredPayrollData.length} of {payrollData.length} members)
+              <span className="text-sm font-medium text-white/90 bg-white/20 px-2 py-1 rounded-lg">
+                {filteredPayrollData.length} of {payrollData.length}
               </span>
             )}
           </div>
@@ -247,7 +247,7 @@ const PayrollSheet: React.FC = () => {
           {/* Add Bonus Button */}
           <button
             onClick={() => setAddBonusModalOpen(true)}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center px-4 py-2 bg-white text-green-700 font-medium rounded-lg hover:bg-green-50 transition-colors shadow-md"
           >
             <Plus className="w-5 h-5 mr-2" />
             Add Bonus
