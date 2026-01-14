@@ -73,8 +73,11 @@ export const useOperationsAnalytics = () => {
       setError(null);
 
       // Fetch threads with latest message using the optimized RPC function
-      const { data: threadsData, error: threadsError } = await supabase
-        .rpc('get_threads_with_latest_messages');
+      // Pass tenant_id to use the tenant-filtered version of the function
+      // @ts-expect-error - RPC function exists but TypeScript doesn't have the type definition
+      const rpcResult = await supabase.rpc('get_threads_with_latest_messages', { p_tenant_id: teamMember.tenant_id });
+      const threadsData = rpcResult.data as any[] | null;
+      const threadsError = rpcResult.error;
 
       if (threadsError) {
         console.error('Error fetching threads:', threadsError);
@@ -115,9 +118,10 @@ export const useOperationsAnalytics = () => {
             .limit(1)
             .single();
 
-          if (latestMsg && thread.latest_message) {
-            thread.latest_message.id = latestMsg.id;
-            thread.latest_message.direction = latestMsg.direction as 'inbound' | 'outbound';
+          const msg = latestMsg as { id: number; direction: string } | null;
+          if (msg && thread.latest_message) {
+            thread.latest_message.id = msg.id;
+            thread.latest_message.direction = msg.direction as 'inbound' | 'outbound';
           }
 
           return thread;
@@ -186,17 +190,13 @@ export const useOperationsAnalytics = () => {
 
   // Calculate stats
   const stats = useMemo((): OperationsStats => {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
-
     return {
       total_threads: threads.length,
       unanswered_count: unansweredThreads.length,
       inactive_7_days: inactiveThreads.filter(t => t.days_inactive >= 7 && t.days_inactive < 14).length,
       inactive_14_days: inactiveThreads.filter(t => t.days_inactive >= 14 && t.days_inactive < 30).length,
       inactive_30_days: inactiveThreads.filter(t => t.days_inactive >= 30).length,
-      messages_today: 0, // Will be calculated in generateDailySummary
+      messages_today: 0,
       messages_yesterday: 0,
     };
   }, [threads, unansweredThreads, inactiveThreads]);
