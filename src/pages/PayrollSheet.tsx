@@ -1,21 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { DollarSign, Calendar, Plus, Edit2, Users, Award } from 'lucide-react';
+import { DollarSign, Calendar, Plus, Edit2, Users, Award, Filter } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import AddBonusModal from '../components/modals/AddBonusModal';
 import EditPayrollSettingsModal from '../components/modals/EditPayrollSettingsModal';
 import ModernSelect from '../components/ui/ModernSelect';
 import { usePayroll } from '../hooks/usePayroll';
-import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { StaggerContainer } from '../components/ui/StaggerContainer';
 
 const PayrollSheet: React.FC = () => {
-  const { teamMember } = useAuth();
   const { hasPermission } = usePermissions();
   const { payrollData, loading, error, fetchPayrollData, updatePayrollSettings, addBonus, deleteBonus } = usePayroll();
   
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedRole, setSelectedRole] = useState<string>('all');
   const [addBonusModalOpen, setAddBonusModalOpen] = useState(false);
   const [editSettingsModalOpen, setEditSettingsModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
@@ -46,6 +45,24 @@ const PayrollSheet: React.FC = () => {
     label: year.toString(),
   }));
 
+  // Get unique roles from payroll data for filter
+  const roleOptions = useMemo(() => {
+    const roles = [...new Set(payrollData.map(m => m.role))].sort();
+    return [
+      { value: 'all', label: 'All Roles' },
+      ...roles.map(role => ({
+        value: role,
+        label: role.charAt(0).toUpperCase() + role.slice(1),
+      })),
+    ];
+  }, [payrollData]);
+
+  // Filter payroll data by selected role
+  const filteredPayrollData = useMemo(() => {
+    if (selectedRole === 'all') return payrollData;
+    return payrollData.filter(member => member.role === selectedRole);
+  }, [payrollData, selectedRole]);
+
   // Check if user has permission to view payroll
   if (!canViewPayroll) {
     return (
@@ -59,9 +76,9 @@ const PayrollSheet: React.FC = () => {
     );
   }
 
-  // Calculate totals
+  // Calculate totals based on filtered data
   const totals = useMemo(() => {
-    return payrollData.reduce((acc, member) => {
+    return filteredPayrollData.reduce((acc, member) => {
       // Auto-calculate base salary for chatters if not set
       let baseSalary = member.payroll_settings?.base_salary || 0;
       if (baseSalary === 0 && member.role === 'chatter') {
@@ -87,7 +104,7 @@ const PayrollSheet: React.FC = () => {
       totalSales: 0,
       total: 0,
     });
-  }, [payrollData]);
+  }, [filteredPayrollData]);
 
   const handleEditSettings = (member: any) => {
     setSelectedMember(member);
@@ -206,8 +223,28 @@ const PayrollSheet: React.FC = () => {
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex justify-end">
+        {/* Filters & Action Buttons */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          {/* Role Filter */}
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+              <Filter className="w-4 h-4 mr-2" />
+              <span>Filter by Role:</span>
+            </div>
+            <ModernSelect
+              value={selectedRole}
+              onChange={(value) => setSelectedRole(String(value))}
+              options={roleOptions}
+              className="w-40"
+            />
+            {selectedRole !== 'all' && (
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                ({filteredPayrollData.length} of {payrollData.length} members)
+              </span>
+            )}
+          </div>
+
+          {/* Add Bonus Button */}
           <button
             onClick={() => setAddBonusModalOpen(true)}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -253,15 +290,15 @@ const PayrollSheet: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {payrollData.length === 0 ? (
+                {filteredPayrollData.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                       <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                      <p>No team members found</p>
+                      <p>{selectedRole === 'all' ? 'No team members found' : `No ${selectedRole}s found`}</p>
                     </td>
                   </tr>
                 ) : (
-                  payrollData.map((member) => {
+                  filteredPayrollData.map((member) => {
                     // Auto-calculate base salary for chatters if not set
                     let baseSalary = member.payroll_settings?.base_salary || 0;
                     if (baseSalary === 0 && member.role === 'chatter') {
@@ -389,11 +426,11 @@ const PayrollSheet: React.FC = () => {
                   })
                 )}
               </tbody>
-              {payrollData.length > 0 && (
+              {filteredPayrollData.length > 0 && (
                 <tfoot className="bg-gray-100 dark:bg-gray-900">
                   <tr>
                     <td colSpan={2} className="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white">
-                      TOTALS
+                      {selectedRole === 'all' ? 'TOTALS' : `TOTALS (${selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}s)`}
                     </td>
                     <td className="px-6 py-4 text-right text-sm font-bold text-gray-900 dark:text-white">
                       ${totals.baseSalary.toFixed(2)}
