@@ -101,6 +101,27 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
     setFiles(prev => prev.map(f => ({ ...f, selected: newSelectAll })));
   };
 
+  // Direct download for single file - handles CORS by using direct navigation
+  const downloadSingleFile = (file: FileWithSelection) => {
+    const downloadUrl = file.public_url || file.file_path;
+    
+    if (downloadUrl.startsWith('http')) {
+      // For external URLs (R2), open in new tab to bypass CORS
+      // This triggers the browser's native download behavior
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = file.file_name;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      // For Supabase storage files, use the hook's download function
+      downloadFile(file.file_path, file.file_name);
+    }
+  };
+
   const handleDownloadSelected = async () => {
     const selectedFiles = files.filter(f => f.selected);
     if (selectedFiles.length === 0) {
@@ -111,8 +132,8 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
     setDownloading(true);
     try {
       if (selectedFiles.length === 1) {
-        // Single file - download directly
-        await downloadFile(selectedFiles[0].file_path, selectedFiles[0].file_name);
+        // Single file - download directly using native browser download
+        downloadSingleFile(selectedFiles[0]);
       } else {
         // Multiple files - create ZIP
         await downloadFilesAsZip(selectedFiles, `${clientName}_${sceneTitle}_selected.zip`);
@@ -134,8 +155,8 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
     setDownloading(true);
     try {
       if (files.length === 1) {
-        // Single file - download directly
-        await downloadFile(files[0].file_path, files[0].file_name);
+        // Single file - download directly using native browser download
+        downloadSingleFile(files[0]);
       } else {
         // Multiple files - create ZIP
         await downloadFilesAsZip(files, `${clientName}_${sceneTitle}_all.zip`);
@@ -148,8 +169,47 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
     }
   };
 
+  // Helper to fetch file blob with CORS handling
+  const fetchFileBlob = async (url: string, fileName: string): Promise<Blob | null> => {
+    // For external URLs (R2), try fetching with different approaches
+    if (url.startsWith('http')) {
+      try {
+        // Try direct fetch first
+        const response = await fetch(url);
+        if (response.ok) {
+          return await response.blob();
+        }
+      } catch (corsError) {
+        console.warn(`CORS issue with ${fileName}, trying alternative method...`);
+      }
+
+      // Alternative: Use a proxy approach via canvas for images
+      // or XMLHttpRequest for other files
+      try {
+        return await new Promise<Blob | null>((resolve) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', url, true);
+          xhr.responseType = 'blob';
+          xhr.onload = () => {
+            if (xhr.status === 200) {
+              resolve(xhr.response as Blob);
+            } else {
+              resolve(null);
+            }
+          };
+          xhr.onerror = () => resolve(null);
+          xhr.send();
+        });
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+
   const downloadFilesAsZip = async (filesToDownload: FileWithSelection[], zipFileName: string) => {
     const zip = new JSZip();
+    const failedFiles: string[] = [];
 
     // Group files by step for organized folder structure
     const filesByStep: { [key: number]: FileWithSelection[] } = {};
@@ -166,39 +226,57 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
       
       for (const file of stepFiles) {
         try {
-          let fileBlob: Blob;
+          let fileBlob: Blob | null = null;
           
           // Use public_url (R2) if available, otherwise fall back to file_path
           const downloadUrl = file.public_url || file.file_path;
           
           // Check if this is an R2/external URL (starts with http)
           if (downloadUrl.startsWith('http')) {
-            // Download directly from R2
-            const response = await fetch(downloadUrl);
-            if (!response.ok) {
-              console.error(`Error downloading ${file.file_name} from R2: ${response.status}`);
-              continue;
-            }
-            fileBlob = await response.blob();
+            fileBlob = await fetchFileBlob(downloadUrl, file.file_name);
           } else {
             // Download from Supabase storage (legacy files)
             const { data, error } = await supabase.storage
               .from('scene-content')
               .download(file.file_path);
 
-            if (error) {
-              console.error(`Error downloading ${file.file_name}:`, error);
-              continue;
+            if (!error && data) {
+              fileBlob = data;
             }
-            fileBlob = data;
           }
 
-          // Add file to ZIP in its step folder
-          zip.folder(folderName)?.file(file.file_name, fileBlob);
+          if (fileBlob) {
+            // Add file to ZIP in its step folder
+            zip.folder(folderName)?.file(file.file_name, fileBlob);
+          } else {
+            failedFiles.push(file.file_name);
+          }
         } catch (err) {
           console.error(`Failed to add ${file.file_name} to ZIP:`, err);
+          failedFiles.push(file.file_name);
         }
       }
+    }
+
+    // Check if we have any files to download
+    const fileCount = Object.keys(zip.files).length;
+    if (fileCount === 0) {
+      // All files failed - offer to download individually
+      const shouldDownloadIndividually = confirm(
+        `Unable to create ZIP due to browser restrictions. Would you like to download ${filesToDownload.length} file(s) individually instead?\n\nEach file will open in a new tab.`
+      );
+      
+      if (shouldDownloadIndividually) {
+        for (const file of filesToDownload) {
+          const downloadUrl = file.public_url || file.file_path;
+          if (downloadUrl.startsWith('http')) {
+            window.open(downloadUrl, '_blank');
+            // Small delay between downloads
+            await new Promise(r => setTimeout(r, 300));
+          }
+        }
+      }
+      return;
     }
 
     // Generate and download ZIP file
@@ -212,6 +290,11 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+
+    // Notify about failed files
+    if (failedFiles.length > 0) {
+      alert(`ZIP created with ${fileCount} files.\n\n${failedFiles.length} file(s) couldn't be included due to browser restrictions:\n${failedFiles.slice(0, 5).join('\n')}${failedFiles.length > 5 ? `\n...and ${failedFiles.length - 5} more` : ''}\n\nThese files can be downloaded individually by clicking them.`);
+    }
   };
 
   const formatFileSize = (bytes: number) => {
