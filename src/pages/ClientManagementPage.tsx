@@ -727,15 +727,36 @@ const ClientManagementPage: React.FC = () => {
                     <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-5">
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Profile Completion</h3>
                       <div className="space-y-4">
-                        {[
-                          { label: 'Personal Info', filled: personalInfo ? Object.values(personalInfo).filter(v => v).length : 0, total: 5 },
-                          { label: 'Questionnaire', filled: questionnaire ? Object.values(questionnaire).filter(v => v).length : 0, total: 30 },
-                          { label: 'Preferences', filled: preferences ? 1 : 0, total: 1 },
-                          { label: 'Personas', filled: personas?.length ? 1 : 0, total: 1 },
-                          { label: 'Social Media', filled: socialMediaAccounts.length ? 1 : 0, total: 1 },
-                          { label: 'Platform Credentials', filled: platformCredentials.length ? 1 : 0, total: 1 },
-                        ].map((metric, i) => {
-                          const percentage = Math.round((metric.filled / metric.total) * 100);
+                        {(() => {
+                          // Personal info fields (excluding system fields)
+                          const personalInfoFields = ['legal_name', 'email', 'phone', 'date_of_birth', 'address'];
+                          const personalInfoFilled = personalInfo 
+                            ? personalInfoFields.filter(f => (personalInfo as any)[f]).length 
+                            : 0;
+
+                          // Questionnaire fields (excluding system fields)
+                          const questionnaireFields = [
+                            'public_name', 'public_nicknames', 'public_birthday', 'gender',
+                            'native_language', 'other_languages', 'sexual_orientation', 'ethnicity',
+                            'height', 'weight', 'shoe_size', 'bra_size', 'zodiac_sign', 'favorite_colors',
+                            'birth_place', 'current_location', 'hobbies', 'college', 'current_car', 'dream_car',
+                            'pets', 'favorite_place_traveled', 'dream_destination', 'relationship_status',
+                            'dream_date', 'has_children', 'other_career', 'known_from', 'additional_info', 'hard_nos'
+                          ];
+                          const questionnaireFilled = questionnaire 
+                            ? questionnaireFields.filter(f => (questionnaire as any)[f]).length 
+                            : 0;
+
+                          return [
+                            { label: 'Personal Info', filled: personalInfoFilled, total: personalInfoFields.length },
+                            { label: 'Questionnaire', filled: questionnaireFilled, total: questionnaireFields.length },
+                            { label: 'Preferences', filled: preferences ? 1 : 0, total: 1 },
+                            { label: 'Personas', filled: personas?.length ? 1 : 0, total: 1 },
+                            { label: 'Social Media', filled: socialMediaAccounts.length ? 1 : 0, total: 1 },
+                            { label: 'Platform Credentials', filled: platformCredentials.length ? 1 : 0, total: 1 },
+                          ];
+                        })().map((metric, i) => {
+                          const percentage = Math.min(100, Math.round((metric.filled / metric.total) * 100));
                           return (
                             <div key={i}>
                               <div className="flex items-center justify-between text-sm mb-1">
