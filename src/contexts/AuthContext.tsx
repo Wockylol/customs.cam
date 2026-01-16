@@ -148,7 +148,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Fetch permissions for user
   const fetchPermissions = useCallback(async (member: TeamMember | null, isAdmin: boolean) => {
-    console.log('[AuthContext] fetchPermissions called:', { hasMember: !!member, isAdmin });
     if (!member) {
       setPermissions([]);
       setUserRole(null);
@@ -157,7 +156,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      console.log('[AuthContext] Setting permissionsLoading=true');
       setPermissionsLoading(true);
 
       // Platform admins have all permissions
@@ -229,7 +227,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
-    console.log('[AuthContext] Main useEffect running (should only run once on mount)');
     let mounted = true;
 
     // Get initial session
@@ -253,7 +250,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (session?.user) {
           // Fire-and-forget team member fetch
-          console.log('[AuthContext] initializeAuth - calling fetchTeamMember');
           fetchTeamMember(session.user.id);
         } else {
           setPermissionsLoading(false);
@@ -273,14 +269,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
-      console.log('[AuthContext] onAuthStateChange fired:', { event, hasSession: !!session, mounted, initialAuthComplete: initialAuthCompleteRef.current });
       if (!mounted) return;
       
       setSession(session);
       setUser(session?.user ?? null);
       
       if (event === 'SIGNED_OUT' || !session?.user) {
-        console.log('[AuthContext] Signed out or no session - clearing state');
         setTeamMember(null);
         setPermissions([]);
         setUserRole(null);
@@ -292,17 +286,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Skip refetch if we've already completed initial auth (e.g. tab regained focus)
         // Supabase fires SIGNED_IN on tab focus which would cause unnecessary refetches
         if (initialAuthCompleteRef.current) {
-          console.log('[AuthContext] SIGNED_IN but initialAuthComplete=true - skipping refetch (tab focus event)');
           setLoading(false);
           return;
         }
-        console.log('[AuthContext] SIGNED_IN or USER_UPDATED - fetching team member');
         setLoading(false);
         fetchTeamMember(session.user.id);
       } else {
         // For TOKEN_REFRESHED and other events, just update session without refetching
         // This preserves component state when the tab regains focus
-        console.log('[AuthContext] Other event (e.g. TOKEN_REFRESHED) - NOT refetching');
         setLoading(false);
       }
     });
@@ -314,7 +305,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const fetchTeamMember = async (userId: string) => {
-    console.log('[AuthContext] fetchTeamMember called for userId:', userId);
     let member: TeamMember | null = null;
     let isAdmin = false;
 
@@ -366,7 +356,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Mark initial auth as complete to prevent refetching on tab focus
       initialAuthCompleteRef.current = true;
-      console.log('[AuthContext] Initial auth complete - future SIGNED_IN events will be skipped');
 
     } catch (error) {
       console.error('Unexpected error in fetchTeamMember:', error);
