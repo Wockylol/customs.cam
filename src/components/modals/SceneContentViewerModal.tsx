@@ -169,47 +169,119 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
     }
   };
 
-  // Helper to fetch file blob with CORS handling
+  // Helper to fetch file blob with CORS handling and detailed debugging
   const fetchFileBlob = async (url: string, fileName: string): Promise<Blob | null> => {
+    console.group(`[ZIP Download] Fetching: ${fileName}`);
+    console.log('URL:', url);
+    console.log('URL type:', url.startsWith('http') ? 'External (R2/CDN)' : 'Internal path');
+    
     // For external URLs (R2), try fetching with different approaches
     if (url.startsWith('http')) {
+      // Method 1: Try direct fetch first
+      console.log('Attempt 1: Using fetch()...');
       try {
-        // Try direct fetch first
         const response = await fetch(url);
+        console.log('Fetch response:', {
+          ok: response.ok,
+          status: response.status,
+          statusText: response.statusText,
+          headers: {
+            'content-type': response.headers.get('content-type'),
+            'content-length': response.headers.get('content-length'),
+            'access-control-allow-origin': response.headers.get('access-control-allow-origin'),
+          }
+        });
+        
         if (response.ok) {
-          return await response.blob();
+          const blob = await response.blob();
+          console.log('✅ Fetch succeeded! Blob size:', blob.size, 'bytes');
+          console.groupEnd();
+          return blob;
+        } else {
+          console.warn('❌ Fetch returned non-OK status:', response.status);
         }
-      } catch (corsError) {
-        console.warn(`CORS issue with ${fileName}, trying alternative method...`);
+      } catch (fetchError: any) {
+        console.warn('❌ Fetch failed with error:', {
+          name: fetchError.name,
+          message: fetchError.message,
+          stack: fetchError.stack?.split('\n').slice(0, 3).join('\n')
+        });
       }
 
-      // Alternative: Use a proxy approach via canvas for images
-      // or XMLHttpRequest for other files
+      // Method 2: Alternative using XMLHttpRequest
+      console.log('Attempt 2: Using XMLHttpRequest...');
       try {
-        return await new Promise<Blob | null>((resolve) => {
+        const xhrResult = await new Promise<{ blob: Blob | null; debug: any }>((resolve) => {
           const xhr = new XMLHttpRequest();
           xhr.open('GET', url, true);
           xhr.responseType = 'blob';
+          
           xhr.onload = () => {
+            const debug = {
+              status: xhr.status,
+              statusText: xhr.statusText,
+              responseType: xhr.responseType,
+              responseSize: xhr.response?.size,
+            };
+            
             if (xhr.status === 200) {
-              resolve(xhr.response as Blob);
+              resolve({ blob: xhr.response as Blob, debug });
             } else {
-              resolve(null);
+              resolve({ blob: null, debug });
             }
           };
-          xhr.onerror = () => resolve(null);
+          
+          xhr.onerror = (event) => {
+            resolve({ 
+              blob: null, 
+              debug: { 
+                error: 'XHR network error', 
+                event: event.type,
+                status: xhr.status 
+              } 
+            });
+          };
+          
+          xhr.ontimeout = () => {
+            resolve({ blob: null, debug: { error: 'XHR timeout' } });
+          };
+          
           xhr.send();
         });
-      } catch {
-        return null;
+        
+        console.log('XHR result:', xhrResult.debug);
+        
+        if (xhrResult.blob) {
+          console.log('✅ XHR succeeded! Blob size:', xhrResult.blob.size, 'bytes');
+          console.groupEnd();
+          return xhrResult.blob;
+        } else {
+          console.warn('❌ XHR failed');
+        }
+      } catch (xhrError: any) {
+        console.warn('❌ XHR exception:', xhrError.message);
       }
+      
+      console.error('❌ All download methods failed for:', fileName);
+      console.groupEnd();
+      return null;
     }
+    
+    console.log('Not an HTTP URL, returning null (will use Supabase storage)');
+    console.groupEnd();
     return null;
   };
 
   const downloadFilesAsZip = async (filesToDownload: FileWithSelection[], zipFileName: string) => {
+    console.log('='.repeat(60));
+    console.log('[ZIP Download] Starting ZIP creation');
+    console.log('[ZIP Download] Files to download:', filesToDownload.length);
+    console.log('[ZIP Download] Output filename:', zipFileName);
+    console.log('='.repeat(60));
+    
     const zip = new JSZip();
-    const failedFiles: string[] = [];
+    const failedFiles: { name: string; reason: string; url: string }[] = [];
+    const successFiles: string[] = [];
 
     // Group files by step for organized folder structure
     const filesByStep: { [key: number]: FileWithSelection[] } = {};
@@ -223,6 +295,7 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
     // Download each file and add to ZIP with folder structure
     for (const [stepIndex, stepFiles] of Object.entries(filesByStep)) {
       const folderName = `Step_${parseInt(stepIndex) + 1}`;
+      console.log(`\n[ZIP Download] Processing ${folderName} (${stepFiles.length} files)`);
       
       for (const file of stepFiles) {
         try {
@@ -231,16 +304,27 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
           // Use public_url (R2) if available, otherwise fall back to file_path
           const downloadUrl = file.public_url || file.file_path;
           
+          console.log(`\n[ZIP Download] File: ${file.file_name}`);
+          console.log(`  - public_url: ${file.public_url || '(none)'}`);
+          console.log(`  - file_path: ${file.file_path}`);
+          console.log(`  - Using URL: ${downloadUrl}`);
+          console.log(`  - File type: ${file.file_type}`);
+          console.log(`  - File size: ${file.file_size} bytes`);
+          
           // Check if this is an R2/external URL (starts with http)
           if (downloadUrl.startsWith('http')) {
             fileBlob = await fetchFileBlob(downloadUrl, file.file_name);
           } else {
             // Download from Supabase storage (legacy files)
+            console.log('  - Using Supabase storage download...');
             const { data, error } = await supabase.storage
               .from('scene-content')
               .download(file.file_path);
 
-            if (!error && data) {
+            if (error) {
+              console.error('  - Supabase download error:', error);
+            } else if (data) {
+              console.log('  - Supabase download succeeded, blob size:', data.size);
               fileBlob = data;
             }
           }
@@ -248,15 +332,40 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
           if (fileBlob) {
             // Add file to ZIP in its step folder
             zip.folder(folderName)?.file(file.file_name, fileBlob);
+            successFiles.push(file.file_name);
+            console.log(`  ✅ Added to ZIP: ${folderName}/${file.file_name}`);
           } else {
-            failedFiles.push(file.file_name);
+            failedFiles.push({ 
+              name: file.file_name, 
+              reason: 'Blob was null - all download methods failed',
+              url: downloadUrl 
+            });
+            console.error(`  ❌ FAILED: ${file.file_name}`);
           }
-        } catch (err) {
-          console.error(`Failed to add ${file.file_name} to ZIP:`, err);
-          failedFiles.push(file.file_name);
+        } catch (err: any) {
+          console.error(`  ❌ Exception for ${file.file_name}:`, err);
+          failedFiles.push({ 
+            name: file.file_name, 
+            reason: err.message || 'Unknown exception',
+            url: file.public_url || file.file_path 
+          });
         }
       }
     }
+    
+    console.log('\n' + '='.repeat(60));
+    console.log('[ZIP Download] Summary:');
+    console.log(`  - Successful: ${successFiles.length}`);
+    console.log(`  - Failed: ${failedFiles.length}`);
+    if (failedFiles.length > 0) {
+      console.log('[ZIP Download] Failed files details:');
+      failedFiles.forEach(f => {
+        console.log(`  - ${f.name}`);
+        console.log(`    Reason: ${f.reason}`);
+        console.log(`    URL: ${f.url}`);
+      });
+    }
+    console.log('='.repeat(60));
 
     // Check if we have any files to download
     const fileCount = Object.keys(zip.files).length;
@@ -293,7 +402,8 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
 
     // Notify about failed files
     if (failedFiles.length > 0) {
-      alert(`ZIP created with ${fileCount} files.\n\n${failedFiles.length} file(s) couldn't be included due to browser restrictions:\n${failedFiles.slice(0, 5).join('\n')}${failedFiles.length > 5 ? `\n...and ${failedFiles.length - 5} more` : ''}\n\nThese files can be downloaded individually by clicking them.`);
+      const failedFileNames = failedFiles.map(f => f.name);
+      alert(`ZIP created with ${fileCount} files.\n\n${failedFiles.length} file(s) couldn't be included due to browser restrictions:\n${failedFileNames.slice(0, 5).join('\n')}${failedFiles.length > 5 ? `\n...and ${failedFiles.length - 5} more` : ''}\n\nThese files can be downloaded individually by clicking them.`);
     }
   };
 
@@ -480,4 +590,5 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
 };
 
 export default SceneContentViewerModal;
+
 
