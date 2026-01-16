@@ -30,7 +30,6 @@ import { useClientNotifications } from '../hooks/useClientNotifications';
 import VibeCheckCard from '../components/ui/VibeCheckCard';
 
 type CustomRequest = Database['public']['Tables']['custom_requests']['Row'];
-type Client = Database['public']['Tables']['clients']['Row'];
 
 const MobileClientView: React.FC = () => {
   const { clientUsername } = useParams<{ clientUsername: string }>();
