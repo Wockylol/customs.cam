@@ -12,7 +12,7 @@ import {
   CheckCircle, 
   Clock,
   Lock,
-  LockOpen,
+  Unlock,
   ChevronUp,
   ChevronDown
 } from 'lucide-react';
@@ -21,7 +21,6 @@ import ClientAvatar from '../components/ui/ClientAvatar';
 import AddClientModal from '../components/modals/AddClientModal';
 import { useClients } from '../hooks/useClients';
 import { useAllClientsData } from '../hooks/useAllClientsData';
-import { useAuth } from '../contexts/AuthContext';
 import { useImagePreloader } from '../hooks/useImagePreloader';
 import { supabase } from '../lib/supabase';
 import { StaggerContainer } from '../components/ui/StaggerContainer';
@@ -49,7 +48,6 @@ const ClientManagementList: React.FC = () => {
   
   const { clients, loading, error, addClient } = useClients();
   const { clients: fullClientsData, loading: fullDataLoading } = useAllClientsData();
-  const { teamMember } = useAuth();
 
   // Preload all client avatars for faster rendering
   useImagePreloader(clients.map(c => c.avatar_url));
@@ -67,7 +65,7 @@ const ClientManagementList: React.FC = () => {
       
       if (!error && data) {
         const pinMap: Record<string, boolean> = {};
-        data.forEach(pin => {
+        (data as { client_id: string }[]).forEach(pin => {
           pinMap[pin.client_id] = true;
         });
         setClientPinStatus(pinMap);
@@ -450,7 +448,7 @@ const ClientManagementList: React.FC = () => {
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
-                              <LockOpen className="w-3 h-3" />
+                              <Unlock className="w-3 h-3" />
                               Not Set
                             </span>
                           )}
