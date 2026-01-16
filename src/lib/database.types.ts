@@ -465,6 +465,10 @@ export interface Database {
           lead_source: string | null
           intake_token: string | null
           intake_completed_at: string | null
+          contract_percentage: number | null
+          contract_term: string | null
+          contract_start_date: string | null
+          contract_resign_date: string | null
         }
         Insert: {
           id?: string
@@ -485,6 +489,10 @@ export interface Database {
           lead_source?: string | null
           intake_token?: string | null
           intake_completed_at?: string | null
+          contract_percentage?: number | null
+          contract_term?: string | null
+          contract_start_date?: string | null
+          contract_resign_date?: string | null
         }
         Update: {
           id?: string
@@ -505,6 +513,10 @@ export interface Database {
           lead_source?: string | null
           intake_token?: string | null
           intake_completed_at?: string | null
+          contract_percentage?: number | null
+          contract_term?: string | null
+          contract_start_date?: string | null
+          contract_resign_date?: string | null
         }
       }
       platforms: {
