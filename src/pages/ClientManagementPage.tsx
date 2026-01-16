@@ -25,7 +25,9 @@ import {
   DollarSign,
   Heart,
   Target,
-  UserPlus
+  UserPlus,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { useClients } from '../hooks/useClients';
@@ -55,6 +57,7 @@ const ClientManagementPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('main');
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [expandedCompletionCategories, setExpandedCompletionCategories] = useState<Set<string>>(new Set());
   
   // Editing state
   const [isEditingContract, setIsEditingContract] = useState(false);
@@ -728,39 +731,134 @@ const ClientManagementPage: React.FC = () => {
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Profile Completion</h3>
                       <div className="space-y-4">
                         {(() => {
-                          // Personal info fields (excluding system fields)
-                          const personalInfoFields = ['legal_name', 'email', 'phone', 'date_of_birth', 'address'];
-                          const personalInfoFilled = personalInfo 
-                            ? personalInfoFields.filter(f => (personalInfo as any)[f]).length 
-                            : 0;
-
-                          // Questionnaire fields (excluding system fields)
-                          const questionnaireFields = [
-                            'public_name', 'public_nicknames', 'public_birthday', 'gender',
-                            'native_language', 'other_languages', 'sexual_orientation', 'ethnicity',
-                            'height', 'weight', 'shoe_size', 'bra_size', 'zodiac_sign', 'favorite_colors',
-                            'birth_place', 'current_location', 'hobbies', 'college', 'current_car', 'dream_car',
-                            'pets', 'favorite_place_traveled', 'dream_destination', 'relationship_status',
-                            'dream_date', 'has_children', 'other_career', 'known_from', 'additional_info', 'hard_nos'
+                          // Field definitions with labels
+                          const personalInfoFieldDefs: Array<{ key: string; label: string }> = [
+                            { key: 'legal_name', label: 'Legal Name' },
+                            { key: 'email', label: 'Email' },
+                            { key: 'phone', label: 'Phone' },
+                            { key: 'date_of_birth', label: 'Date of Birth' },
+                            { key: 'address', label: 'Address' }
                           ];
-                          const questionnaireFilled = questionnaire 
-                            ? questionnaireFields.filter(f => (questionnaire as any)[f]).length 
-                            : 0;
+                          
+                          const questionnaireFieldDefs: Array<{ key: string; label: string }> = [
+                            { key: 'public_name', label: 'Public Name' },
+                            { key: 'public_nicknames', label: 'Public Nicknames' },
+                            { key: 'public_birthday', label: 'Public Birthday' },
+                            { key: 'gender', label: 'Gender' },
+                            { key: 'native_language', label: 'Native Language' },
+                            { key: 'other_languages', label: 'Other Languages' },
+                            { key: 'sexual_orientation', label: 'Sexual Orientation' },
+                            { key: 'ethnicity', label: 'Ethnicity' },
+                            { key: 'height', label: 'Height' },
+                            { key: 'weight', label: 'Weight' },
+                            { key: 'shoe_size', label: 'Shoe Size' },
+                            { key: 'bra_size', label: 'Bra Size' },
+                            { key: 'zodiac_sign', label: 'Zodiac Sign' },
+                            { key: 'favorite_colors', label: 'Favorite Colors' },
+                            { key: 'birth_place', label: 'Birth Place' },
+                            { key: 'current_location', label: 'Current Location' },
+                            { key: 'hobbies', label: 'Hobbies' },
+                            { key: 'college', label: 'College' },
+                            { key: 'current_car', label: 'Current Car' },
+                            { key: 'dream_car', label: 'Dream Car' },
+                            { key: 'pets', label: 'Pets' },
+                            { key: 'favorite_place_traveled', label: 'Favorite Place Traveled' },
+                            { key: 'dream_destination', label: 'Dream Destination' },
+                            { key: 'relationship_status', label: 'Relationship Status' },
+                            { key: 'dream_date', label: 'Dream Date' },
+                            { key: 'has_children', label: 'Has Children' },
+                            { key: 'other_career', label: 'Other Career' },
+                            { key: 'known_from', label: 'Known From' },
+                            { key: 'additional_info', label: 'Additional Info' },
+                            { key: 'hard_nos', label: 'Hard Nos' }
+                          ];
+
+                          // Calculate missing fields
+                          const personalInfoMissing = personalInfoFieldDefs.filter(
+                            f => !personalInfo || !(personalInfo as any)[f.key]
+                          );
+                          const questionnaireMissing = questionnaireFieldDefs.filter(
+                            f => !questionnaire || !(questionnaire as any)[f.key]
+                          );
 
                           return [
-                            { label: 'Personal Info', filled: personalInfoFilled, total: personalInfoFields.length },
-                            { label: 'Questionnaire', filled: questionnaireFilled, total: questionnaireFields.length },
-                            { label: 'Preferences', filled: preferences ? 1 : 0, total: 1 },
-                            { label: 'Personas', filled: personas?.length ? 1 : 0, total: 1 },
-                            { label: 'Social Media', filled: socialMediaAccounts.length ? 1 : 0, total: 1 },
-                            { label: 'Platform Credentials', filled: platformCredentials.length ? 1 : 0, total: 1 },
+                            { 
+                              id: 'personal_info',
+                              label: 'Personal Info', 
+                              filled: personalInfoFieldDefs.length - personalInfoMissing.length, 
+                              total: personalInfoFieldDefs.length,
+                              missingFields: personalInfoMissing
+                            },
+                            { 
+                              id: 'questionnaire',
+                              label: 'Questionnaire', 
+                              filled: questionnaireFieldDefs.length - questionnaireMissing.length, 
+                              total: questionnaireFieldDefs.length,
+                              missingFields: questionnaireMissing
+                            },
+                            { 
+                              id: 'preferences',
+                              label: 'Preferences', 
+                              filled: preferences ? 1 : 0, 
+                              total: 1,
+                              missingFields: preferences ? [] : [{ key: 'preferences', label: 'Content Preferences' }]
+                            },
+                            { 
+                              id: 'personas',
+                              label: 'Personas', 
+                              filled: personas?.length ? 1 : 0, 
+                              total: 1,
+                              missingFields: personas?.length ? [] : [{ key: 'personas', label: 'At least one persona' }]
+                            },
+                            { 
+                              id: 'social_media',
+                              label: 'Social Media', 
+                              filled: socialMediaAccounts.length ? 1 : 0, 
+                              total: 1,
+                              missingFields: socialMediaAccounts.length ? [] : [{ key: 'social_media', label: 'At least one social account' }]
+                            },
+                            { 
+                              id: 'platform_credentials',
+                              label: 'Platform Credentials', 
+                              filled: platformCredentials.length ? 1 : 0, 
+                              total: 1,
+                              missingFields: platformCredentials.length ? [] : [{ key: 'credentials', label: 'At least one platform credential' }]
+                            },
                           ];
-                        })().map((metric, i) => {
+                        })().map((metric) => {
                           const percentage = Math.min(100, Math.round((metric.filled / metric.total) * 100));
+                          const isExpandable = percentage > 0 && percentage < 100;
+                          const isExpanded = expandedCompletionCategories.has(metric.id);
+                          
+                          const toggleExpand = () => {
+                            const newSet = new Set(expandedCompletionCategories);
+                            if (newSet.has(metric.id)) {
+                              newSet.delete(metric.id);
+                            } else {
+                              newSet.add(metric.id);
+                            }
+                            setExpandedCompletionCategories(newSet);
+                          };
+                          
                           return (
-                            <div key={i}>
+                            <div key={metric.id}>
                               <div className="flex items-center justify-between text-sm mb-1">
-                                <span className="font-medium text-gray-700 dark:text-gray-300">{metric.label}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-gray-700 dark:text-gray-300">{metric.label}</span>
+                                  {isExpandable && (
+                                    <button
+                                      onClick={toggleExpand}
+                                      className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                      title={isExpanded ? 'Hide missing fields' : 'Show missing fields'}
+                                    >
+                                      {isExpanded ? (
+                                        <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                                      ) : (
+                                        <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
                                 <span className="text-gray-500 dark:text-gray-400">{percentage}%</span>
                               </div>
                               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
@@ -773,6 +871,23 @@ const ClientManagementPage: React.FC = () => {
                                   style={{ width: `${percentage}%` }}
                                 ></div>
                               </div>
+                              {isExpanded && metric.missingFields.length > 0 && (
+                                <div className="mt-2 pl-2 border-l-2 border-amber-400 dark:border-amber-500">
+                                  <p className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1">
+                                    Missing Fields ({metric.missingFields.length}):
+                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {metric.missingFields.map((field) => (
+                                      <span
+                                        key={field.key}
+                                        className="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded"
+                                      >
+                                        {field.label}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
