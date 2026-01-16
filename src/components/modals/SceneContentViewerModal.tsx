@@ -177,10 +177,18 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
     
     // For external URLs (R2), try fetching with different approaches
     if (url.startsWith('http')) {
-      // Method 1: Try direct fetch first
-      console.log('Attempt 1: Using fetch()...');
+      // Add cache-busting parameter to bypass browser/CDN cached responses without CORS headers
+      // This is necessary because <img> tags can cache responses without CORS headers,
+      // which then cause fetch() to fail for the same URL
+      const cacheBustedUrl = `${url}${url.includes('?') ? '&' : '?'}_cb=${Date.now()}`;
+      console.log('Cache-busted URL:', cacheBustedUrl);
+      
+      // Method 1: Try direct fetch with cache-busting
+      console.log('Attempt 1: Using fetch() with cache-bust...');
       try {
-        const response = await fetch(url);
+        const response = await fetch(cacheBustedUrl, {
+          cache: 'no-store', // Also disable browser cache
+        });
         console.log('Fetch response:', {
           ok: response.ok,
           status: response.status,
@@ -208,13 +216,15 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
         });
       }
 
-      // Method 2: Alternative using XMLHttpRequest
-      console.log('Attempt 2: Using XMLHttpRequest...');
+      // Method 2: Alternative using XMLHttpRequest with cache-busting
+      console.log('Attempt 2: Using XMLHttpRequest with cache-bust...');
       try {
         const xhrResult = await new Promise<{ blob: Blob | null; debug: any }>((resolve) => {
           const xhr = new XMLHttpRequest();
-          xhr.open('GET', url, true);
+          xhr.open('GET', cacheBustedUrl, true);
           xhr.responseType = 'blob';
+          // Disable caching
+          xhr.setRequestHeader('Cache-Control', 'no-cache, no-store');
           
           xhr.onload = () => {
             const debug = {
