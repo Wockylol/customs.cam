@@ -170,6 +170,41 @@ const SceneAssignments: React.FC = () => {
     setSelectedIds(new Set());
   };
 
+  // Helper to fetch file blob with CORS handling
+  const fetchFileBlob = async (url: string, fileName: string): Promise<Blob | null> => {
+    if (url.startsWith('http')) {
+      try {
+        const response = await fetch(url);
+        if (response.ok) {
+          return await response.blob();
+        }
+      } catch (corsError) {
+        console.warn(`CORS issue with ${fileName}, trying alternative method...`);
+      }
+
+      // Alternative: Use XMLHttpRequest
+      try {
+        return await new Promise<Blob | null>((resolve) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', url, true);
+          xhr.responseType = 'blob';
+          xhr.onload = () => {
+            if (xhr.status === 200) {
+              resolve(xhr.response as Blob);
+            } else {
+              resolve(null);
+            }
+          };
+          xhr.onerror = () => resolve(null);
+          xhr.send();
+        });
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+
   // Bulk download function
   const handleBulkDownload = async () => {
     if (selectedIds.size === 0) return;
@@ -178,6 +213,7 @@ const SceneAssignments: React.FC = () => {
     try {
       const zip = new JSZip();
       const selectedAssignments = assignments.filter(a => selectedIds.has(a.id));
+      const failedFiles: string[] = [];
       
       for (const assignment of selectedAssignments) {
         // Fetch uploads for this assignment
@@ -193,36 +229,43 @@ const SceneAssignments: React.FC = () => {
         
         for (const upload of uploads) {
           try {
-            let fileBlob: Blob;
+            let fileBlob: Blob | null = null;
             
             // Use public_url if available (R2), otherwise file_path
             const downloadUrl = upload.public_url || upload.file_path;
             
             // Check if this is an R2/external URL (starts with http)
             if (downloadUrl.startsWith('http')) {
-              // Download directly from R2/external URL
-              const response = await fetch(downloadUrl);
-              if (!response.ok) {
-                console.error(`Error downloading ${upload.file_name} from R2: ${response.status}`);
-                continue;
-              }
-              fileBlob = await response.blob();
+              fileBlob = await fetchFileBlob(downloadUrl, upload.file_name);
             } else {
               // Download from Supabase storage (legacy files)
               const { data, error: downloadError } = await supabase.storage
                 .from('scene-content')
                 .download(upload.file_path);
               
-              if (downloadError || !data) continue;
-              fileBlob = data;
+              if (!downloadError && data) {
+                fileBlob = data;
+              }
             }
             
-            const stepFolder = `Step_${upload.step_index + 1}`;
-            zip.folder(folderName)?.folder(stepFolder)?.file(upload.file_name, fileBlob);
+            if (fileBlob) {
+              const stepFolder = `Step_${upload.step_index + 1}`;
+              zip.folder(folderName)?.folder(stepFolder)?.file(upload.file_name, fileBlob);
+            } else {
+              failedFiles.push(`${folderName}/${upload.file_name}`);
+            }
           } catch (err) {
             console.error(`Failed to add ${upload.file_name} to ZIP:`, err);
+            failedFiles.push(upload.file_name);
           }
         }
+      }
+      
+      // Check if we have any files to download
+      const fileCount = Object.keys(zip.files).length;
+      if (fileCount === 0) {
+        alert('Unable to create ZIP. Files may have browser download restrictions.\n\nTry downloading individual assignments using the download button on each row.');
+        return;
       }
       
       // Generate and download ZIP
@@ -236,6 +279,11 @@ const SceneAssignments: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+
+      // Notify about failed files
+      if (failedFiles.length > 0) {
+        alert(`ZIP created with ${fileCount} files.\n\n${failedFiles.length} file(s) couldn't be included due to browser restrictions.`);
+      }
     } catch (error) {
       console.error('Error downloading files:', error);
       alert('Error downloading files. Please try again.');
