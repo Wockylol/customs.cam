@@ -7,7 +7,7 @@ import {
   Settings, 
   Shield,
   Lock,
-  LockOpen,
+  Unlock,
   Mail,
   Phone,
   MapPin,
@@ -28,7 +28,6 @@ import {
   UserPlus
 } from 'lucide-react';
 import Layout from '../components/layout/Layout';
-import ClientAvatar from '../components/ui/ClientAvatar';
 import { useClients } from '../hooks/useClients';
 import { useClientDetails } from '../hooks/useClientDetails';
 import { useClientQuestionnaire } from '../hooks/useClientQuestionnaire';
@@ -665,7 +664,7 @@ const ClientManagementPage: React.FC = () => {
                         {hasPin ? (
                           <Lock className="w-5 h-5 mr-2 text-green-500" />
                         ) : (
-                          <LockOpen className="w-5 h-5 mr-2 text-gray-400" />
+                          <Unlock className="w-5 h-5 mr-2 text-gray-400" />
                         )}
                         PIN Security
                       </h3>
@@ -681,7 +680,7 @@ const ClientManagementPage: React.FC = () => {
                           </>
                         ) : (
                           <>
-                            <LockOpen className="w-4 h-4" />
+                            <Unlock className="w-4 h-4" />
                             No PIN configured
                           </>
                         )}
