@@ -239,7 +239,7 @@ function AnimatedRoutes() {
             <Route 
               path="/scene-library" 
               element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requiredPermission="content.scenes">
                   <SceneLibrary />
                 </ProtectedRoute>
               }
@@ -247,7 +247,7 @@ function AnimatedRoutes() {
             <Route 
               path="/scene-assignments" 
               element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requiredPermission="content.assignments">
                   <SceneAssignments />
                 </ProtectedRoute>
               }
