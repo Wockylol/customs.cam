@@ -46,7 +46,8 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
   );
   const [isClientManagementExpanded, setIsClientManagementExpanded] = useState(
     location.pathname === '/clients' || 
-    location.pathname === '/client-data' || 
+    location.pathname === '/client-management' || 
+    location.pathname.startsWith('/client-management/') ||
     location.pathname === '/platform-assignments' ||
     location.pathname === '/leads'
   );
@@ -130,7 +131,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
     if (location.pathname === '/chats' || location.pathname === '/sms-messaging' || location.pathname === '/operations') {
       setIsCommunicationsExpanded(true);
     }
-    if (location.pathname === '/clients' || location.pathname === '/client-data' || location.pathname === '/platform-assignments' || location.pathname === '/leads') {
+    if (location.pathname === '/clients' || location.pathname === '/client-management' || location.pathname.startsWith('/client-management/') || location.pathname === '/platform-assignments' || location.pathname === '/leads') {
       setIsClientManagementExpanded(true);
     }
     if (location.pathname === '/scene-library' || location.pathname === '/scene-assignments') {
@@ -594,26 +595,6 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ isOpen, isCollapsed, onToggle, 
                         >
                           <Users className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
                           <span className="flex-1 truncate">Clients List</span>
-                        </Link>
-                      </li>
-                    )}
-                    {hasPermission('clients.data') && (
-                      <li>
-                        <Link
-                          to="/client-data"
-                          className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-lg transition-colors group ${
-                            location.pathname === '/client-data'
-                              ? 'bg-blue-50 text-blue-700 font-medium dark:bg-gray-800 dark:text-blue-400'
-                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-                          }`}
-                          onClick={() => {
-                            if (window.innerWidth < 1024) {
-                              onToggle();
-                            }
-                          }}
-                        >
-                          <Database className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" />
-                          <span className="flex-1 truncate">Client Data</span>
                         </Link>
                       </li>
                     )}
