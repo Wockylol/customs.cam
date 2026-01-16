@@ -170,46 +170,50 @@ const SceneAssignments: React.FC = () => {
     setSelectedIds(new Set());
   };
 
-  // Helper to fetch file blob with CORS handling and cache-busting
-  const fetchFileBlob = async (url: string, fileName: string): Promise<Blob | null> => {
-    if (url.startsWith('http')) {
-      // Add cache-busting parameter to bypass browser/CDN cached responses without CORS headers
-      const cacheBustedUrl = `${url}${url.includes('?') ? '&' : '?'}_cb=${Date.now()}`;
-      
-      try {
-        const response = await fetch(cacheBustedUrl, { cache: 'no-store' });
-        if (response.ok) {
-          return await response.blob();
-        }
-      } catch (corsError) {
-        console.warn(`CORS issue with ${fileName}, trying alternative method...`);
+  // Helper to fetch file blob with CORS handling via Edge Function proxy
+  const fetchFileBlob = async (url: string, _fileName: string): Promise<Blob | null> => {
+    if (!url.startsWith('http')) return null;
+    
+    // Method 1: Try direct fetch first (might work if CORS is configured)
+    try {
+      const response = await fetch(url, { cache: 'no-store' });
+      if (response.ok) {
+        return await response.blob();
       }
-
-      // Alternative: Use XMLHttpRequest with cache-busting
-      try {
-        return await new Promise<Blob | null>((resolve) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open('GET', cacheBustedUrl, true);
-          xhr.responseType = 'blob';
-          xhr.setRequestHeader('Cache-Control', 'no-cache, no-store');
-          xhr.onload = () => {
-            if (xhr.status === 200) {
-              resolve(xhr.response as Blob);
-            } else {
-              resolve(null);
-            }
-          };
-          xhr.onerror = () => resolve(null);
-          xhr.send();
-        });
-      } catch {
-        return null;
-      }
+    } catch {
+      // CORS error - try proxy
     }
+
+    // Method 2: Use Edge Function proxy to bypass CORS
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const proxyUrl = `${supabaseUrl}/functions/v1/r2-download-proxy`;
+      
+      const proxyResponse = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+        },
+        body: JSON.stringify({ fileUrl: url }),
+      });
+
+      if (proxyResponse.ok) {
+        const contentType = proxyResponse.headers.get('content-type');
+        if (contentType && !contentType.includes('application/json')) {
+          return await proxyResponse.blob();
+        }
+      }
+    } catch {
+      // Proxy also failed
+    }
+    
     return null;
   };
 
-  // Bulk download function
+  // Bulk download function with parallel downloads for speed
   const handleBulkDownload = async () => {
     if (selectedIds.size === 0) return;
     
@@ -219,49 +223,75 @@ const SceneAssignments: React.FC = () => {
       const selectedAssignments = assignments.filter(a => selectedIds.has(a.id));
       const failedFiles: string[] = [];
       
-      for (const assignment of selectedAssignments) {
-        // Fetch uploads for this assignment
-        const { data: uploads, error } = await supabase
-          .from('scene_content_uploads')
-          .select('*')
-          .eq('assignment_id', assignment.id) as { data: { file_name: string; file_path: string; file_type: string; step_index: number; public_url?: string | null }[] | null; error: any };
-        
-        if (error || !uploads || uploads.length === 0) continue;
-        
-        // Create folder for this assignment
-        const folderName = `${assignment.client?.username || 'Unknown'}_${assignment.scene?.title || 'Unknown Scene'}`.replace(/[^a-z0-9_-]/gi, '_');
-        
-        for (const upload of uploads) {
+      console.log(`[Bulk Download] Starting download for ${selectedAssignments.length} assignments`);
+      const startTime = Date.now();
+      
+      // Collect all files to download with their folder paths
+      type FileToDownload = {
+        folderName: string;
+        stepFolder: string;
+        fileName: string;
+        downloadUrl: string;
+      };
+      
+      const allFiles: FileToDownload[] = [];
+      
+      // First, gather all file info from all assignments (parallel DB queries)
+      const uploadsResults = await Promise.all(
+        selectedAssignments.map(async (assignment) => {
+          const { data: uploads, error } = await supabase
+            .from('scene_content_uploads')
+            .select('*')
+            .eq('assignment_id', assignment.id) as { data: { file_name: string; file_path: string; file_type: string; step_index: number; public_url?: string | null }[] | null; error: any };
+          
+          if (error || !uploads) return [];
+          
+          const folderName = `${assignment.client?.username || 'Unknown'}_${assignment.scene?.title || 'Unknown Scene'}`.replace(/[^a-z0-9_-]/gi, '_');
+          
+          return uploads.map(upload => ({
+            folderName,
+            stepFolder: `Step_${upload.step_index + 1}`,
+            fileName: upload.file_name,
+            downloadUrl: upload.public_url || upload.file_path,
+          }));
+        })
+      );
+      
+      // Flatten all files
+      uploadsResults.forEach(files => allFiles.push(...files));
+      
+      console.log(`[Bulk Download] Found ${allFiles.length} total files to download`);
+      
+      // Download ALL files in parallel
+      const downloadResults = await Promise.all(
+        allFiles.map(async (file) => {
           try {
-            let fileBlob: Blob | null = null;
+            let blob: Blob | null = null;
             
-            // Use public_url if available (R2), otherwise file_path
-            const downloadUrl = upload.public_url || upload.file_path;
-            
-            // Check if this is an R2/external URL (starts with http)
-            if (downloadUrl.startsWith('http')) {
-              fileBlob = await fetchFileBlob(downloadUrl, upload.file_name);
+            if (file.downloadUrl.startsWith('http')) {
+              blob = await fetchFileBlob(file.downloadUrl, file.fileName);
             } else {
-              // Download from Supabase storage (legacy files)
-              const { data, error: downloadError } = await supabase.storage
+              const { data, error } = await supabase.storage
                 .from('scene-content')
-                .download(upload.file_path);
-              
-              if (!downloadError && data) {
-                fileBlob = data;
-              }
+                .download(file.downloadUrl);
+              if (!error && data) blob = data;
             }
             
-            if (fileBlob) {
-              const stepFolder = `Step_${upload.step_index + 1}`;
-              zip.folder(folderName)?.folder(stepFolder)?.file(upload.file_name, fileBlob);
-            } else {
-              failedFiles.push(`${folderName}/${upload.file_name}`);
-            }
-          } catch (err) {
-            console.error(`Failed to add ${upload.file_name} to ZIP:`, err);
-            failedFiles.push(upload.file_name);
+            return { ...file, blob };
+          } catch {
+            return { ...file, blob: null };
           }
+        })
+      );
+      
+      console.log(`[Bulk Download] Downloads completed in ${Date.now() - startTime}ms`);
+      
+      // Add files to ZIP
+      for (const result of downloadResults) {
+        if (result.blob) {
+          zip.folder(result.folderName)?.folder(result.stepFolder)?.file(result.fileName, result.blob);
+        } else {
+          failedFiles.push(`${result.folderName}/${result.fileName}`);
         }
       }
       
@@ -272,8 +302,16 @@ const SceneAssignments: React.FC = () => {
         return;
       }
       
-      // Generate and download ZIP
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      // Generate ZIP with fast compression
+      console.log('[Bulk Download] Generating ZIP...');
+      const zipStartTime = Date.now();
+      const zipBlob = await zip.generateAsync({ 
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 1 } // Fast compression
+      });
+      console.log(`[Bulk Download] ZIP generated in ${Date.now() - zipStartTime}ms`);
+      
       const url = URL.createObjectURL(zipBlob);
       const link = document.createElement('a');
       link.href = url;
