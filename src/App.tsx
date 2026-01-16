@@ -6,7 +6,8 @@ import { ImageCacheProvider } from './contexts/ImageCacheContext';
 import { TenantProvider } from './contexts/TenantContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
-import ClientsList from './pages/ClientsList';
+import ClientManagementList from './pages/ClientManagementList';
+import ClientManagementPage from './pages/ClientManagementPage';
 import AgenciesList from './pages/AgenciesList';
 import ClientCustomsView from './pages/ClientCustomsView';
 import ClientProfilePage from './pages/ClientProfilePage';
@@ -27,7 +28,6 @@ import Attendance from './pages/Attendance';
 import Assignments from './pages/Assignments';
 import PlatformAssignmentsOverview from './pages/PlatformAssignmentsOverview';
 import Calls from './pages/Calls';
-import ClientDataManagement from './pages/ClientDataManagement';
 import LeadsTrackerPage from './pages/LeadsTrackerPage';
 import ProspectIntakePage from './pages/ProspectIntakePage';
 import SMSMessaging from './pages/SMSMessaging';
@@ -71,7 +71,23 @@ function AnimatedRoutes() {
               path="/clients" 
               element={
                 <ProtectedRoute>
-                  <ClientsList />
+                  <ClientManagementList />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/client-management" 
+              element={
+                <ProtectedRoute>
+                  <ClientManagementList />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/client-management/:clientId" 
+              element={
+                <ProtectedRoute>
+                  <ClientManagementPage />
                 </ProtectedRoute>
               } 
             />
@@ -200,14 +216,6 @@ function AnimatedRoutes() {
               element={
                 <ProtectedRoute requiredRole="manager">
                   <Calls />
-                </ProtectedRoute>
-              }
-            />
-            <Route 
-              path="/client-data" 
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <ClientDataManagement />
                 </ProtectedRoute>
               }
             />
