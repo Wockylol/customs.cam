@@ -12,8 +12,8 @@ import {
   TrendingUp,
   Wallet
 } from 'lucide-react';
-import { useCustomRequests } from '../hooks/useCustomRequests';
-import { useClients } from '../hooks/useClients';
+import { usePublicCustomRequests } from '../hooks/usePublicCustomRequests';
+import { usePublicClient } from '../hooks/usePublicClient';
 import { useClientPreferences } from '../hooks/useClientPreferences';
 import { useContentScenes } from '../hooks/useContentScenes';
 import { Database } from '../lib/database.types';
@@ -49,17 +49,16 @@ const MobileClientView: React.FC = () => {
   const [isSceneUploadModalOpen, setIsSceneUploadModalOpen] = useState(false);
   const [scenesLoading, setScenesLoading] = useState(false);
   
-  const { customRequests, loading: customsLoading, error: customsError, approveByClient, markAsCompleted } = useCustomRequests();
-  const { clients, loading: clientsLoading, error: clientsError } = useClients();
+  const { client, loading: clientLoading, error: clientError } = usePublicClient(clientUsername);
+  const { customRequests, loading: customsLoading, error: customsError, approveByClient, markAsCompleted } = usePublicCustomRequests(client?.id);
   const { fetchClientScenes, markSceneComplete } = useContentScenes();
   
-  const client = clients.find((c: Client) => c.username.toLowerCase() === clientUsername?.toLowerCase());
   const { preferences, loading: preferencesLoading, savePreferences } = useClientPreferences(client?.id);
   
   // Client-side notifications
   useClientNotifications(client?.id);
+  // Filter out pending requests (not yet approved by team)
   const allClientCustoms: CustomRequest[] = customRequests.filter((c: CustomRequest) => 
-    (c as any).clients?.username?.toLowerCase() === clientUsername?.toLowerCase() &&
     c.status !== 'pending'
   );
 
@@ -124,8 +123,8 @@ const MobileClientView: React.FC = () => {
   
   const filteredScenes = getFilteredScenes();
 
-  const loading = customsLoading || clientsLoading || preferencesLoading || scenesLoading;
-  const error = customsError || clientsError;
+  const loading = customsLoading || clientLoading || preferencesLoading || scenesLoading;
+  const error = customsError || clientError;
 
   const handleApprovalClick = (custom: CustomRequest) => {
     setSelectedCustom(custom);
