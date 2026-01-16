@@ -277,13 +277,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsPlatformAdmin(false);
         setLoading(false);
         setPermissionsLoading(false);
-      } else if (session?.user) {
-        // Ensure UI is not blocked on team member fetch
+      } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        // Only refetch on actual sign-in or user updates, not token refresh
+        // This prevents losing page state when switching browser tabs
         setLoading(false);
         fetchTeamMember(session.user.id);
       } else {
+        // For TOKEN_REFRESHED and other events, just update session without refetching
+        // This preserves component state when the tab regains focus
         setLoading(false);
-        setPermissionsLoading(false);
       }
     });
 
