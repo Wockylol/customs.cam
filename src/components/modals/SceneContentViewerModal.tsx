@@ -169,213 +169,107 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
     }
   };
 
-  // Helper to fetch file blob with CORS handling and detailed debugging
-  const fetchFileBlob = async (url: string, fileName: string): Promise<Blob | null> => {
-    console.group(`[ZIP Download] Fetching: ${fileName}`);
-    console.log('URL:', url);
-    console.log('URL type:', url.startsWith('http') ? 'External (R2/CDN)' : 'Internal path');
+  // Helper to fetch file blob with CORS handling via Edge Function proxy
+  const fetchFileBlob = async (url: string, _fileName: string): Promise<Blob | null> => {
+    if (!url.startsWith('http')) return null;
     
-    // For external URLs (R2), try fetching with different approaches
-    if (url.startsWith('http')) {
-      // Add cache-busting parameter to bypass browser/CDN cached responses without CORS headers
-      // This is necessary because <img> tags can cache responses without CORS headers,
-      // which then cause fetch() to fail for the same URL
-      const cacheBustedUrl = `${url}${url.includes('?') ? '&' : '?'}_cb=${Date.now()}`;
-      console.log('Cache-busted URL:', cacheBustedUrl);
-      
-      // Method 1: Try direct fetch with cache-busting
-      console.log('Attempt 1: Using fetch() with cache-bust...');
-      try {
-        const response = await fetch(cacheBustedUrl, {
-          cache: 'no-store', // Also disable browser cache
-        });
-        console.log('Fetch response:', {
-          ok: response.ok,
-          status: response.status,
-          statusText: response.statusText,
-          headers: {
-            'content-type': response.headers.get('content-type'),
-            'content-length': response.headers.get('content-length'),
-            'access-control-allow-origin': response.headers.get('access-control-allow-origin'),
-          }
-        });
-        
-        if (response.ok) {
-          const blob = await response.blob();
-          console.log('✅ Fetch succeeded! Blob size:', blob.size, 'bytes');
-          console.groupEnd();
-          return blob;
-        } else {
-          console.warn('❌ Fetch returned non-OK status:', response.status);
-        }
-      } catch (fetchError: any) {
-        console.warn('❌ Fetch failed with error:', {
-          name: fetchError.name,
-          message: fetchError.message,
-          stack: fetchError.stack?.split('\n').slice(0, 3).join('\n')
-        });
+    // Method 1: Try direct fetch first (might work if CORS is configured)
+    try {
+      const response = await fetch(url, { cache: 'no-store' });
+      if (response.ok) {
+        return await response.blob();
       }
+    } catch {
+      // CORS error - try proxy
+    }
 
-      // Method 2: Alternative using XMLHttpRequest with cache-busting
-      console.log('Attempt 2: Using XMLHttpRequest with cache-bust...');
-      try {
-        const xhrResult = await new Promise<{ blob: Blob | null; debug: any }>((resolve) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open('GET', cacheBustedUrl, true);
-          xhr.responseType = 'blob';
-          // Disable caching
-          xhr.setRequestHeader('Cache-Control', 'no-cache, no-store');
-          
-          xhr.onload = () => {
-            const debug = {
-              status: xhr.status,
-              statusText: xhr.statusText,
-              responseType: xhr.responseType,
-              responseSize: xhr.response?.size,
-            };
-            
-            if (xhr.status === 200) {
-              resolve({ blob: xhr.response as Blob, debug });
-            } else {
-              resolve({ blob: null, debug });
-            }
-          };
-          
-          xhr.onerror = (event) => {
-            resolve({ 
-              blob: null, 
-              debug: { 
-                error: 'XHR network error', 
-                event: event.type,
-                status: xhr.status 
-              } 
-            });
-          };
-          
-          xhr.ontimeout = () => {
-            resolve({ blob: null, debug: { error: 'XHR timeout' } });
-          };
-          
-          xhr.send();
-        });
-        
-        console.log('XHR result:', xhrResult.debug);
-        
-        if (xhrResult.blob) {
-          console.log('✅ XHR succeeded! Blob size:', xhrResult.blob.size, 'bytes');
-          console.groupEnd();
-          return xhrResult.blob;
-        } else {
-          console.warn('❌ XHR failed');
-        }
-      } catch (xhrError: any) {
-        console.warn('❌ XHR exception:', xhrError.message);
-      }
+    // Method 2: Use Edge Function proxy to bypass CORS
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const proxyUrl = `${supabaseUrl}/functions/v1/r2-download-proxy`;
       
-      console.error('❌ All download methods failed for:', fileName);
-      console.groupEnd();
-      return null;
+      const proxyResponse = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+        },
+        body: JSON.stringify({ fileUrl: url }),
+      });
+
+      if (proxyResponse.ok) {
+        const contentType = proxyResponse.headers.get('content-type');
+        if (contentType && !contentType.includes('application/json')) {
+          return await proxyResponse.blob();
+        }
+      }
+    } catch {
+      // Proxy also failed
     }
     
-    console.log('Not an HTTP URL, returning null (will use Supabase storage)');
-    console.groupEnd();
     return null;
   };
 
   const downloadFilesAsZip = async (filesToDownload: FileWithSelection[], zipFileName: string) => {
-    console.log('='.repeat(60));
-    console.log('[ZIP Download] Starting ZIP creation');
-    console.log('[ZIP Download] Files to download:', filesToDownload.length);
-    console.log('[ZIP Download] Output filename:', zipFileName);
-    console.log('='.repeat(60));
+    console.log(`[ZIP Download] Starting - ${filesToDownload.length} files`);
     
     const zip = new JSZip();
-    const failedFiles: { name: string; reason: string; url: string }[] = [];
-    const successFiles: string[] = [];
-
-    // Group files by step for organized folder structure
-    const filesByStep: { [key: number]: FileWithSelection[] } = {};
-    filesToDownload.forEach(file => {
-      if (!filesByStep[file.step_index]) {
-        filesByStep[file.step_index] = [];
-      }
-      filesByStep[file.step_index].push(file);
-    });
-
-    // Download each file and add to ZIP with folder structure
-    for (const [stepIndex, stepFiles] of Object.entries(filesByStep)) {
-      const folderName = `Step_${parseInt(stepIndex) + 1}`;
-      console.log(`\n[ZIP Download] Processing ${folderName} (${stepFiles.length} files)`);
-      
-      for (const file of stepFiles) {
-        try {
-          let fileBlob: Blob | null = null;
-          
-          // Use public_url (R2) if available, otherwise fall back to file_path
-          const downloadUrl = file.public_url || file.file_path;
-          
-          console.log(`\n[ZIP Download] File: ${file.file_name}`);
-          console.log(`  - public_url: ${file.public_url || '(none)'}`);
-          console.log(`  - file_path: ${file.file_path}`);
-          console.log(`  - Using URL: ${downloadUrl}`);
-          console.log(`  - File type: ${file.file_type}`);
-          console.log(`  - File size: ${file.file_size} bytes`);
-          
-          // Check if this is an R2/external URL (starts with http)
-          if (downloadUrl.startsWith('http')) {
-            fileBlob = await fetchFileBlob(downloadUrl, file.file_name);
-          } else {
-            // Download from Supabase storage (legacy files)
-            console.log('  - Using Supabase storage download...');
-            const { data, error } = await supabase.storage
-              .from('scene-content')
-              .download(file.file_path);
-
-            if (error) {
-              console.error('  - Supabase download error:', error);
-            } else if (data) {
-              console.log('  - Supabase download succeeded, blob size:', data.size);
-              fileBlob = data;
-            }
-          }
-
-          if (fileBlob) {
-            // Add file to ZIP in its step folder
-            zip.folder(folderName)?.file(file.file_name, fileBlob);
-            successFiles.push(file.file_name);
-            console.log(`  ✅ Added to ZIP: ${folderName}/${file.file_name}`);
-          } else {
-            failedFiles.push({ 
-              name: file.file_name, 
-              reason: 'Blob was null - all download methods failed',
-              url: downloadUrl 
-            });
-            console.error(`  ❌ FAILED: ${file.file_name}`);
-          }
-        } catch (err: any) {
-          console.error(`  ❌ Exception for ${file.file_name}:`, err);
-          failedFiles.push({ 
-            name: file.file_name, 
-            reason: err.message || 'Unknown exception',
-            url: file.public_url || file.file_path 
-          });
-        }
-      }
-    }
+    const failedFiles: string[] = [];
     
-    console.log('\n' + '='.repeat(60));
-    console.log('[ZIP Download] Summary:');
-    console.log(`  - Successful: ${successFiles.length}`);
-    console.log(`  - Failed: ${failedFiles.length}`);
-    if (failedFiles.length > 0) {
-      console.log('[ZIP Download] Failed files details:');
-      failedFiles.forEach(f => {
-        console.log(`  - ${f.name}`);
-        console.log(`    Reason: ${f.reason}`);
-        console.log(`    URL: ${f.url}`);
-      });
+    // Download a single file and return result
+    const downloadSingleFile = async (file: FileWithSelection): Promise<{
+      file: FileWithSelection;
+      blob: Blob | null;
+      folder: string;
+    }> => {
+      const folder = `Step_${file.step_index + 1}`;
+      const downloadUrl = file.public_url || file.file_path;
+      
+      try {
+        let blob: Blob | null = null;
+        
+        if (downloadUrl.startsWith('http')) {
+          blob = await fetchFileBlob(downloadUrl, file.file_name);
+        } else {
+          // Download from Supabase storage (legacy files)
+          const { data, error } = await supabase.storage
+            .from('scene-content')
+            .download(file.file_path);
+          if (!error && data) {
+            blob = data;
+          }
+        }
+        
+        return { file, blob, folder };
+      } catch (err) {
+        console.error(`Failed to download ${file.file_name}:`, err);
+        return { file, blob: null, folder };
+      }
+    };
+
+    // Download ALL files in parallel for maximum speed
+    console.log('[ZIP Download] Downloading all files in parallel...');
+    const startTime = Date.now();
+    
+    const results = await Promise.all(
+      filesToDownload.map(file => downloadSingleFile(file))
+    );
+    
+    console.log(`[ZIP Download] All downloads completed in ${Date.now() - startTime}ms`);
+
+    // Add successful downloads to ZIP
+    for (const { file, blob, folder } of results) {
+      if (blob) {
+        zip.folder(folder)?.file(file.file_name, blob);
+      } else {
+        failedFiles.push(file.file_name);
+      }
     }
-    console.log('='.repeat(60));
+
+    const successCount = results.filter(r => r.blob).length;
+    console.log(`[ZIP Download] Success: ${successCount}, Failed: ${failedFiles.length}`);
 
     // Check if we have any files to download
     const fileCount = Object.keys(zip.files).length;
@@ -390,7 +284,6 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
           const downloadUrl = file.public_url || file.file_path;
           if (downloadUrl.startsWith('http')) {
             window.open(downloadUrl, '_blank');
-            // Small delay between downloads
             await new Promise(r => setTimeout(r, 300));
           }
         }
@@ -399,11 +292,19 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
     }
 
     // Generate and download ZIP file
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    console.log('[ZIP Download] Generating ZIP...');
+    const zipStartTime = Date.now();
+    const zipBlob = await zip.generateAsync({ 
+      type: 'blob',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 1 } // Fast compression (1-9, lower = faster)
+    });
+    console.log(`[ZIP Download] ZIP generated in ${Date.now() - zipStartTime}ms, size: ${(zipBlob.size / 1024 / 1024).toFixed(2)}MB`);
+    
     const url = URL.createObjectURL(zipBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = zipFileName.replace(/[^a-z0-9._-]/gi, '_'); // Sanitize filename
+    link.download = zipFileName.replace(/[^a-z0-9._-]/gi, '_');
     link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
@@ -412,8 +313,7 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
 
     // Notify about failed files
     if (failedFiles.length > 0) {
-      const failedFileNames = failedFiles.map(f => f.name);
-      alert(`ZIP created with ${fileCount} files.\n\n${failedFiles.length} file(s) couldn't be included due to browser restrictions:\n${failedFileNames.slice(0, 5).join('\n')}${failedFiles.length > 5 ? `\n...and ${failedFiles.length - 5} more` : ''}\n\nThese files can be downloaded individually by clicking them.`);
+      alert(`ZIP created with ${fileCount} files.\n\n${failedFiles.length} file(s) couldn't be included:\n${failedFiles.slice(0, 5).join('\n')}${failedFiles.length > 5 ? `\n...and ${failedFiles.length - 5} more` : ''}\n\nThese files can be downloaded individually by clicking them.`);
     }
   };
 
