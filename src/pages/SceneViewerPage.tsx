@@ -5,7 +5,7 @@ import { SceneInstruction } from '../types';
 import { useSceneUploads } from '../hooks/useSceneUploads';
 import { useSceneExamples } from '../hooks/useSceneExamples';
 import { useContentScenes } from '../hooks/useContentScenes';
-import { useClients } from '../hooks/useClients';
+import { usePublicClient } from '../hooks/usePublicClient';
 import SceneUploadModal from '../components/modals/SceneUploadModal';
 import MobilePinLock from '../components/auth/MobilePinLock';
 
@@ -19,9 +19,7 @@ const SceneViewerPage: React.FC = () => {
   const { uploads } = useSceneUploads(assignmentId);
   const { examples, getDownloadUrl } = useSceneExamples(scene?.id);
   const { markSceneComplete } = useContentScenes();
-  const { clients } = useClients();
-  
-  const client = clients.find((c) => c.username.toLowerCase() === clientUsername?.toLowerCase());
+  const { client, loading: clientLoading } = usePublicClient(clientUsername);
   
   const [currentSlide, setCurrentSlide] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
@@ -397,10 +395,10 @@ const SceneViewerPage: React.FC = () => {
     );
   }
 
-  if (!client) {
+  if (clientLoading || !client) {
     return (
       <div className="h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50">
-        <p className="text-gray-600">Loading...</p>
+        <p className="text-gray-600">{clientLoading ? 'Loading...' : 'Client not found'}</p>
       </div>
     );
   }
