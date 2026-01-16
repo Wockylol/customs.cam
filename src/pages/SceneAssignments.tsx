@@ -170,11 +170,14 @@ const SceneAssignments: React.FC = () => {
     setSelectedIds(new Set());
   };
 
-  // Helper to fetch file blob with CORS handling
+  // Helper to fetch file blob with CORS handling and cache-busting
   const fetchFileBlob = async (url: string, fileName: string): Promise<Blob | null> => {
     if (url.startsWith('http')) {
+      // Add cache-busting parameter to bypass browser/CDN cached responses without CORS headers
+      const cacheBustedUrl = `${url}${url.includes('?') ? '&' : '?'}_cb=${Date.now()}`;
+      
       try {
-        const response = await fetch(url);
+        const response = await fetch(cacheBustedUrl, { cache: 'no-store' });
         if (response.ok) {
           return await response.blob();
         }
@@ -182,12 +185,13 @@ const SceneAssignments: React.FC = () => {
         console.warn(`CORS issue with ${fileName}, trying alternative method...`);
       }
 
-      // Alternative: Use XMLHttpRequest
+      // Alternative: Use XMLHttpRequest with cache-busting
       try {
         return await new Promise<Blob | null>((resolve) => {
           const xhr = new XMLHttpRequest();
-          xhr.open('GET', url, true);
+          xhr.open('GET', cacheBustedUrl, true);
           xhr.responseType = 'blob';
+          xhr.setRequestHeader('Cache-Control', 'no-cache, no-store');
           xhr.onload = () => {
             if (xhr.status === 200) {
               resolve(xhr.response as Blob);
