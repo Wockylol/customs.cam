@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
@@ -137,6 +137,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   
+  // Track if initial auth has completed to avoid refetching on tab focus
+  // Using a ref so the value is accessible in the onAuthStateChange closure
+  const initialAuthCompleteRef = useRef(false);
+  
   // Permissions state
   const [permissions, setPermissions] = useState<PermissionCode[]>([]);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
@@ -269,7 +273,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
-      console.log('[AuthContext] onAuthStateChange fired:', { event, hasSession: !!session, mounted });
+      console.log('[AuthContext] onAuthStateChange fired:', { event, hasSession: !!session, mounted, initialAuthComplete: initialAuthCompleteRef.current });
       if (!mounted) return;
       
       setSession(session);
@@ -283,9 +287,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsPlatformAdmin(false);
         setLoading(false);
         setPermissionsLoading(false);
+        initialAuthCompleteRef.current = false;
       } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-        // Only refetch on actual sign-in or user updates, not token refresh
-        // This prevents losing page state when switching browser tabs
+        // Skip refetch if we've already completed initial auth (e.g. tab regained focus)
+        // Supabase fires SIGNED_IN on tab focus which would cause unnecessary refetches
+        if (initialAuthCompleteRef.current) {
+          console.log('[AuthContext] SIGNED_IN but initialAuthComplete=true - skipping refetch (tab focus event)');
+          setLoading(false);
+          return;
+        }
         console.log('[AuthContext] SIGNED_IN or USER_UPDATED - fetching team member');
         setLoading(false);
         fetchTeamMember(session.user.id);
@@ -353,6 +363,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Fetch permissions after team member and platform admin status are known
       await fetchPermissions(member, isAdmin);
+      
+      // Mark initial auth as complete to prevent refetching on tab focus
+      initialAuthCompleteRef.current = true;
+      console.log('[AuthContext] Initial auth complete - future SIGNED_IN events will be skipped');
 
     } catch (error) {
       console.error('Unexpected error in fetchTeamMember:', error);
@@ -361,6 +375,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setPermissions([]);
       setUserRole(null);
       setPermissionsLoading(false);
+      initialAuthCompleteRef.current = true; // Still mark complete to prevent infinite retry loops
     }
   };
 
