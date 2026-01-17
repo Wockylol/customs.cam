@@ -71,6 +71,7 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
 
   // Fetch tenant data
   const fetchTenant = useCallback(async () => {
+    console.log('[TenantContext] fetchTenant called:', { tenantSlug, hasUser: !!user, hasTeamMember: !!teamMember, tenantId: teamMember?.tenant_id, isPlatformAdmin });
     // Skip tenant fetch on platform admin pages
     if (isPlatformAdmin) {
       setLoading(false);
@@ -89,6 +90,7 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
       
       // In dev or without subdomains, if user is logged in and has a tenant_id, use that
       if (user && teamMember?.tenant_id) {
+        console.log('[TenantContext] Fetching tenant by teamMember.tenant_id:', teamMember.tenant_id);
         // Fetch tenant by user's tenant_id instead
         try {
           const { data: tenantData, error: tenantError } = await supabase
@@ -127,6 +129,7 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
 
     // Fetch tenant by slug (from subdomain or dev localStorage)
     try {
+      console.log('[TenantContext] Setting loading=true to fetch tenant by slug');
       setLoading(true);
       setError(null);
 
@@ -185,6 +188,7 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
 
   // Fetch tenant on mount and when dependencies change
   useEffect(() => {
+    console.log('[TenantContext] useEffect triggered - fetchTenant dependency changed');
     fetchTenant();
   }, [fetchTenant]);
 
