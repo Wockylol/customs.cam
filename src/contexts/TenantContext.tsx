@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
   TenantAgency, 
@@ -64,6 +64,9 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Track if initial tenant fetch is complete to avoid refetching on tab focus
+  const initialTenantFetchCompleteRef = useRef(false);
+  
   // Detect tenant slug from subdomain
   const tenantSlug = getTenantSlugFromSubdomain();
   const isMainSite = isMainPlatformSite();
@@ -71,7 +74,16 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
 
   // Fetch tenant data
   const fetchTenant = useCallback(async () => {
-    console.log('[TenantContext] fetchTenant called:', { tenantSlug, hasUser: !!user, hasTeamMember: !!teamMember, tenantId: teamMember?.tenant_id, isPlatformAdmin });
+    console.log('[TenantContext] fetchTenant called:', { tenantSlug, hasUser: !!user, hasTeamMember: !!teamMember, tenantId: teamMember?.tenant_id, isPlatformAdmin, initialFetchComplete: initialTenantFetchCompleteRef.current });
+    
+    // Skip refetch if we've already completed initial fetch
+    // This prevents losing page state when switching browser tabs
+    if (initialTenantFetchCompleteRef.current) {
+      console.log('[TenantContext] Skipping refetch - initial fetch already complete');
+      setLoading(false);
+      return;
+    }
+    
     // Skip tenant fetch on platform admin pages
     if (isPlatformAdmin) {
       setLoading(false);
@@ -116,6 +128,10 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
             if (capsData) {
               setCapabilities(capsData.map((c: { capability: TenantCapability }) => c.capability));
             }
+            
+            // Mark initial fetch complete
+            initialTenantFetchCompleteRef.current = true;
+            console.log('[TenantContext] Set initialTenantFetchCompleteRef = true (fetched by tenant_id)');
           } else if (tenantError) {
             console.error('Error fetching tenant:', tenantError);
           }
@@ -177,6 +193,10 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
       } else {
         setCapabilities((capsData || []).map((c: { capability: TenantCapability }) => c.capability));
       }
+      
+      // Mark initial fetch complete
+      initialTenantFetchCompleteRef.current = true;
+      console.log('[TenantContext] Set initialTenantFetchCompleteRef = true (fetched by slug)');
 
     } catch (err: any) {
       console.error('Error fetching tenant:', err);
