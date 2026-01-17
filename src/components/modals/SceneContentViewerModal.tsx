@@ -228,53 +228,99 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
   };
 
   const downloadFilesAsZip = async (filesToDownload: FileWithSelection[], zipFileName: string) => {
-    console.log(`[ZIP Download] Starting - ${filesToDownload.length} files`);
+    console.log(`[ZIP Download] Starting server-side ZIP for ${filesToDownload.length} files`);
+    const startTime = Date.now();
     
+    // Prepare file list for server-side ZIP creation
+    const files = filesToDownload.map(file => ({
+      url: file.public_url || file.file_path,
+      fileName: file.file_name,
+      folderPath: `Step_${file.step_index + 1}`,
+    }));
+
+    try {
+      // Call server-side ZIP creation Edge Function
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/r2-create-zip`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+        },
+        body: JSON.stringify({
+          files,
+          zipFileName: zipFileName.replace(/[^a-z0-9._-]/gi, '_'),
+        }),
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType?.includes('application/json')) {
+          const error = await response.json();
+          throw new Error(error.error || 'Server ZIP creation failed');
+        }
+        throw new Error(`Server returned ${response.status}`);
+      }
+
+      // Download the ZIP directly from the response
+      const zipBlob = await response.blob();
+      const failedCount = parseInt(response.headers.get('X-Failed-Files') || '0');
+      
+      console.log(`[ZIP Download] Server ZIP received in ${Date.now() - startTime}ms, size: ${(zipBlob.size / 1024 / 1024).toFixed(2)}MB`);
+      
+      // Trigger browser download
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = zipFileName.replace(/[^a-z0-9._-]/gi, '_');
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      if (failedCount > 0) {
+        alert(`ZIP created. ${failedCount} file(s) couldn't be included and can be downloaded individually.`);
+      }
+      
+    } catch (err: any) {
+      console.error('[ZIP Download] Server-side ZIP failed, falling back to client-side:', err);
+      
+      // Fallback to client-side ZIP if server fails
+      await downloadFilesAsZipClientSide(filesToDownload, zipFileName);
+    }
+  };
+
+  // Fallback client-side ZIP creation
+  const downloadFilesAsZipClientSide = async (filesToDownload: FileWithSelection[], zipFileName: string) => {
     const zip = new JSZip();
     const failedFiles: string[] = [];
     
-    // Download a single file and return result
-    const downloadSingleFile = async (file: FileWithSelection): Promise<{
-      file: FileWithSelection;
-      blob: Blob | null;
-      folder: string;
-    }> => {
+    const downloadSingleFile = async (file: FileWithSelection) => {
       const folder = `Step_${file.step_index + 1}`;
       const downloadUrl = file.public_url || file.file_path;
       
       try {
         let blob: Blob | null = null;
-        
         if (downloadUrl.startsWith('http')) {
           blob = await fetchFileBlob(downloadUrl, file.file_name);
         } else {
-          // Download from Supabase storage (legacy files)
           const { data, error } = await supabase.storage
             .from('scene-content')
             .download(file.file_path);
-          if (!error && data) {
-            blob = data;
-          }
+          if (!error && data) blob = data;
         }
-        
         return { file, blob, folder };
-      } catch (err) {
-        console.error(`Failed to download ${file.file_name}:`, err);
+      } catch {
         return { file, blob: null, folder };
       }
     };
 
-    // Download files in batches to avoid overwhelming browser connection limits
-    // Browsers typically allow 6 concurrent connections per domain
-    const BATCH_SIZE = 4;
-    console.log(`[ZIP Download] Downloading ${filesToDownload.length} files in batches of ${BATCH_SIZE}...`);
-    const startTime = Date.now();
+    const results = await processInBatches(filesToDownload, 4, downloadSingleFile);
     
-    const results = await processInBatches(filesToDownload, BATCH_SIZE, downloadSingleFile);
-    
-    console.log(`[ZIP Download] All downloads completed in ${Date.now() - startTime}ms`);
-
-    // Add successful downloads to ZIP
     for (const { file, blob, folder } of results) {
       if (blob) {
         zip.folder(folder)?.file(file.file_name, blob);
@@ -283,17 +329,11 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
       }
     }
 
-    const successCount = results.filter(r => r.blob).length;
-    console.log(`[ZIP Download] Success: ${successCount}, Failed: ${failedFiles.length}`);
-
-    // Check if we have any files to download
     const fileCount = Object.keys(zip.files).length;
     if (fileCount === 0) {
-      // All files failed - offer to download individually
       const shouldDownloadIndividually = confirm(
-        `Unable to create ZIP due to browser restrictions. Would you like to download ${filesToDownload.length} file(s) individually instead?\n\nEach file will open in a new tab.`
+        `Unable to create ZIP. Download ${filesToDownload.length} file(s) individually instead?`
       );
-      
       if (shouldDownloadIndividually) {
         for (const file of filesToDownload) {
           const downloadUrl = file.public_url || file.file_path;
@@ -306,29 +346,18 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
       return;
     }
 
-    // Generate and download ZIP file
-    console.log('[ZIP Download] Generating ZIP...');
-    const zipStartTime = Date.now();
-    const zipBlob = await zip.generateAsync({ 
-      type: 'blob',
-      compression: 'DEFLATE',
-      compressionOptions: { level: 1 } // Fast compression (1-9, lower = faster)
-    });
-    console.log(`[ZIP Download] ZIP generated in ${Date.now() - zipStartTime}ms, size: ${(zipBlob.size / 1024 / 1024).toFixed(2)}MB`);
-    
+    const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 1 } });
     const url = URL.createObjectURL(zipBlob);
     const link = document.createElement('a');
     link.href = url;
     link.download = zipFileName.replace(/[^a-z0-9._-]/gi, '_');
-    link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    // Notify about failed files
     if (failedFiles.length > 0) {
-      alert(`ZIP created with ${fileCount} files.\n\n${failedFiles.length} file(s) couldn't be included:\n${failedFiles.slice(0, 5).join('\n')}${failedFiles.length > 5 ? `\n...and ${failedFiles.length - 5} more` : ''}\n\nThese files can be downloaded individually by clicking them.`);
+      alert(`ZIP created with ${fileCount} files. ${failedFiles.length} couldn't be included.`);
     }
   };
 
