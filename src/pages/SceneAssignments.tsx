@@ -213,6 +213,21 @@ const SceneAssignments: React.FC = () => {
     return null;
   };
 
+  // Process items in batches with concurrency limit
+  const processInBatches = async <T, R>(
+    items: T[],
+    batchSize: number,
+    processor: (item: T) => Promise<R>
+  ): Promise<R[]> => {
+    const results: R[] = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      const batchResults = await Promise.all(batch.map(processor));
+      results.push(...batchResults);
+    }
+    return results;
+  };
+
   // Bulk download function with parallel downloads for speed
   const handleBulkDownload = async () => {
     if (selectedIds.size === 0) return;
@@ -262,27 +277,26 @@ const SceneAssignments: React.FC = () => {
       
       console.log(`[Bulk Download] Found ${allFiles.length} total files to download`);
       
-      // Download ALL files in parallel
-      const downloadResults = await Promise.all(
-        allFiles.map(async (file) => {
-          try {
-            let blob: Blob | null = null;
-            
-            if (file.downloadUrl.startsWith('http')) {
-              blob = await fetchFileBlob(file.downloadUrl, file.fileName);
-            } else {
-              const { data, error } = await supabase.storage
-                .from('scene-content')
-                .download(file.downloadUrl);
-              if (!error && data) blob = data;
-            }
-            
-            return { ...file, blob };
-          } catch {
-            return { ...file, blob: null };
+      // Download files in batches to avoid overwhelming browser connection limits
+      const BATCH_SIZE = 4;
+      const downloadResults = await processInBatches(allFiles, BATCH_SIZE, async (file) => {
+        try {
+          let blob: Blob | null = null;
+          
+          if (file.downloadUrl.startsWith('http')) {
+            blob = await fetchFileBlob(file.downloadUrl, file.fileName);
+          } else {
+            const { data, error } = await supabase.storage
+              .from('scene-content')
+              .download(file.downloadUrl);
+            if (!error && data) blob = data;
           }
-        })
-      );
+          
+          return { ...file, blob };
+        } catch {
+          return { ...file, blob: null };
+        }
+      });
       
       console.log(`[Bulk Download] Downloads completed in ${Date.now() - startTime}ms`);
       
