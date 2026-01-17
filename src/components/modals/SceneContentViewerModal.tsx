@@ -212,6 +212,21 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
     return null;
   };
 
+  // Process items in batches with concurrency limit
+  const processInBatches = async <T, R>(
+    items: T[],
+    batchSize: number,
+    processor: (item: T) => Promise<R>
+  ): Promise<R[]> => {
+    const results: R[] = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      const batchResults = await Promise.all(batch.map(processor));
+      results.push(...batchResults);
+    }
+    return results;
+  };
+
   const downloadFilesAsZip = async (filesToDownload: FileWithSelection[], zipFileName: string) => {
     console.log(`[ZIP Download] Starting - ${filesToDownload.length} files`);
     
@@ -249,13 +264,13 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
       }
     };
 
-    // Download ALL files in parallel for maximum speed
-    console.log('[ZIP Download] Downloading all files in parallel...');
+    // Download files in batches to avoid overwhelming browser connection limits
+    // Browsers typically allow 6 concurrent connections per domain
+    const BATCH_SIZE = 4;
+    console.log(`[ZIP Download] Downloading ${filesToDownload.length} files in batches of ${BATCH_SIZE}...`);
     const startTime = Date.now();
     
-    const results = await Promise.all(
-      filesToDownload.map(file => downloadSingleFile(file))
-    );
+    const results = await processInBatches(filesToDownload, BATCH_SIZE, downloadSingleFile);
     
     console.log(`[ZIP Download] All downloads completed in ${Date.now() - startTime}ms`);
 
