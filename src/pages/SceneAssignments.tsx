@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Film, User, Calendar, CheckCircle, Clock, Eye, Trash2, Download, Archive, Filter, Users, Video, X, Loader, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
-import JSZip from 'jszip';
 import Layout from '../components/layout/Layout';
 import { useContentScenes } from '../hooks/useContentScenes';
 import { useClients } from '../hooks/useClients';
@@ -170,86 +169,16 @@ const SceneAssignments: React.FC = () => {
     setSelectedIds(new Set());
   };
 
-  // Helper to fetch file blob with CORS handling via Edge Function proxy
-  const fetchFileBlob = async (url: string, _fileName: string): Promise<Blob | null> => {
-    if (!url.startsWith('http')) return null;
-    
-    // Method 1: Try direct fetch first (might work if CORS is configured)
-    try {
-      const response = await fetch(url, { cache: 'no-store' });
-      if (response.ok) {
-        return await response.blob();
-      }
-    } catch {
-      // CORS error - try proxy
-    }
-
-    // Method 2: Use Edge Function proxy to bypass CORS
-    try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      const proxyUrl = `${supabaseUrl}/functions/v1/r2-download-proxy`;
-      
-      const proxyResponse = await fetch(proxyUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`,
-          'apikey': supabaseKey,
-        },
-        body: JSON.stringify({ fileUrl: url }),
-      });
-
-      if (proxyResponse.ok) {
-        const contentType = proxyResponse.headers.get('content-type');
-        if (contentType && !contentType.includes('application/json')) {
-          return await proxyResponse.blob();
-        }
-      }
-    } catch {
-      // Proxy also failed
-    }
-    
-    return null;
-  };
-
-  // Process items in batches with concurrency limit
-  const processInBatches = async <T, R>(
-    items: T[],
-    batchSize: number,
-    processor: (item: T) => Promise<R>
-  ): Promise<R[]> => {
-    const results: R[] = [];
-    for (let i = 0; i < items.length; i += batchSize) {
-      const batch = items.slice(i, i + batchSize);
-      const batchResults = await Promise.all(batch.map(processor));
-      results.push(...batchResults);
-    }
-    return results;
-  };
-
-  // Bulk download function with parallel downloads for speed
+  // Bulk download function using server-side ZIP creation
   const handleBulkDownload = async () => {
     if (selectedIds.size === 0) return;
     
     setBulkActionLoading(true);
     try {
-      const zip = new JSZip();
       const selectedAssignments = assignments.filter(a => selectedIds.has(a.id));
-      const failedFiles: string[] = [];
       
-      console.log(`[Bulk Download] Starting download for ${selectedAssignments.length} assignments`);
+      console.log(`[Bulk Download] Starting server-side ZIP for ${selectedAssignments.length} assignments`);
       const startTime = Date.now();
-      
-      // Collect all files to download with their folder paths
-      type FileToDownload = {
-        folderName: string;
-        stepFolder: string;
-        fileName: string;
-        downloadUrl: string;
-      };
-      
-      const allFiles: FileToDownload[] = [];
       
       // First, gather all file info from all assignments (parallel DB queries)
       const uploadsResults = await Promise.all(
@@ -264,67 +193,54 @@ const SceneAssignments: React.FC = () => {
           const folderName = `${assignment.client?.username || 'Unknown'}_${assignment.scene?.title || 'Unknown Scene'}`.replace(/[^a-z0-9_-]/gi, '_');
           
           return uploads.map(upload => ({
-            folderName,
-            stepFolder: `Step_${upload.step_index + 1}`,
+            url: upload.public_url || upload.file_path,
             fileName: upload.file_name,
-            downloadUrl: upload.public_url || upload.file_path,
+            folderPath: `${folderName}/Step_${upload.step_index + 1}`,
           }));
         })
       );
       
       // Flatten all files
-      uploadsResults.forEach(files => allFiles.push(...files));
+      const allFiles = uploadsResults.flat();
       
-      console.log(`[Bulk Download] Found ${allFiles.length} total files to download`);
-      
-      // Download files in batches to avoid overwhelming browser connection limits
-      const BATCH_SIZE = 4;
-      const downloadResults = await processInBatches(allFiles, BATCH_SIZE, async (file) => {
-        try {
-          let blob: Blob | null = null;
-          
-          if (file.downloadUrl.startsWith('http')) {
-            blob = await fetchFileBlob(file.downloadUrl, file.fileName);
-          } else {
-            const { data, error } = await supabase.storage
-              .from('scene-content')
-              .download(file.downloadUrl);
-            if (!error && data) blob = data;
-          }
-          
-          return { ...file, blob };
-        } catch {
-          return { ...file, blob: null };
-        }
-      });
-      
-      console.log(`[Bulk Download] Downloads completed in ${Date.now() - startTime}ms`);
-      
-      // Add files to ZIP
-      for (const result of downloadResults) {
-        if (result.blob) {
-          zip.folder(result.folderName)?.folder(result.stepFolder)?.file(result.fileName, result.blob);
-        } else {
-          failedFiles.push(`${result.folderName}/${result.fileName}`);
-        }
-      }
-      
-      // Check if we have any files to download
-      const fileCount = Object.keys(zip.files).length;
-      if (fileCount === 0) {
-        alert('Unable to create ZIP. Files may have browser download restrictions.\n\nTry downloading individual assignments using the download button on each row.');
+      if (allFiles.length === 0) {
+        alert('No files found to download.');
         return;
       }
       
-      // Generate ZIP with fast compression
-      console.log('[Bulk Download] Generating ZIP...');
-      const zipStartTime = Date.now();
-      const zipBlob = await zip.generateAsync({ 
-        type: 'blob',
-        compression: 'DEFLATE',
-        compressionOptions: { level: 1 } // Fast compression
+      console.log(`[Bulk Download] Found ${allFiles.length} total files`);
+      
+      // Call server-side ZIP creation
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/r2-create-zip`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+        },
+        body: JSON.stringify({
+          files: allFiles,
+          zipFileName: `scene_assignments_${new Date().toISOString().split('T')[0]}.zip`,
+        }),
       });
-      console.log(`[Bulk Download] ZIP generated in ${Date.now() - zipStartTime}ms`);
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType?.includes('application/json')) {
+          const error = await response.json();
+          throw new Error(error.error || 'Server ZIP creation failed');
+        }
+        throw new Error(`Server returned ${response.status}`);
+      }
+
+      // Download the ZIP directly
+      const zipBlob = await response.blob();
+      const failedCount = parseInt(response.headers.get('X-Failed-Files') || '0');
+      
+      console.log(`[Bulk Download] Server ZIP received in ${Date.now() - startTime}ms, size: ${(zipBlob.size / 1024 / 1024).toFixed(2)}MB`);
       
       const url = URL.createObjectURL(zipBlob);
       const link = document.createElement('a');
@@ -336,13 +252,13 @@ const SceneAssignments: React.FC = () => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      // Notify about failed files
-      if (failedFiles.length > 0) {
-        alert(`ZIP created with ${fileCount} files.\n\n${failedFiles.length} file(s) couldn't be included due to browser restrictions.`);
+      if (failedCount > 0) {
+        alert(`ZIP created. ${failedCount} file(s) couldn't be included.`);
       }
-    } catch (error) {
+      
+    } catch (error: any) {
       console.error('Error downloading files:', error);
-      alert('Error downloading files. Please try again.');
+      alert(`Error creating ZIP: ${error.message || 'Please try again.'}`);
     } finally {
       setBulkActionLoading(false);
     }
