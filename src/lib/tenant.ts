@@ -29,6 +29,7 @@ export interface TenantAgency {
   owner_user_id: string | null;
   is_active: boolean;
   settings: Record<string, unknown>;
+  master_phone: string | null;
   created_at: string;
   updated_at: string;
 }
