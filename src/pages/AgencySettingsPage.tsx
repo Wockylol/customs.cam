@@ -94,7 +94,8 @@ const AgencySettingsPage: React.FC = () => {
       const settings = (tenant.settings || {}) as AgencySettings;
       const newFormData: FormData = {
         name: tenant.name || '',
-        master_phone_number: settings.master_phone_number || '',
+        // Prefer master_phone column, fall back to settings for backwards compatibility
+        master_phone_number: tenant.master_phone || settings.master_phone_number || '',
         timezone: settings.timezone || 'America/New_York',
         default_currency: settings.default_currency || 'USD',
         support_email: settings.support_email || '',
@@ -176,11 +177,26 @@ const AgencySettingsPage: React.FC = () => {
         },
       };
 
-      // Update tenant_agencies table
+      // Normalize phone number for database storage (E.164 format)
+      const normalizePhoneForDb = (phone: string): string | null => {
+        if (!phone) return null;
+        // Remove all non-digits except leading +
+        const digits = phone.replace(/\D/g, '');
+        if (digits.length === 0) return null;
+        // Assume US number if 10 digits, add +1
+        if (digits.length === 10) return `+1${digits}`;
+        // If 11 digits starting with 1, add +
+        if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+        // Otherwise, add + if not present
+        return digits.startsWith('+') ? digits : `+${digits}`;
+      };
+
+      // Update tenant_agencies table - include master_phone column
       const { error: updateError } = await supabase
         .from('tenant_agencies')
         .update({
           name: formData.name.trim(),
+          master_phone: normalizePhoneForDb(formData.master_phone_number),
           settings,
           updated_at: new Date().toISOString(),
         })
