@@ -217,8 +217,9 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
     return capabilities.includes(capability);
   }, [capabilities]);
 
-  // Refresh function
+  // Refresh function - forces a refetch by resetting the ref
   const refreshTenant = useCallback(async () => {
+    initialTenantFetchCompleteRef.current = false;
     await fetchTenant();
   }, [fetchTenant]);
 
