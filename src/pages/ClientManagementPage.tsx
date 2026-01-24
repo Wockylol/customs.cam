@@ -303,7 +303,7 @@ const ClientManagementPage: React.FC = () => {
                               <div className="text-sm text-gray-900 dark:text-white mb-2">{cred.email || 'Not set'}</div>
                               <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Password</div>
                               <div className="text-sm text-gray-900 dark:text-white font-mono">
-                                {cred.password ? '••••••••' : 'Not set'}
+                                {cred.password || 'Not set'}
                               </div>
                             </div>
                           ))}
