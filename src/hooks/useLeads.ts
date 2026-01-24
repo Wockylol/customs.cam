@@ -97,16 +97,19 @@ export const useLeads = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       let createdBy: string | null = null;
+      let creatorTenantId: string | null = null;
 
       if (user) {
-        const { data: teamMember } = await supabase
+        const { data: member } = await supabase
           .from('team_members')
-          .select('id')
+          .select('id, tenant_id')
           .eq('email', user.email)
           .single();
-        createdBy = teamMember?.id || null;
+        createdBy = member?.id || null;
+        creatorTenantId = member?.tenant_id || null;
       }
 
+      // Pass tenant_id to associate the lead with the tenant that created the intake link
       const { data, error } = await supabase.rpc('create_lead_with_token', {
         p_first_name: leadData.firstName || null,
         p_last_name: leadData.lastName || null,
@@ -114,6 +117,7 @@ export const useLeads = () => {
         p_phone: leadData.phone || null,
         p_lead_source: leadData.leadSource || null,
         p_created_by: createdBy,
+        p_tenant_id: creatorTenantId,
       });
 
       if (error) throw error;
