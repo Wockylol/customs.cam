@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 export interface PersonalInfo {
@@ -27,6 +27,10 @@ export const useClientDetails = (clientId: string | undefined) => {
   const [platformCredentials, setPlatformCredentials] = useState<PlatformCredential[]>([]);
   const [socialMediaAccounts, setSocialMediaAccounts] = useState<SocialMediaAccount[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Refs to prevent race conditions during save operations
+  const savingCredentialsRef = useRef(false);
+  const savingSocialMediaRef = useRef(false);
 
   useEffect(() => {
     if (clientId) {
@@ -133,80 +137,104 @@ export const useClientDetails = (clientId: string | undefined) => {
   const savePlatformCredentials = async (credentials: PlatformCredential[]) => {
     if (!clientId) return { error: 'Client ID required' };
     
-    console.log('Saving platform credentials for client:', clientId, credentials);
-    
-    // Delete all existing credentials for this client
-    const { error: deleteError } = await supabase
-      .from('client_platform_credentials')
-      .delete()
-      .eq('client_id', clientId);
-    
-    if (deleteError) {
-      console.error('Error deleting old credentials:', deleteError);
-      return { error: deleteError.message };
+    // Prevent concurrent saves (race condition protection)
+    if (savingCredentialsRef.current) {
+      console.log('Platform credentials save already in progress, skipping');
+      return { error: null }; // Return success to avoid error messages for duplicate clicks
     }
     
-    // Insert new credentials
-    if (credentials.length > 0) {
-      const { error: insertError } = await supabase
-        .from('client_platform_credentials')
-        .insert(
-          credentials.map(cred => ({
-            client_id: clientId,
-            platform: cred.platform,
-            email: cred.email,
-            password: cred.password
-          }))
-        );
+    savingCredentialsRef.current = true;
+    
+    try {
+      console.log('Saving platform credentials for client:', clientId, credentials);
       
-      if (insertError) {
-        console.error('Error inserting credentials:', insertError);
-        return { error: insertError.message };
+      // Delete all existing credentials for this client
+      const { error: deleteError } = await supabase
+        .from('client_platform_credentials')
+        .delete()
+        .eq('client_id', clientId);
+      
+      if (deleteError) {
+        console.error('Error deleting old credentials:', deleteError);
+        return { error: deleteError.message };
       }
+      
+      // Insert new credentials
+      if (credentials.length > 0) {
+        const { error: insertError } = await supabase
+          .from('client_platform_credentials')
+          .insert(
+            credentials.map(cred => ({
+              client_id: clientId,
+              platform: cred.platform,
+              email: cred.email,
+              password: cred.password
+            }))
+          );
+        
+        if (insertError) {
+          console.error('Error inserting credentials:', insertError);
+          return { error: insertError.message };
+        }
+      }
+      
+      console.log('Platform credentials saved successfully');
+      await fetchPlatformCredentials();
+      return { error: null };
+    } finally {
+      savingCredentialsRef.current = false;
     }
-    
-    console.log('Platform credentials saved successfully');
-    await fetchPlatformCredentials();
-    return { error: null };
   };
 
   const saveSocialMediaAccounts = async (accounts: SocialMediaAccount[]) => {
     if (!clientId) return { error: 'Client ID required' };
     
-    console.log('Saving social media accounts for client:', clientId, accounts);
-    
-    // Delete all existing accounts for this client
-    const { error: deleteError } = await supabase
-      .from('client_social_media')
-      .delete()
-      .eq('client_id', clientId);
-    
-    if (deleteError) {
-      console.error('Error deleting old social media:', deleteError);
-      return { error: deleteError.message };
+    // Prevent concurrent saves (race condition protection)
+    if (savingSocialMediaRef.current) {
+      console.log('Social media accounts save already in progress, skipping');
+      return { error: null }; // Return success to avoid error messages for duplicate clicks
     }
     
-    // Insert new accounts
-    if (accounts.length > 0) {
-      const { error: insertError } = await supabase
-        .from('client_social_media')
-        .insert(
-          accounts.map(acc => ({
-            client_id: clientId,
-            platform: acc.platform,
-            username: acc.username
-          }))
-        );
+    savingSocialMediaRef.current = true;
+    
+    try {
+      console.log('Saving social media accounts for client:', clientId, accounts);
       
-      if (insertError) {
-        console.error('Error inserting social media:', insertError);
-        return { error: insertError.message };
+      // Delete all existing accounts for this client
+      const { error: deleteError } = await supabase
+        .from('client_social_media')
+        .delete()
+        .eq('client_id', clientId);
+      
+      if (deleteError) {
+        console.error('Error deleting old social media:', deleteError);
+        return { error: deleteError.message };
       }
+      
+      // Insert new accounts
+      if (accounts.length > 0) {
+        const { error: insertError } = await supabase
+          .from('client_social_media')
+          .insert(
+            accounts.map(acc => ({
+              client_id: clientId,
+              platform: acc.platform,
+              username: acc.username
+            }))
+          );
+        
+        if (insertError) {
+          console.error('Error inserting social media:', insertError);
+          return { error: insertError.message };
+        }
+      }
+      
+      console.log('Social media accounts saved successfully');
+      await fetchSocialMediaAccounts();
+      return { error: null };
+    } finally {
+      savingSocialMediaRef.current = false;
     }
-    
-    console.log('Social media accounts saved successfully');
-    await fetchSocialMediaAccounts();
-    return { error: null };
   };
 
   return {
