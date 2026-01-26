@@ -101,7 +101,26 @@ const ProspectIntakePage: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Special handling for username to validate format and remove spaces
+    if (name === 'username') {
+      const sanitized = value.replace(/\s/g, ''); // Remove spaces
+      const validUsernameRegex = /^[a-zA-Z0-9._-]*$/; // Allow only valid characters
+      
+      if (!validUsernameRegex.test(sanitized)) {
+        setUsernameError('Username can only contain letters, numbers, underscores (_), periods (.), and hyphens (-)');
+        return; // Don't update if invalid characters
+      } else if (sanitized.length > 0) {
+        // Clear format error, but availability check will run via useEffect
+        if (usernameError === 'Username can only contain letters, numbers, underscores (_), periods (.), and hyphens (-)') {
+          setUsernameError(null);
+        }
+      }
+      
+      setFormData(prev => ({ ...prev, username: sanitized }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const togglePlatform = (platformId: string) => {
@@ -335,6 +354,11 @@ const ProspectIntakePage: React.FC = () => {
               </div>
               {usernameError && (
                 <p className="mt-2 text-red-300 text-sm">{usernameError}</p>
+              )}
+              {!usernameError && (
+                <p className="mt-2 text-purple-300/50 text-xs">
+                  Only letters, numbers, underscores (_), periods (.), and hyphens (-) allowed
+                </p>
               )}
             </div>
 
