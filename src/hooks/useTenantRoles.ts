@@ -116,6 +116,49 @@ export const useTenantRoles = () => {
     return roles.find(r => r.slug === legacyRole) || roles.find(r => r.name.toLowerCase() === legacyRole.toLowerCase());
   }, [roles]);
 
+  // Get the display role for a team member (uses role_id if available, falls back to legacy role)
+  const getMemberRoleDisplay = useCallback((member: { role_id?: string | null; role?: string | null }): {
+    name: string;
+    color: string;
+    slug: string;
+  } => {
+    // First try to get role from role_id (the actual role)
+    if (member.role_id) {
+      const role = getRoleById(member.role_id);
+      if (role) {
+        return {
+          name: role.name,
+          color: role.color || '#6B7280',
+          slug: role.slug,
+        };
+      }
+    }
+    
+    // Fallback to legacy role column
+    if (member.role) {
+      const role = getRoleBySlug(member.role);
+      if (role) {
+        return {
+          name: role.name,
+          color: role.color || '#6B7280',
+          slug: role.slug,
+        };
+      }
+      // If no matching role found, capitalize the legacy role name
+      return {
+        name: member.role.charAt(0).toUpperCase() + member.role.slice(1),
+        color: '#6B7280',
+        slug: member.role,
+      };
+    }
+    
+    return {
+      name: 'Unknown',
+      color: '#6B7280',
+      slug: '',
+    };
+  }, [getRoleById, getRoleBySlug]);
+
   // Check if roles are configured
   const hasRoles = roles.length > 0;
 
@@ -147,6 +190,7 @@ export const useTenantRoles = () => {
     getRoleById,
     getRoleBySlug,
     getRoleByLegacyName,
+    getMemberRoleDisplay,
   };
 };
 

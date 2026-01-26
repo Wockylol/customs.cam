@@ -10,6 +10,7 @@ import { useTenant } from '../contexts/TenantContext';
 import { StaggerContainer } from '../components/ui/StaggerContainer';
 import { supabase } from '../lib/supabase';
 import { useTenantShifts, formatTimeRange, TenantShift } from '../hooks/useTenantShifts';
+import { useTenantRoles } from '../hooks/useTenantRoles';
 
 interface TenantRole {
   id: string;
@@ -38,6 +39,7 @@ const UserApprovals: React.FC = () => {
   const { teamMember } = useAuth();
   const { tenant } = useTenant();
   const { hasShifts, getShiftById, getShiftBySlug } = useTenantShifts();
+  const { getMemberRoleDisplay } = useTenantRoles();
 
   // Helper to get shift for a team member
   const getTeamMemberShift = useCallback((member: typeof teamMembers[0]): TenantShift | undefined => {
@@ -539,14 +541,24 @@ const UserApprovals: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            member.role === 'owner' ? 'bg-amber-100 text-amber-800' :
-                            member.role === 'admin' ? 'bg-green-100 text-green-800' :
-                            member.role === 'manager' ? 'bg-purple-100 text-purple-800' :
-                            'bg-blue-100 text-blue-800'
-                          }`}>
-                            {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-                          </span>
+                          {(() => {
+                            const roleDisplay = getMemberRoleDisplay(member);
+                            return (
+                              <span 
+                                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                style={{ 
+                                  backgroundColor: `${roleDisplay.color}20`,
+                                  color: roleDisplay.color,
+                                }}
+                              >
+                                <span 
+                                  className="w-2 h-2 rounded-full" 
+                                  style={{ backgroundColor: roleDisplay.color }}
+                                />
+                                {roleDisplay.name}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                           {(() => {

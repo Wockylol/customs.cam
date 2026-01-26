@@ -7,6 +7,7 @@ import ModernSelect from '../components/ui/ModernSelect';
 import { usePayroll } from '../hooks/usePayroll';
 import { usePermissions } from '../hooks/usePermissions';
 import { StaggerContainer } from '../components/ui/StaggerContainer';
+import { useTenantRoles } from '../hooks/useTenantRoles';
 
 // Calculate net from gross (gross - 20% platform fee)
 const calculateNet = (gross: number) => gross * 0.8;
@@ -37,6 +38,7 @@ const calculateAdjustedBasePay = (
 const PayrollSheet: React.FC = () => {
   const { hasPermission } = usePermissions();
   const { payrollData, loading, error, fetchPayrollData, updatePayrollSettings, addBonus, deleteBonus } = usePayroll();
+  const { getMemberRoleDisplay } = useTenantRoles();
   
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -508,14 +510,24 @@ const PayrollSheet: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              member.role === 'owner' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' :
-                              member.role === 'admin' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                              member.role === 'manager' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' :
-                              'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                            }`}>
-                              {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-                            </span>
+                            {(() => {
+                              const roleDisplay = getMemberRoleDisplay(member);
+                              return (
+                                <span 
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                  style={{ 
+                                    backgroundColor: `${roleDisplay.color}20`,
+                                    color: roleDisplay.color,
+                                  }}
+                                >
+                                  <span 
+                                    className="w-2 h-2 rounded-full" 
+                                    style={{ backgroundColor: roleDisplay.color }}
+                                  />
+                                  {roleDisplay.name}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900 dark:text-white">
                             <div 

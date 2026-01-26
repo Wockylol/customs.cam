@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, AlertCircle, Award, DollarSign } from 'lucide-react';
+import { useTenantRoles } from '../../hooks/useTenantRoles';
 
 interface AddBonusModalProps {
   isOpen: boolean;
@@ -9,11 +10,13 @@ interface AddBonusModalProps {
     full_name: string;
     email: string;
     role: string;
+    role_id?: string | null;
   }>;
   onSubmit: (memberIds: string[], amount: number, reason: string, bonusDate: string) => Promise<{ error: string | null }>;
 }
 
 const AddBonusModal: React.FC<AddBonusModalProps> = ({ isOpen, onClose, teamMembers, onSubmit }) => {
+  const { getMemberRoleDisplay } = useTenantRoles();
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
@@ -226,7 +229,7 @@ const AddBonusModal: React.FC<AddBonusModalProps> = ({ isOpen, onClose, teamMemb
                             {member.full_name}
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {member.email} • {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                            {member.email} • {getMemberRoleDisplay(member).name}
                           </div>
                         </div>
                       </label>

@@ -8,6 +8,7 @@ import { useContentUploads } from '../../hooks/useContentUploads';
 import { useCustomRequests } from '../../hooks/useCustomRequests';
 import { useCustomNotes } from '../../hooks/useCustomNotes';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTenantRoles } from '../../hooks/useTenantRoles';
 
 type CustomRequest = Database['public']['Tables']['custom_requests']['Row'];
 
@@ -31,6 +32,7 @@ const CustomDetailModal: React.FC<CustomDetailModalProps> = ({
   const { customRequests, updateCustomRequest, markAsCompleted, denyByTeam } = useCustomRequests();
   const { notes, loading: notesLoading, addNote, updateNote, deleteNote } = useCustomNotes(custom?.id);
   const { teamMember } = useAuth();
+  const { getMemberRoleDisplay } = useTenantRoles();
   const [downloadingFile, setDownloadingFile] = React.useState<string | null>(null);
   const [downloadingAll, setDownloadingAll] = React.useState(false);
   const [isEditing, setIsEditing] = React.useState(false);
@@ -809,14 +811,26 @@ const CustomDetailModal: React.FC<CustomDetailModalProps> = ({
                                 <span className="font-medium text-gray-900 text-sm">
                                   {note.team_member?.full_name || 'Unknown User'}
                                 </span>
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                  note.team_member?.role === 'owner' ? 'bg-amber-100 text-amber-700' :
-                                  note.team_member?.role === 'admin' ? 'bg-green-100 text-green-700' :
-                                  note.team_member?.role === 'manager' ? 'bg-purple-100 text-purple-700' :
-                                  'bg-blue-100 text-blue-700'
-                                }`}>
-                                  {note.team_member?.role || 'Unknown'}
-                                </span>
+                                {(() => {
+                                  const roleDisplay = note.team_member 
+                                    ? getMemberRoleDisplay(note.team_member) 
+                                    : { name: 'Unknown', color: '#6B7280' };
+                                  return (
+                                    <span 
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                                      style={{ 
+                                        backgroundColor: `${roleDisplay.color}20`,
+                                        color: roleDisplay.color,
+                                      }}
+                                    >
+                                      <span 
+                                        className="w-1.5 h-1.5 rounded-full" 
+                                        style={{ backgroundColor: roleDisplay.color }}
+                                      />
+                                      {roleDisplay.name}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                               <div className="flex items-center space-x-2">
                                 <span className="text-xs text-gray-500">
