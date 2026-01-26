@@ -16,6 +16,7 @@ interface EditClientModalProps {
     username: string; 
     phone?: string;
     agencyId?: string;
+    avatarUrl?: string;
   }) => Promise<{ error: string | null }>;
 }
 
@@ -32,6 +33,26 @@ const EditClientModal: React.FC<EditClientModalProps> = ({ isOpen, onClose, clie
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [usernameValidationError, setUsernameValidationError] = useState<string | null>(null);
+
+  // Validate username format (alphanumeric, underscores, periods, hyphens only)
+  const validateUsername = (username: string): boolean => {
+    const validUsernameRegex = /^[a-zA-Z0-9._-]+$/;
+    if (!username) return true; // Allow empty for now, required validation will catch it
+    if (!validUsernameRegex.test(username)) {
+      setUsernameValidationError('Username can only contain letters, numbers, underscores, periods, and hyphens');
+      return false;
+    }
+    setUsernameValidationError(null);
+    return true;
+  };
+
+  const handleUsernameChange = (value: string) => {
+    // Remove any spaces immediately
+    const sanitized = value.replace(/\s/g, '');
+    setFormData({ ...formData, username: sanitized });
+    validateUsername(sanitized);
+  };
 
   useEffect(() => {
     if (client) {
@@ -103,13 +124,19 @@ const EditClientModal: React.FC<EditClientModalProps> = ({ isOpen, onClose, clie
     setLoading(true);
     setError(null);
     
-    if (formData.username.trim()) {
+    const trimmedUsername = formData.username.trim();
+    
+    // Validate username format before submitting
+    if (!validateUsername(trimmedUsername)) {
+      setLoading(false);
+      return;
+    }
+    
+    if (trimmedUsername) {
       const { error } = await onSubmit(client.id, {
-        username: formData.username.trim(),
+        username: trimmedUsername,
         phone: formData.phone.trim() || undefined,
         agencyId: formData.agencyId || undefined,
-        avatarUrl: formData.avatarUrl.trim() || undefined,
-        avatarUrl: formData.avatarUrl.trim() || undefined,
         avatarUrl: formData.avatarUrl.trim() || undefined,
       });
       
@@ -126,6 +153,7 @@ const EditClientModal: React.FC<EditClientModalProps> = ({ isOpen, onClose, clie
     if (!loading) {
       setError(null);
       setUploadSuccess(false);
+      setUsernameValidationError(null);
       onClose();
     }
   };
@@ -223,12 +251,22 @@ const EditClientModal: React.FC<EditClientModalProps> = ({ isOpen, onClose, clie
                 type="text"
                 id="username"
                 value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onChange={(e) => handleUsernameChange(e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
+                  usernameValidationError 
+                    ? 'border-red-300 focus:ring-red-500' 
+                    : 'border-gray-300 focus:ring-blue-500'
+                }`}
                 placeholder="e.g. sarah_star"
                 disabled={loading}
                 required
               />
+              {usernameValidationError && (
+                <p className="mt-1 text-sm text-red-600">{usernameValidationError}</p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">
+                Only letters, numbers, underscores (_), periods (.), and hyphens (-) allowed
+              </p>
             </div>
 
             <div>
