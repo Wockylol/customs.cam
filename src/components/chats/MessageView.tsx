@@ -148,10 +148,23 @@ export function MessageView({
   uploadingImages
 }: MessageViewProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [showSearchBar, setShowSearchBar] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-resize textarea as content changes
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = 'auto';
+      // Set the height to match content, with a max of 200px
+      const newHeight = Math.min(textarea.scrollHeight, 200);
+      textarea.style.height = `${newHeight}px`;
+    }
+  }, [messageInput]);
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -553,6 +566,7 @@ export function MessageView({
 
           <div className="flex-1 relative">
             <textarea
+              ref={textareaRef}
               value={messageInput}
               onChange={(e: any) => onMessageInputChange(e.target.value)}
               onKeyDown={(e: any) => {
@@ -563,9 +577,10 @@ export function MessageView({
               }}
               onPaste={handlePaste}
               placeholder="Type a message... (Shift+Enter for new line, Ctrl+V to paste images)"
-              className="w-full px-4 py-3 bg-slate-100 border-0 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:bg-white transition-all duration-200 resize-none"
+              className="w-full px-4 py-3 bg-slate-100 border-0 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:bg-white transition-all duration-200 resize-none overflow-y-auto"
+              style={{ minHeight: '48px', maxHeight: '200px' }}
               disabled={sendingMessage || uploadingImages}
-              rows={2}
+              rows={1}
             />
           </div>
 
