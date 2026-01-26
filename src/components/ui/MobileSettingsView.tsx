@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { 
   Save, 
@@ -264,6 +264,9 @@ const MobileSettingsView: React.FC<MobileSettingsViewProps> = ({
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
   
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  
+  // Ref to prevent multiple save clicks (more reliable than state for rapid clicks)
+  const isSavingRef = useRef(false);
 
   // Toggle accordion section
   const toggleSection = (sectionId: string) => {
@@ -404,6 +407,13 @@ const MobileSettingsView: React.FC<MobileSettingsViewProps> = ({
   }, [existingSocialMediaAccounts]);
 
   const handleSave = async () => {
+    // Prevent multiple concurrent saves using ref (more reliable than state for rapid clicks)
+    if (isSavingRef.current) {
+      console.log('Save already in progress, ignoring duplicate click');
+      return;
+    }
+    
+    isSavingRef.current = true;
     setLoading(true);
     
     try {
@@ -438,9 +448,10 @@ const MobileSettingsView: React.FC<MobileSettingsViewProps> = ({
       setToastMessage(err.message || 'Failed to save');
       setToastType('error');
       setShowToast(true);
+    } finally {
+      isSavingRef.current = false;
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   const contentTypes = [
