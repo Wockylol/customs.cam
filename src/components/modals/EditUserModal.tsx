@@ -107,10 +107,33 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
       const selectedShift = formData.shiftId ? getShiftById(formData.shiftId) : null;
       const selectedRole = formData.roleId ? getRoleById(formData.roleId) : null;
       
+      // Map custom role slugs to valid legacy enum values
+      // The database trigger will handle syncing based on role_id
+      let legacyRole = formData.role;
+      if (selectedRole) {
+        const validLegacyRoles = ['owner', 'admin', 'manager', 'chatter', 'pending'];
+        if (validLegacyRoles.includes(selectedRole.slug)) {
+          legacyRole = selectedRole.slug;
+        } else {
+          // For custom roles, map based on hierarchy level
+          if (selectedRole.hierarchy_level >= 100) {
+            legacyRole = 'owner';
+          } else if (selectedRole.hierarchy_level >= 80) {
+            legacyRole = 'admin';
+          } else if (selectedRole.hierarchy_level >= 60) {
+            legacyRole = 'manager';
+          } else if (selectedRole.hierarchy_level >= 40) {
+            legacyRole = 'chatter';
+          } else {
+            legacyRole = 'pending';
+          }
+        }
+      }
+      
       const { error } = await onSubmit(user.id, {
         fullName: formData.fullName.trim(),
         email: formData.email.trim(),
-        role: selectedRole?.slug || formData.role, // Use role slug for legacy column
+        role: legacyRole,
         roleId: formData.roleId || null,
         shift: selectedShift?.slug || undefined,
         shiftId: formData.shiftId || null,
