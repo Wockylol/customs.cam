@@ -51,12 +51,14 @@ export const useClients = () => {
     username: string;
     phone?: string;
     agencyId?: string;
+    avatarUrl?: string;
   }) => {
     try {
       const insertData: ClientInsert = {
         username: clientData.username,
         phone: clientData.phone || null,
         agency_id: clientData.agencyId || null,
+        avatar_url: clientData.avatarUrl || null,
         tenant_id: teamMember?.tenant_id || null,
         is_active: true
       };
