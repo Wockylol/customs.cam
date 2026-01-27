@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Download, File, Image as ImageIcon, Video, FileText, CheckSquare, Square, Loader } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Download, File, Image as ImageIcon, Video, FileText, CheckSquare, Square, Loader, FolderOpen, HardDrive, Layers } from 'lucide-react';
 import JSZip from 'jszip';
 import { useSceneUploads } from '../../hooks/useSceneUploads';
 import { supabase } from '../../lib/supabase';
@@ -427,37 +427,93 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
 
   const sortedSteps = Object.keys(filesByStep).map(Number).sort((a, b) => a - b);
 
+  // Calculate statistics
+  const stats = useMemo(() => {
+    const totalFiles = files.length;
+    const totalSize = files.reduce((sum, f) => sum + f.file_size, 0);
+    const stepsWithContent = sortedSteps.length;
+    const imageCount = files.filter(f => f.file_type.startsWith('image/')).length;
+    const videoCount = files.filter(f => f.file_type.startsWith('video/')).length;
+    const otherCount = totalFiles - imageCount - videoCount;
+    
+    return { totalFiles, totalSize, stepsWithContent, imageCount, videoCount, otherCount };
+  }, [files, sortedSteps]);
+
   if (!isOpen) return null;
 
   const selectedCount = files.filter(f => f.selected).length;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-5xl w-full max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-6xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-gray-200 dark:border-gray-700">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-t-2xl">
           <div className="flex-1">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+            <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
+              <FolderOpen className="w-5 h-5" />
               Scene Content
             </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-purple-100 text-sm">
               {clientName} • {sceneTitle}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-2 transition-all"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
+        {/* Stats Bar */}
+        {!loading && files.length > 0 && (
+          <div className="px-6 py-3 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-6 text-sm">
+              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                <File className="w-4 h-4 text-blue-500" />
+                <span className="font-medium">{stats.totalFiles}</span>
+                <span className="text-gray-500 dark:text-gray-400">files</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                <Layers className="w-4 h-4 text-purple-500" />
+                <span className="font-medium">{stats.stepsWithContent}</span>
+                <span className="text-gray-500 dark:text-gray-400">steps with content</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                <HardDrive className="w-4 h-4 text-green-500" />
+                <span className="font-medium">{formatFileSize(stats.totalSize)}</span>
+                <span className="text-gray-500 dark:text-gray-400">total</span>
+              </div>
+              <div className="flex items-center gap-4 ml-auto text-xs text-gray-500 dark:text-gray-400">
+                {stats.imageCount > 0 && (
+                  <span className="flex items-center gap-1">
+                    <ImageIcon className="w-3.5 h-3.5 text-pink-500" />
+                    {stats.imageCount} images
+                  </span>
+                )}
+                {stats.videoCount > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Video className="w-3.5 h-3.5 text-red-500" />
+                    {stats.videoCount} videos
+                  </span>
+                )}
+                {stats.otherCount > 0 && (
+                  <span className="flex items-center gap-1">
+                    <FileText className="w-3.5 h-3.5 text-gray-500" />
+                    {stats.otherCount} other
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Action Bar */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between px-6 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-4">
             <button
               onClick={handleToggleAll}
-              className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+              className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
             >
               {selectAll ? (
                 <CheckSquare className="w-4 h-4 text-blue-600" />
@@ -467,7 +523,7 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
               <span>Select All</span>
             </button>
             {selectedCount > 0 && (
-              <span className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="text-sm text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full">
                 {selectedCount} selected
               </span>
             )}
@@ -477,7 +533,7 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
               <button
                 onClick={handleDownloadSelected}
                 disabled={downloading}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors text-sm font-medium shadow-sm"
               >
                 {downloading ? (
                   <Loader className="w-4 h-4 animate-spin" />
@@ -490,93 +546,153 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
             <button
               onClick={handleDownloadAll}
               disabled={downloading || files.length === 0}
-              className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
+              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-400 text-white rounded-lg transition-all text-sm font-medium shadow-sm"
             >
               {downloading ? (
                 <Loader className="w-4 h-4 animate-spin" />
               ) : (
                 <Download className="w-4 h-4" />
               )}
-              <span>Download All</span>
+              <span>Download All ({stats.totalFiles})</span>
             </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 bg-gray-50 dark:bg-gray-900/30">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center py-16">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <div className="animate-spin rounded-full h-10 w-10 border-3 border-purple-600 border-t-transparent mx-auto mb-4"></div>
                 <p className="text-gray-600 dark:text-gray-400">Loading content...</p>
               </div>
             </div>
           ) : files.length === 0 ? (
-            <div className="text-center py-12">
-              <File className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-gray-400">No content uploaded yet</p>
+            <div className="text-center py-16">
+              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FolderOpen className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-600 dark:text-gray-400 font-medium">No content uploaded yet</p>
+              <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">Files will appear here once uploaded</p>
             </div>
           ) : (
             <div className="space-y-6">
-              {sortedSteps.map(stepIndex => (
-                <div key={stepIndex} className="space-y-3">
-                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Step {stepIndex + 1}
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filesByStep[stepIndex].map(file => (
-                      <div
-                        key={file.id}
-                        className={`border rounded-lg overflow-hidden transition-all cursor-pointer ${
-                          file.selected
-                            ? 'border-blue-500 ring-2 ring-blue-500 ring-opacity-50'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                        }`}
-                        onClick={() => handleToggleFile(file.id)}
-                      >
-                        {/* Preview */}
-                        <div className="aspect-video bg-gray-100 dark:bg-gray-700 flex items-center justify-center relative">
-                          {file.previewUrl && file.file_type.startsWith('image/') ? (
-                            <img
-                              src={file.previewUrl}
-                              alt={file.file_name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : file.previewUrl && file.file_type.startsWith('video/') ? (
-                            <video
-                              src={file.previewUrl}
-                              className="w-full h-full object-cover"
-                              controls={false}
-                            />
-                          ) : (
-                            <div className="text-gray-400 dark:text-gray-500">
-                              {getFileIcon(file.file_type)}
-                            </div>
-                          )}
-                          {/* Selection Indicator */}
-                          <div className="absolute top-2 left-2">
-                            {file.selected ? (
-                              <CheckSquare className="w-5 h-5 text-blue-600 bg-white rounded" />
-                            ) : (
-                              <Square className="w-5 h-5 text-gray-400 bg-white rounded" />
-                            )}
+              {sortedSteps.map(stepIndex => {
+                const stepFiles = filesByStep[stepIndex];
+                const stepSize = stepFiles.reduce((sum, f) => sum + f.file_size, 0);
+                const selectedInStep = stepFiles.filter(f => f.selected).length;
+                
+                return (
+                  <div key={stepIndex} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                    {/* Step Header */}
+                    <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-750 border-b border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                            <span className="text-sm font-bold text-purple-600 dark:text-purple-400">
+                              {stepIndex + 1}
+                            </span>
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                              Step {stepIndex + 1}
+                            </h3>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {stepFiles.length} {stepFiles.length === 1 ? 'file' : 'files'} • {formatFileSize(stepSize)}
+                            </p>
                           </div>
                         </div>
-                        {/* File Info */}
-                        <div className="p-3 bg-white dark:bg-gray-800">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate mb-1">
-                            {file.file_name}
-                          </p>
-                          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                            <span>{formatFileSize(file.file_size)}</span>
-                            <span>{new Date(file.uploaded_at).toLocaleDateString()}</span>
-                          </div>
-                        </div>
+                        {selectedInStep > 0 && (
+                          <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-full font-medium">
+                            {selectedInStep} selected
+                          </span>
+                        )}
                       </div>
-                    ))}
+                    </div>
+                    
+                    {/* Step Files Grid */}
+                    <div className="p-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {stepFiles.map(file => (
+                          <div
+                            key={file.id}
+                            className={`group relative border-2 rounded-xl overflow-hidden transition-all cursor-pointer ${
+                              file.selected
+                                ? 'border-blue-500 ring-2 ring-blue-500/30 shadow-lg shadow-blue-500/10'
+                                : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 hover:shadow-md'
+                            }`}
+                            onClick={() => handleToggleFile(file.id)}
+                          >
+                            {/* Preview */}
+                            <div className="aspect-square bg-gray-100 dark:bg-gray-700 flex items-center justify-center relative overflow-hidden">
+                              {file.previewUrl && file.file_type.startsWith('image/') ? (
+                                <img
+                                  src={file.previewUrl}
+                                  alt={file.file_name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                              ) : file.previewUrl && file.file_type.startsWith('video/') ? (
+                                <div className="relative w-full h-full">
+                                  <video
+                                    src={file.previewUrl}
+                                    className="w-full h-full object-cover"
+                                    controls={false}
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                    <div className="w-10 h-10 bg-white/90 rounded-full flex items-center justify-center">
+                                      <Video className="w-5 h-5 text-red-500" />
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-gray-400 dark:text-gray-500 flex flex-col items-center gap-2">
+                                  {getFileIcon(file.file_type)}
+                                  <span className="text-xs uppercase tracking-wide">
+                                    {file.file_name.split('.').pop()}
+                                  </span>
+                                </div>
+                              )}
+                              
+                              {/* Selection Indicator */}
+                              <div className={`absolute top-2 left-2 transition-all ${file.selected ? 'scale-100' : 'scale-90 opacity-70 group-hover:opacity-100 group-hover:scale-100'}`}>
+                                {file.selected ? (
+                                  <div className="w-6 h-6 bg-blue-600 rounded-md flex items-center justify-center shadow-md">
+                                    <CheckSquare className="w-4 h-4 text-white" />
+                                  </div>
+                                ) : (
+                                  <div className="w-6 h-6 bg-white/90 dark:bg-gray-800/90 rounded-md flex items-center justify-center shadow-md border border-gray-200 dark:border-gray-600">
+                                    <Square className="w-4 h-4 text-gray-400" />
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* File type badge */}
+                              <div className="absolute top-2 right-2">
+                                {file.file_type.startsWith('video/') && (
+                                  <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded uppercase">
+                                    Video
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* File Info */}
+                            <div className="p-2.5 bg-white dark:bg-gray-800">
+                              <p className="text-xs font-medium text-gray-900 dark:text-white truncate" title={file.file_name}>
+                                {file.file_name}
+                              </p>
+                              <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                                <span>{formatFileSize(file.file_size)}</span>
+                                <span>{new Date(file.uploaded_at).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
