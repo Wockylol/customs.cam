@@ -22,7 +22,8 @@ const VibeCheckPage: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
-  const { clients, loading: clientsLoading } = useClients();
+  // Include inactive so we can look up resigned clients
+  const { clients, loading: clientsLoading } = useClients({ includeInactive: true });
   const client = clients.find(c => c.username.toLowerCase() === clientUsername?.toLowerCase());
   
   const {
