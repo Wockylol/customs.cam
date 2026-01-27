@@ -7,7 +7,12 @@ import { useAuth } from '../contexts/AuthContext';
 type Client = Database['public']['Tables']['clients']['Row'];
 type ClientInsert = Database['public']['Tables']['clients']['Insert'];
 
-export const useClients = () => {
+interface UseClientsOptions {
+  includeInactive?: boolean;
+}
+
+export const useClients = (options: UseClientsOptions = {}) => {
+  const { includeInactive = false } = options;
   const { teamMember } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,11 +30,19 @@ export const useClients = () => {
       setLoading(true);
       setError(null);
       
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('tenant_id', teamMember.tenant_id)
-        .order('created_at', { ascending: false });
+      // Build query based on whether we want inactive clients
+      const { data, error } = includeInactive
+        ? await supabase
+            .from('clients')
+            .select('*')
+            .eq('tenant_id', teamMember.tenant_id)
+            .order('created_at', { ascending: false })
+        : await supabase
+            .from('clients')
+            .select('*')
+            .eq('tenant_id', teamMember.tenant_id)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
 
       if (error) {
         throw error;
@@ -45,7 +58,7 @@ export const useClients = () => {
     } finally {
       setLoading(false);
     }
-  }, [teamMember?.tenant_id]);
+  }, [teamMember?.tenant_id, includeInactive]);
 
   const addClient = async (clientData: {
     username: string;
@@ -80,7 +93,7 @@ export const useClients = () => {
       const { data: { user } } = await supabase.auth.getUser();
       let teamMemberId: string | null = null;
       
-      if (user) {
+      if (user?.email) {
         const { data: teamMember } = await supabase
           .from('team_members')
           .select('id')
