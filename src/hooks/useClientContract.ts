@@ -56,10 +56,10 @@ export const useClientContract = (clientId: string | undefined) => {
         contract_resign_date: contractData.contract_resign_date,
       };
 
-      // If a resign date is being set, automatically mark client as inactive
+      // If a resign date is being set, automatically mark client as churned
       if (contractData.contract_resign_date) {
         updateData.is_active = false;
-        updateData.status = 'inactive';
+        updateData.status = 'churned';
       }
 
       const { error } = await supabase
