@@ -15,8 +15,6 @@ import {
   Unlock,
   ChevronUp,
   ChevronDown,
-  Eye,
-  EyeOff
 } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import ClientAvatar from '../components/ui/ClientAvatar';
@@ -47,9 +45,8 @@ const ClientManagementList: React.FC = () => {
   const [sortField, setSortField] = useState<'name' | 'completion' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [clientPinStatus, setClientPinStatus] = useState<Record<string, boolean>>({});
-  const [showInactive, setShowInactive] = useState(false);
   
-  const { clients, loading, error, addClient } = useClients({ includeInactive: showInactive });
+  const { clients, loading, error, addClient } = useClients({ includeInactive: true });
   const { clients: fullClientsData, loading: fullDataLoading } = useAllClientsData();
 
   // Preload all client avatars for faster rendering
@@ -353,41 +350,19 @@ const ClientManagementList: React.FC = () => {
           })}
         </div>
 
-        {/* Search Bar & Filters */}
+        {/* Search Bar */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-              </div>
-              <input
-                type="text"
-                placeholder="Search by username, name, email, or phone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              />
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400 dark:text-gray-500" />
             </div>
-            <button
-              onClick={() => setShowInactive(!showInactive)}
-              className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                showInactive
-                  ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              {showInactive ? (
-                <>
-                  <Eye className="w-4 h-4 mr-2" />
-                  Showing Inactive
-                </>
-              ) : (
-                <>
-                  <EyeOff className="w-4 h-4 mr-2" />
-                  Hide Inactive
-                </>
-              )}
-            </button>
+            <input
+              type="text"
+              placeholder="Search by username, name, email, or phone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            />
           </div>
         </div>
 
