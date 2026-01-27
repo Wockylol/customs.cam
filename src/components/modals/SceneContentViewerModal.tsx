@@ -235,7 +235,15 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
     const filesWithPublicUrl = filesToDownload.filter(f => f.public_url && f.public_url.startsWith('http'));
     const filesWithoutPublicUrl = filesToDownload.filter(f => !f.public_url || !f.public_url.startsWith('http'));
     
-    console.log(`[ZIP Download] ${filesWithPublicUrl.length} files with public URLs, ${filesWithoutPublicUrl.length} without`);
+    // Calculate total size
+    const totalSize = filesToDownload.reduce((sum, f) => sum + f.file_size, 0);
+    const totalSizeMB = totalSize / (1024 * 1024);
+    
+    console.log(`[ZIP Download] ${filesWithPublicUrl.length} files with public URLs, ${filesWithoutPublicUrl.length} without, total: ${totalSizeMB.toFixed(2)}MB`);
+    
+    // Thresholds for server-side ZIP (Edge Functions have ~150MB memory limit)
+    const MAX_SERVER_SIZE_MB = 100; // Skip server-side if total > 100MB
+    const MAX_SERVER_FILES = 50;    // Skip server-side if > 50 files
     
     // If no files have public URLs, go straight to client-side
     if (filesWithPublicUrl.length === 0) {
@@ -251,7 +259,14 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
       return;
     }
     
-    // All files have public URLs - try server-side ZIP
+    // If too large or too many files, skip server-side to avoid WORKER_LIMIT errors
+    if (totalSizeMB > MAX_SERVER_SIZE_MB || filesToDownload.length > MAX_SERVER_FILES) {
+      console.log(`[ZIP Download] Files exceed server limits (${totalSizeMB.toFixed(1)}MB, ${filesToDownload.length} files), using client-side ZIP`);
+      await downloadFilesAsZipClientSide(filesToDownload, zipFileName);
+      return;
+    }
+    
+    // All files have public URLs and within limits - try server-side ZIP
     const files = filesWithPublicUrl.map(file => ({
       url: file.public_url!,
       fileName: file.file_name,
@@ -280,7 +295,12 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
         const contentType = response.headers.get('content-type');
         if (contentType?.includes('application/json')) {
           const error = await response.json();
-          console.error('[ZIP Download] Server error:', error);
+          // Check if it's a resource limit error - this is expected for large files
+          if (error.code === 'WORKER_LIMIT') {
+            console.log('[ZIP Download] Server resource limit reached, using client-side ZIP instead');
+          } else {
+            console.warn('[ZIP Download] Server returned error:', error.message || error.error);
+          }
           throw new Error(error.error || 'Server ZIP creation failed');
         }
         throw new Error(`Server returned ${response.status}`);
@@ -308,7 +328,8 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
       }
       
     } catch (err: any) {
-      console.error('[ZIP Download] Server-side ZIP failed, falling back to client-side:', err);
+      // This is expected behavior for large files - not a critical error
+      console.log('[ZIP Download] Server-side unavailable, completing with client-side ZIP');
       
       // Fallback to client-side ZIP if server fails
       await downloadFilesAsZipClientSide(filesToDownload, zipFileName);
