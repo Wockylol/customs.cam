@@ -25,6 +25,7 @@ interface AssignmentWithDetails {
     instructions: any[];
   };
   uploads_count?: number;
+  steps_completed?: number;
   total_steps?: number;
 }
 
@@ -78,22 +79,28 @@ const SceneAssignments: React.FC = () => {
 
       if (error) throw error;
 
-      // Fetch upload counts for each assignment
+      // Fetch upload counts and steps completed for each assignment
       const assignmentsWithCounts = await Promise.all(
         (assignmentsData || []).map(async (assignment) => {
-          const { count } = await supabase
+          // Get uploads with step_index to count both total files and unique steps
+          const { data: uploads, count } = await supabase
             .from('scene_content_uploads')
-            .select('*', { count: 'exact', head: true })
+            .select('step_index', { count: 'exact' })
             .eq('assignment_id', assignment.id);
 
           const scene = assignment.content_scenes as any;
           const totalSteps = scene?.instructions?.length || 0;
+          
+          // Count unique steps that have at least one upload
+          const uniqueSteps = new Set((uploads || []).map((u: any) => u.step_index));
+          const stepsCompleted = uniqueSteps.size;
 
           return {
             ...assignment,
             client: assignment.clients as any,
             scene: scene,
             uploads_count: count || 0,
+            steps_completed: stepsCompleted,
             total_steps: totalSteps
           };
         })
@@ -383,8 +390,8 @@ const SceneAssignments: React.FC = () => {
           comparison = sceneA.localeCompare(sceneB);
           break;
         case 'progress':
-          const progressA = a.total_steps ? (a.uploads_count || 0) / a.total_steps : 0;
-          const progressB = b.total_steps ? (b.uploads_count || 0) / b.total_steps : 0;
+          const progressA = a.total_steps ? (a.steps_completed || 0) / a.total_steps : 0;
+          const progressB = b.total_steps ? (b.steps_completed || 0) / b.total_steps : 0;
           comparison = progressA - progressB;
           break;
         case 'status':
@@ -421,9 +428,9 @@ const SceneAssignments: React.FC = () => {
     return { total, pending, completed, archived, completionRate };
   }, [assignments]);
 
-  const getProgressColor = (uploads: number, total: number) => {
-    if (total === 0) return 'bg-gray-400';
-    const percentage = (uploads / total) * 100;
+  const getProgressColor = (stepsCompleted: number, totalSteps: number) => {
+    if (totalSteps === 0) return 'bg-gray-400';
+    const percentage = (stepsCompleted / totalSteps) * 100;
     if (percentage === 0) return 'bg-gray-400';
     if (percentage < 50) return 'bg-red-500';
     if (percentage < 100) return 'bg-yellow-500';
@@ -725,7 +732,7 @@ const SceneAssignments: React.FC = () => {
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredAssignments.map((assignment) => {
                     const progressPercent = assignment.total_steps > 0
-                      ? Math.round((assignment.uploads_count! / assignment.total_steps) * 100)
+                      ? Math.round(((assignment.steps_completed || 0) / assignment.total_steps) * 100)
                       : 0;
                     const isSelected = selectedIds.has(assignment.id);
 
@@ -779,21 +786,28 @@ const SceneAssignments: React.FC = () => {
                           </p>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center space-x-2">
-                            <div className="flex-1">
+                          <div className="flex items-center space-x-3">
+                            <div className="flex-1 min-w-[80px]">
                               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                                 <div
-                                  className={`h-2 rounded-full ${getProgressColor(
-                                    assignment.uploads_count!,
+                                  className={`h-2 rounded-full transition-all ${getProgressColor(
+                                    assignment.steps_completed || 0,
                                     assignment.total_steps
                                   )}`}
                                   style={{ width: `${progressPercent}%` }}
                                 />
                               </div>
                             </div>
-                            <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                              {assignment.uploads_count}/{assignment.total_steps}
-                            </span>
+                            <div className="flex flex-col items-end">
+                              <span className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                                {assignment.steps_completed || 0}/{assignment.total_steps} steps
+                              </span>
+                              {(assignment.uploads_count || 0) > 0 && (
+                                <span className="text-[10px] text-gray-500 dark:text-gray-500 whitespace-nowrap">
+                                  {assignment.uploads_count} files
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
