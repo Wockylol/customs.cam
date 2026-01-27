@@ -26,7 +26,8 @@ const PublicClientView: React.FC = () => {
   const [statusFilter, setStatusFilter] = React.useState<string>('all');
   const [searchTerm, setSearchTerm] = React.useState('');
   const { customRequests, loading: customsLoading, error: customsError, markAsCompleted, approveByClient, fetchCustomRequests } = useCustomRequests();
-  const { clients, loading: clientsLoading, error: clientsError } = useClients();
+  // Include inactive clients so resigned clients can still view their data
+  const { clients, loading: clientsLoading, error: clientsError } = useClients({ includeInactive: true });
   const { clientPlatforms, loading: platformsLoading } = useClientPlatforms(client?.id);
   
   const client = clients.find((c: Client) => c.username.toLowerCase() === clientUsername?.toLowerCase());
