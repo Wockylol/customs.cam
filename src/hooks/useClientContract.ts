@@ -48,14 +48,23 @@ export const useClientContract = (clientId: string | undefined) => {
     }
 
     try {
+      // Build update object
+      const updateData: any = {
+        contract_percentage: contractData.contract_percentage,
+        contract_term: contractData.contract_term,
+        contract_start_date: contractData.contract_start_date,
+        contract_resign_date: contractData.contract_resign_date,
+      };
+
+      // If a resign date is being set, automatically mark client as inactive
+      if (contractData.contract_resign_date) {
+        updateData.is_active = false;
+        updateData.status = 'inactive';
+      }
+
       const { error } = await supabase
         .from('clients')
-        .update({
-          contract_percentage: contractData.contract_percentage,
-          contract_term: contractData.contract_term,
-          contract_start_date: contractData.contract_start_date,
-          contract_resign_date: contractData.contract_resign_date,
-        })
+        .update(updateData)
         .eq('id', clientId);
 
       if (error) {
