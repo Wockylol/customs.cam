@@ -228,12 +228,32 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
   };
 
   const downloadFilesAsZip = async (filesToDownload: FileWithSelection[], zipFileName: string) => {
-    console.log(`[ZIP Download] Starting server-side ZIP for ${filesToDownload.length} files`);
+    console.log(`[ZIP Download] Starting ZIP download for ${filesToDownload.length} files`);
     const startTime = Date.now();
     
-    // Prepare file list for server-side ZIP creation
-    const files = filesToDownload.map(file => ({
-      url: file.public_url || file.file_path,
+    // Separate files with public URLs (can use server-side) from those without (need client-side)
+    const filesWithPublicUrl = filesToDownload.filter(f => f.public_url && f.public_url.startsWith('http'));
+    const filesWithoutPublicUrl = filesToDownload.filter(f => !f.public_url || !f.public_url.startsWith('http'));
+    
+    console.log(`[ZIP Download] ${filesWithPublicUrl.length} files with public URLs, ${filesWithoutPublicUrl.length} without`);
+    
+    // If no files have public URLs, go straight to client-side
+    if (filesWithPublicUrl.length === 0) {
+      console.log('[ZIP Download] No files with public URLs, using client-side ZIP');
+      await downloadFilesAsZipClientSide(filesToDownload, zipFileName);
+      return;
+    }
+    
+    // If mixed storage, warn and use client-side for safety
+    if (filesWithoutPublicUrl.length > 0) {
+      console.log('[ZIP Download] Mixed storage detected, using client-side ZIP for compatibility');
+      await downloadFilesAsZipClientSide(filesToDownload, zipFileName);
+      return;
+    }
+    
+    // All files have public URLs - try server-side ZIP
+    const files = filesWithPublicUrl.map(file => ({
+      url: file.public_url!,
       fileName: file.file_name,
       folderPath: `Step_${file.step_index + 1}`,
     }));
@@ -260,6 +280,7 @@ const SceneContentViewerModal: React.FC<SceneContentViewerModalProps> = ({
         const contentType = response.headers.get('content-type');
         if (contentType?.includes('application/json')) {
           const error = await response.json();
+          console.error('[ZIP Download] Server error:', error);
           throw new Error(error.error || 'Server ZIP creation failed');
         }
         throw new Error(`Server returned ${response.status}`);
