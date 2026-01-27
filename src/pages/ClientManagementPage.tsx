@@ -27,10 +27,14 @@ import {
   Target,
   UserPlus,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Trash2,
+  RotateCcw
 } from 'lucide-react';
 import Layout from '../components/layout/Layout';
+import DeleteClientModal from '../components/modals/DeleteClientModal';
 import { useClients } from '../hooks/useClients';
+import { supabase } from '../lib/supabase';
 import { useClientDetails } from '../hooks/useClientDetails';
 import { useClientQuestionnaire } from '../hooks/useClientQuestionnaire';
 import { useClientPreferences } from '../hooks/useClientPreferences';
@@ -58,6 +62,7 @@ const ClientManagementPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [expandedCompletionCategories, setExpandedCompletionCategories] = useState<Set<string>>(new Set());
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   
   // Editing state
   const [isEditingContract, setIsEditingContract] = useState(false);
@@ -68,8 +73,8 @@ const ClientManagementPage: React.FC = () => {
     contract_resign_date: ''
   });
 
-  // Hooks
-  const { clients } = useClients();
+  // Hooks - include inactive so we can view resigned clients
+  const { clients, deleteClient } = useClients({ includeInactive: true });
   const { 
     personalInfo, 
     platformCredentials, 
@@ -887,19 +892,89 @@ const ClientManagementPage: React.FC = () => {
                                     ))}
                                   </div>
                                 </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+
+                                    {/* Danger Zone */}
+                                    <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-xl p-5">
+                                      <h3 className="text-lg font-semibold text-red-700 dark:text-red-300 mb-4 flex items-center">
+                                        <AlertCircle className="w-5 h-5 mr-2" />
+                                        Danger Zone
+                                      </h3>
+                                      <div className="space-y-4">
+                                        {/* Reactivate Client (only show if inactive) */}
+                                        {!client.is_active && (
+                                          <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+                                            <div>
+                                              <div className="font-medium text-gray-900 dark:text-white">Reactivate Client</div>
+                                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                This client is currently inactive. Reactivating will make them appear in client lists again.
+                                              </p>
+                                            </div>
+                                            <button
+                                              onClick={async () => {
+                                                const { error } = await supabase
+                                                  .from('clients')
+                                                  .update({ is_active: true, status: 'active' })
+                                                  .eq('id', clientId);
+                                                if (!error) {
+                                                  setSaveMessage({ type: 'success', text: 'Client reactivated successfully!' });
+                                                  window.location.reload();
+                                                } else {
+                                                  setSaveMessage({ type: 'error', text: 'Failed to reactivate client' });
+                                                }
+                                              }}
+                                              className="inline-flex items-center px-4 py-2 bg-amber-600 text-white font-medium rounded-lg hover:bg-amber-700 transition-colors"
+                                            >
+                                              <RotateCcw className="w-4 h-4 mr-2" />
+                                              Reactivate
+                                            </button>
+                                          </div>
+                                        )}
+
+                                        {/* Delete Client */}
+                                        <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-4 border border-red-200 dark:border-red-800">
+                                          <div>
+                                            <div className="font-medium text-gray-900 dark:text-white">Delete Client</div>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                              Permanently delete this client and all associated data. This action cannot be undone.
+                                            </p>
+                                          </div>
+                                          <button
+                                            onClick={() => setIsDeleteModalOpen(true)}
+                                            className="inline-flex items-center px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+                                          >
+                                            <Trash2 className="w-4 h-4 mr-2" />
+                                            Delete
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            )}
           </div>
         </div>
       </StaggerContainer>
+
+      {/* Delete Client Modal */}
+      <DeleteClientModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        client={client}
+        onConfirm={async (id) => {
+          const result = await deleteClient(id);
+          if (!result.error) {
+            navigate('/client-management');
+          }
+          return result;
+        }}
+      />
     </Layout>
   );
 };
