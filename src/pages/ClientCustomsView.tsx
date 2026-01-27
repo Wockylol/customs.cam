@@ -22,7 +22,8 @@ const ClientCustomsView: React.FC = () => {
   const [showPlatforms, setShowPlatforms] = useState(false);
   const [platformsModalOpen, setPlatformsModalOpen] = useState(false);
   const { customRequests, loading, error, addCustomRequest } = useCustomRequests();
-  const { clients } = useClients();
+  // Include inactive so we can view resigned clients' customs
+  const { clients } = useClients({ includeInactive: true });
   
   const client = clients.find(c => c.username === clientUsername);
   const { preferences, loading: preferencesLoading } = useClientPreferences(client?.id);
