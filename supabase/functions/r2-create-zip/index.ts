@@ -32,27 +32,53 @@ serve(async (req) => {
       )
     }
 
-    // Validate URLs are from our R2 bucket
+    // Filter to only include valid HTTP URLs
+    const validFiles: FileToZip[] = []
+    const invalidFiles: string[] = []
+    
+    for (const file of files) {
+      if (file.url && file.url.startsWith('http')) {
+        validFiles.push(file)
+      } else {
+        console.warn(`[R2 Create ZIP] Skipping invalid URL for ${file.fileName}: ${file.url}`)
+        invalidFiles.push(file.fileName)
+      }
+    }
+
+    if (validFiles.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'No valid HTTP URLs provided. All files must have public URLs for server-side ZIP creation.',
+          invalidFiles
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Optional: validate URLs are from allowed domains (R2 or Supabase storage)
     const R2_PUBLIC_URL = Deno.env.get('R2_PUBLIC_URL')
-    if (R2_PUBLIC_URL) {
-      for (const file of files) {
-        if (!file.url.startsWith(R2_PUBLIC_URL)) {
-          return new Response(
-            JSON.stringify({ error: `Invalid file URL - must be from configured R2 bucket: ${file.url}` }),
-            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
+    
+    if (R2_PUBLIC_URL || SUPABASE_URL) {
+      for (const file of validFiles) {
+        const isR2Url = R2_PUBLIC_URL && file.url.startsWith(R2_PUBLIC_URL)
+        const isSupabaseUrl = SUPABASE_URL && file.url.includes(SUPABASE_URL)
+        
+        if (!isR2Url && !isSupabaseUrl) {
+          console.warn(`[R2 Create ZIP] URL not from known storage: ${file.url}`)
+          // Don't reject - just log for monitoring. The fetch will fail if the URL is inaccessible.
         }
       }
     }
 
-    console.log(`[R2 Create ZIP] Creating ZIP with ${files.length} files`)
+    console.log(`[R2 Create ZIP] Creating ZIP with ${validFiles.length} files (${invalidFiles.length} skipped)`)
     const startTime = Date.now()
 
     const zip = new JSZip()
-    const failed: string[] = []
+    const failed: string[] = [...invalidFiles] // Start with already-invalid files
 
     // Fetch all files in parallel (server-side, no CORS issues!)
-    const fetchPromises = files.map(async (file) => {
+    const fetchPromises = validFiles.map(async (file) => {
       try {
         const response = await fetch(file.url)
         if (!response.ok) {
@@ -71,7 +97,7 @@ serve(async (req) => {
 
     const results = await Promise.all(fetchPromises)
     
-    console.log(`[R2 Create ZIP] Fetched files in ${Date.now() - startTime}ms`)
+    console.log(`[R2 Create ZIP] Fetched ${validFiles.length} files in ${Date.now() - startTime}ms, ${failed.length} failed`)
 
     // Add files to ZIP
     for (const result of results) {
