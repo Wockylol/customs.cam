@@ -43,7 +43,7 @@ const ClientManagementList: React.FC = () => {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ClientStatus | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<ClientStatus | 'all'>('active');
   const [sortField, setSortField] = useState<'name' | 'completion' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [clientPinStatus, setClientPinStatus] = useState<Record<string, boolean>>({});
