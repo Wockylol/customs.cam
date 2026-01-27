@@ -32,7 +32,8 @@ const STATUS_CONFIG: Record<ClientStatus, { label: string; color: string; bgColo
 const ClientProfilePage: React.FC = () => {
   const { clientId } = useParams<{ clientId: string }>();
   const navigate = useNavigate();
-  const { clients } = useClients();
+  // Include inactive clients so we can view resigned clients' profiles
+  const { clients } = useClients({ includeInactive: true });
   const { teamMember } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [searchQuery, setSearchQuery] = useState('');
