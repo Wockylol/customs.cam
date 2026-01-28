@@ -3,9 +3,10 @@ import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
 
 type SceneExampleMedia = Database['public']['Tables']['scene_example_media']['Row'];
+type SceneExampleMediaWithUrl = SceneExampleMedia & { public_url: string };
 
 export const useSceneExamples = (sceneId?: string) => {
-  const [examples, setExamples] = useState<SceneExampleMedia[]>([]);
+  const [examples, setExamples] = useState<SceneExampleMediaWithUrl[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,8 +23,20 @@ export const useSceneExamples = (sceneId?: string) => {
 
       if (fetchError) throw fetchError;
 
-      setExamples(data || []);
-      return { data: data || [], error: null };
+      // Add public URL to each example
+      const examplesWithUrls = (data || []).map(example => {
+        const { data: urlData } = supabase.storage
+          .from('scene-examples')
+          .getPublicUrl(example.file_path);
+        
+        return {
+          ...example,
+          public_url: urlData.publicUrl
+        };
+      });
+
+      setExamples(examplesWithUrls);
+      return { data: examplesWithUrls, error: null };
     } catch (err: any) {
       console.error('Error fetching scene examples:', err);
       setError(err.message);
