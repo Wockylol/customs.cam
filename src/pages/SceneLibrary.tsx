@@ -94,8 +94,8 @@ const SceneLibrary: React.FC = () => {
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-red-500 rounded-lg flex items-center justify-center">
-              <Film className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+              <Film className="w-5 h-5 text-white" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Scene Library</h1>
@@ -128,8 +128,8 @@ const SceneLibrary: React.FC = () => {
         {/* Scenes Grid */}
         {filteredScenes.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-12 text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-red-100 dark:from-orange-900/20 dark:to-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Film className="w-8 h-8 text-orange-500" />
+            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Film className="w-8 h-8 text-gray-400" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               {searchQuery ? 'No scenes found' : 'No scenes yet'}
@@ -147,7 +147,7 @@ const SceneLibrary: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredScenes.map((scene) => {
               const instructions = Array.isArray(scene.instructions) ? scene.instructions : [];
               const completionRate = scene.assignments_count 
@@ -157,96 +157,104 @@ const SceneLibrary: React.FC = () => {
               return (
                 <div
                   key={scene.id}
-                  className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg transition-shadow"
+                  className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md transition-all flex flex-col h-full"
                 >
-                  {/* Card Header */}
-                  <div className="bg-gradient-to-br from-orange-400 to-red-500 p-4 text-white">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="text-lg font-semibold flex-1 line-clamp-2">{scene.title}</h3>
+                  {/* Card Header - Clean & Neutral */}
+                  <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h3 className="text-base font-semibold text-gray-900 dark:text-white line-clamp-2 leading-snug">
+                        {scene.title}
+                      </h3>
                       {scene.is_default_for_new_clients && (
-                        <span className="ml-2 px-2 py-0.5 bg-white/20 backdrop-blur-sm text-xs font-medium rounded-full whitespace-nowrap">
+                        <span className="shrink-0 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-medium rounded-full">
                           Default
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center space-x-4 text-sm text-white/80">
-                      <span>{instructions.length} step{instructions.length !== 1 ? 's' : ''}</span>
+                    <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="inline-flex items-center gap-1">
+                        <Film className="w-3.5 h-3.5" />
+                        {instructions.length} step{instructions.length !== 1 ? 's' : ''}
+                      </span>
                       <span>•</span>
                       <span>{scene.assignments_count || 0} assigned</span>
                     </div>
                   </div>
 
-                  {/* Card Body */}
-                  <div className="p-4 space-y-3">
-                    {/* Location & Props */}
-                    {(scene.location || scene.props) && (
-                      <div className="space-y-1 text-sm">
-                        {scene.location && (
-                          <p className="text-gray-600 dark:text-gray-400">
-                            <span className="font-medium text-gray-900 dark:text-white">Location:</span> {scene.location}
-                          </p>
-                        )}
-                        {scene.props && (
-                          <p className="text-gray-600 dark:text-gray-400">
-                            <span className="font-medium text-gray-900 dark:text-white">Props:</span> {scene.props}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Stats */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-                        <div className="flex items-center text-blue-600 dark:text-blue-400 mb-1">
-                          <TrendingUp className="w-4 h-4 mr-1" />
-                          <span className="text-xs font-medium">Assigned</span>
-                        </div>
-                        <p className="text-xl font-bold text-gray-900 dark:text-white">
-                          {scene.assignments_count || 0}
-                        </p>
-                      </div>
-                      <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
-                        <div className="flex items-center text-green-600 dark:text-green-400 mb-1">
-                          <CheckCircle className="w-4 h-4 mr-1" />
-                          <span className="text-xs font-medium">Completed</span>
-                        </div>
-                        <p className="text-xl font-bold text-gray-900 dark:text-white">
-                          {scene.completed_count || 0}
-                          {scene.assignments_count > 0 && (
-                            <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">
-                              ({completionRate}%)
-                            </span>
+                  {/* Card Body - Fixed height content area */}
+                  <div className="p-4 flex-1 flex flex-col">
+                    {/* Location & Props - Fixed height with overflow handling */}
+                    <div className="min-h-[52px] mb-3">
+                      {(scene.location || scene.props) ? (
+                        <div className="space-y-1 text-sm">
+                          {scene.location && (
+                            <p className="text-gray-600 dark:text-gray-400 line-clamp-1">
+                              <span className="font-medium text-gray-700 dark:text-gray-300">Location:</span> {scene.location}
+                            </p>
                           )}
+                          {scene.props && (
+                            <p className="text-gray-600 dark:text-gray-400 line-clamp-2">
+                              <span className="font-medium text-gray-700 dark:text-gray-300">Props:</span> {scene.props}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+                          No location or props specified
                         </p>
+                      )}
+                    </div>
+
+                    {/* Stats - Compact inline display */}
+                    <div className="flex items-center gap-4 py-3 border-t border-gray-100 dark:border-gray-700 mb-3">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-5 h-5 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                          <TrendingUp className="w-3 h-3 text-gray-500 dark:text-gray-400" />
+                        </div>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {scene.assignments_count || 0}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">assigned</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-5 h-5 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
+                          <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
+                        </div>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {scene.completed_count || 0}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {scene.assignments_count > 0 ? `(${completionRate}%)` : 'done'}
+                        </span>
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center space-x-2 pt-2">
+                    {/* Action Buttons - Always at bottom */}
+                    <div className="flex items-center gap-2 mt-auto">
                       <button
                         onClick={() => handleAssign(scene)}
-                        className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
+                        className="flex-1 flex items-center justify-center px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                       >
-                        <UserPlus className="w-4 h-4 mr-1" />
+                        <UserPlus className="w-4 h-4 mr-1.5" />
                         Assign
                       </button>
                       <button
                         onClick={() => handleView(scene)}
-                        className="flex items-center justify-center px-3 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+                        className="flex items-center justify-center w-10 h-10 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg transition-colors"
                         title="View"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleEdit(scene)}
-                        className="flex items-center justify-center px-3 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+                        className="flex items-center justify-center w-10 h-10 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg transition-colors"
                         title="Edit"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setShowDeleteConfirm(scene.id)}
-                        className="flex items-center justify-center px-3 py-2 bg-red-100 dark:bg-red-900/20 hover:bg-red-200 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded-lg transition-colors"
+                        className="flex items-center justify-center w-10 h-10 border border-gray-200 dark:border-gray-600 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-200 dark:hover:border-red-800 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg transition-colors"
                         title="Delete"
                       >
                         <Trash2 className="w-4 h-4" />
