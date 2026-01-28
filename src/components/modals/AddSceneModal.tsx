@@ -578,9 +578,15 @@ const AddSceneModal: React.FC<AddSceneModalProps> = ({ isOpen, onClose, onSucces
                     <div key={example.id} className="relative group">
                       {example.file_type.startsWith('image/') ? (
                         <img
-                          src={`${example.file_path}`}
+                          src={example.public_url}
                           alt={example.file_name}
                           className="w-full h-24 object-cover rounded-lg border border-gray-300 dark:border-gray-600"
+                        />
+                      ) : example.file_type.startsWith('video/') ? (
+                        <video
+                          src={example.public_url}
+                          className="w-full h-24 object-cover rounded-lg border border-gray-300 dark:border-gray-600"
+                          muted
                         />
                       ) : (
                         <div className="w-full h-24 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 flex items-center justify-center">
